@@ -1,0 +1,28 @@
+#![allow(non_snake_case)]
+#![recursion_limit = "512"]
+
+pub mod app;
+#[cfg(not(target_arch = "wasm32"))]
+pub mod cli;
+pub mod command;
+pub mod config;
+pub mod entities;
+#[cfg(not(target_arch = "wasm32"))]
+pub mod gpu_backend;
+pub mod i18n;
+pub(crate) mod input;
+pub mod io;
+#[cfg(not(target_arch = "wasm32"))]
+pub mod mcp;
+#[cfg(not(target_arch = "wasm32"))]
+pub mod mcp_ops;
+pub mod modules;
+pub mod par;
+pub mod perf;
+#[cfg(not(target_arch = "wasm32"))]
+pub mod rest;
+pub mod scene;
+pub mod snap;
+pub mod sys;
+pub mod sysinfo;
+pub mod ui;

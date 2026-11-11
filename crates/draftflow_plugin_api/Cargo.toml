@@ -1,0 +1,19 @@
+[package]
+name = "draftflow_plugin_api"
+version = "0.2.1"
+edition = "2021"
+description = "Dependency-free ribbon contract and embedded type registry shared by DraftFlow CAD and its automation surface."
+license = "GPL-3.0-only"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+
+[build-dependencies]
+serde-reflection = "0.6"
+serde_json = "1"
+serde = { version = "1", features = ["derive"] }
+# draftflowcodec is scanned at build time to generate the embedded type registry.
+codec = { package = "draftflowcodec", path = "../../vendor/draftflowcodec", features = ["serde"] }
+
+[dev-dependencies]
+serde_json = "1"

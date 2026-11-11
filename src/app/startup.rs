@@ -1,0 +1,264 @@
+use super::{DraftFlowCAD, Message, ModalKind};
+use crate::scene::pipeline::{GpuAdapter, GpuStatus};
+use iced::Task;
+
+impl DraftFlowCAD {
+    /// Record a boot notice for the plate's status line. The most
+    /// consequential one wins: the plate has room for one line, and a
+    /// settings reset matters more to the user than a backend fallback.
+    #[cfg(not(target_arch = "wasm32"))]
+    pub(super) fn note_splash(&mut self, status: crate::ui::splash::SplashStatus) {
+        if status.priority() > self.splash_notice.priority() {
+            self.splash_notice = status;
+        }
+    }
+
+    /// What the plate should say right now. A drawing being opened outranks
+    /// the boot notices: its phase is the only thing changing during the
+    /// entrance, and it is what the user is waiting on. A launch with no
+    /// usable graphics backend outranks the notices for the same reason — it
+    /// is the fact that explains what the user is about to see.
+    #[cfg(not(target_arch = "wasm32"))]
+    pub(super) fn splash_status(&self) -> crate::ui::splash::SplashStatus {
+        use crate::ui::splash::{SplashStatus, SplashVerdict};
+        // The failure notice outranks everything, including a drawing loading
+        // behind the plate: `priority()` already ranks it highest, and a file
+        // being opened does not make the missing backend less true. The dialog
+        // that follows the plate carries the exits either way.
+        if self
+            .splash
+            .as_ref()
+            .is_some_and(|splash| splash.verdict() == SplashVerdict::ProbesFailed)
+        {
+            return SplashStatus::Failed;
+        }
+        if let Some(opening) = &self.opening {
+            return SplashStatus::Phase(
+                opening
+                    .state
+                    .phase
+                    .load(std::sync::atomic::Ordering::Acquire),
+            );
+        }
+        self.splash_notice
+    }
+
+    pub(super) fn queue_startup_prompts(&mut self) {
+        self.show_next_startup_modal();
+    }
+
+    pub(super) fn show_next_startup_modal(&mut self) {
+        if self.active_modal.is_none() && self.opening.is_none() && self.pending_opens.is_empty() {
+            // A queued AutosaveRestore can outlive its pending list when a
+            // concurrent open displaces the modal and the entry is consumed
+            // meanwhile; resurfacing it would show an empty prompt.
+            #[cfg(target_arch = "wasm32")]
+            while self.pending_startup_modals.front() == Some(&ModalKind::AutosaveRestore)
+                && self.web_autosave_pending.is_empty()
+            {
+                self.pending_startup_modals.pop_front();
+            }
+            if let Some(&kind) = self.pending_startup_modals.front() {
+                self.open_modal(kind);
+                self.reset_modal_geometry();
+            }
+        }
+    }
+
+    /// Queue the web crash-recovery prompt behind whatever startup modal is
+    /// already showing (donation, GPU warning…); the after-message hook in
+    /// `update` surfaces it as soon as the slot is free. No-op when nothing
+    /// is pending: once the autosave OPFS directory merely exists (even with
+    /// no entries), queueing unconditionally would show an empty
+    /// "Recover Drawing" modal on every boot.
+    #[cfg(target_arch = "wasm32")]
+    pub(super) fn queue_autosave_restore_prompt(&mut self) {
+        if self.web_autosave_pending.is_empty() {
+            return;
+        }
+        if !self
+            .pending_startup_modals
+            .contains(&ModalKind::AutosaveRestore)
+        {
+            self.pending_startup_modals
+                .push_back(ModalKind::AutosaveRestore);
+        }
+        self.show_next_startup_modal();
+    }
+
+    /// Notice when the scene is drawn by a software rasterizer, or not at
+    /// all, and say so everywhere the user might look: the command line,
+    /// the log, a one-time popup, and a status-bar pill that stays.
+    ///
+    /// Runs after every message; the pipeline records the adapter when iced
+    /// first builds a device and counts the viewport's draws in the meantime,
+    /// so the verdict lands on the first message after the first frame
+    /// (`subscription` keeps frames ticking until it does). A working GPU
+    /// gets no word here — the `[gpu] adapter:` log line already names it.
+    pub(super) fn refresh_gpu_status(&mut self) {
+        let Some(status) =
+            crate::scene::pipeline::gpu_status_if_changed(&mut self.gpu_status_generation)
+        else {
+            return;
+        };
+        if status == self.gpu_status {
+            return;
+        }
+        self.gpu_status = status;
+        let Some(identity) = self.gpu_status.identity() else {
+            return;
+        };
+        match &self.gpu_status {
+            GpuStatus::Software(adapter) => {
+                self.command_line
+                    .push_warning(&software_rasterizer_warning(adapter));
+            }
+            GpuStatus::NoRenderer => {
+                crate::scene::pipeline::report_gpu_line(
+                    "[gpu] no adapter: wgpu found nothing to draw with; the interface is on \
+                     iced's software renderer and the scene is not drawn at all",
+                );
+                self.command_line
+                    .push_warning(&crate::tr!("gpu", "command-line-no-renderer"));
+            }
+            GpuStatus::Unknown | GpuStatus::Hardware(_) => {}
+        }
+        // The popup: once per verdict, unless the user silenced this one.
+        let already_queued = self.active_modal == Some(ModalKind::GpuWarning)
+            || self.pending_startup_modals.contains(&ModalKind::GpuWarning);
+        if self.gpu_warning_silenced != identity && !already_queued {
+            self.pending_startup_modals.push_back(ModalKind::GpuWarning);
+            self.show_next_startup_modal();
+        }
+    }
+
+    /// Restart the editor on a fresh GPU probe. The graphics warning's two
+    /// exits land here: "retry" passes no extra args, "safe mode" passes
+    /// `--safe-mode`. A spawn failure is reported instead of exiting: quitting
+    /// would leave the user with no window and no word about why.
+    pub(super) fn restart_with_gpu_choice(&mut self, extra_args: &[&str]) -> Task<Message> {
+        match crate::gpu_backend::relaunch(extra_args) {
+            Ok(()) => iced::exit(),
+            Err(error) => {
+                let notice =
+                    crate::tr!("splash", "restart-failed", error = error.as_str());
+                self.command_line.push_error(&notice);
+                Task::none()
+            }
+        }
+    }
+
+    pub(super) fn mark_startup_modal_shown(&mut self) {
+        if self.active_modal.is_some()
+            && self.active_modal.as_ref() == self.pending_startup_modals.front()
+        {
+            self.pending_startup_modals.pop_front();
+        }
+    }
+}
+
+/// The command-line warning for a software rasterizer, naming the adapter so
+/// the user can tell llvmpipe from SwiftShader from WARP.
+pub(super) fn software_rasterizer_warning(adapter: &GpuAdapter) -> String {
+    let adapter = &adapter.name;
+    crate::tf!("GPU unavailable — rendering in software on the CPU ({adapter}). Large drawings will navigate slowly; check the graphics driver (a driver update without a reboot is the usual cause).")
+        .into_owned()
+}
+
+/// What usually puts a machine in this state, per platform. The cause is
+/// almost always outside the app, and it differs: on Linux it is a driver
+/// updated under a running kernel module, on Windows a driver that is
+/// missing or a session (Remote Desktop, a VM) that has no GPU to offer, on
+/// macOS a VM without a Metal device, in a browser hardware acceleration
+/// switched off.
+pub(crate) fn gpu_platform_hint() -> String {
+    if cfg!(target_arch = "wasm32") {
+        crate::tr!("gpu", "hint-web")
+    } else if cfg!(target_os = "windows") {
+        crate::tr!("gpu", "hint-windows")
+    } else if cfg!(target_os = "macos") {
+        crate::tr!("gpu", "hint-macos")
+    } else {
+        crate::tr!("gpu", "hint-linux")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::app::{config::AppConfig, Message};
+    use iced::wgpu;
+
+    #[test]
+    fn the_software_warning_names_the_adapter_and_every_platform_has_a_hint() {
+        let cpu = GpuAdapter {
+            name: "llvmpipe (LLVM 20.1.8, 256 bits)".to_string(),
+            backend: wgpu::Backend::Vulkan,
+            device_type: wgpu::DeviceType::Cpu,
+        };
+        let warning = software_rasterizer_warning(&cpu);
+        // The name carries parentheses and commas of its own; the localized
+        // template must still place it whole. The loader follows the system
+        // locale here, so the assertions stay language-neutral.
+        assert!(
+            warning.contains("(llvmpipe (LLVM 20.1.8, 256 bits))"),
+            "{warning}"
+        );
+        assert!(warning.contains("GPU"), "{warning}");
+        assert!(
+            !warning.contains("{adapter}") && !warning.contains("__ocs_"),
+            "{warning}"
+        );
+        // Every platform has a hint, and it is a sentence, not a missing key.
+        let hint = gpu_platform_hint();
+        assert!(hint.len() > 20 && !hint.contains("hint-"), "{hint}");
+    }
+
+    #[test]
+    fn silencing_the_popup_is_per_verdict_and_survives_a_settings_round_trip() {
+        let mut app = DraftFlowCAD::new_for_test();
+        app.gpu_status = GpuStatus::NoRenderer;
+        let _ = app.update(Message::GpuWarningSilence);
+        assert_eq!(app.gpu_warning_silenced, "no-renderer");
+        assert!(app.active_modal.is_none());
+
+        let saved = serde_json::to_string(&app.current_config()).unwrap();
+        let mut restarted = DraftFlowCAD::new_for_test();
+        restarted.apply_config(serde_json::from_str(&saved).unwrap());
+        assert_eq!(restarted.gpu_warning_silenced, "no-renderer");
+        // A different verdict is not covered by that choice.
+        let software = GpuStatus::Software(GpuAdapter {
+            name: "llvmpipe".to_string(),
+            backend: wgpu::Backend::Vulkan,
+            device_type: wgpu::DeviceType::Cpu,
+        });
+        assert_ne!(software.identity().unwrap(), restarted.gpu_warning_silenced);
+    }
+
+    #[test]
+    fn startup_prompts_queue_nothing_on_a_fresh_config() {
+        // Headless construction and a fresh config queue nothing: boot must
+        // not put a modal in the user's face.
+        let mut app = DraftFlowCAD::new_for_test();
+        app.apply_config(serde_json::from_str::<AppConfig>("{}").unwrap());
+        assert!(app.active_modal.is_none());
+        assert!(app.pending_startup_modals.is_empty());
+
+        app.queue_startup_prompts();
+        assert!(app.active_modal.is_none());
+        assert!(app.pending_startup_modals.is_empty());
+    }
+
+    #[test]
+    fn automation_sessions_queue_no_startup_modal() {
+        // Control traffic marks the session automated (#1349); nothing that
+        // could block an automated operation is left to queue.
+        let mut app = DraftFlowCAD::new_for_test();
+        let _ = app.control_request(serde_json::json!({"op": "state"}));
+        assert!(app.control.automation_seen);
+        app.pending_startup_modals.clear();
+        app.close_modal_now();
+        app.queue_startup_prompts();
+        assert!(app.active_modal.is_none());
+    }
+}

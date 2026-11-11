@@ -1,0 +1,56 @@
+//! Isolate / Hide / End Isolation status menu.
+
+use crate::ui::kit;
+use iced::widget::{row, text};
+use crate::ui::kit::plain_button;
+use iced::{Element, Fill};
+
+use crate::app::Message;
+use crate::t;
+use crate::ui::statusbar::status_menu::Entry;
+use crate::ui::style::tokens;
+
+/// - `has_selection`: enables Isolate / Hide (they act on the selection).
+/// - `isolation_active`: enables End Isolation (something is hidden).
+pub fn menu_entries(has_selection: bool, isolation_active: bool) -> Vec<Entry<'static>> {
+    vec![
+        action_entry(
+            "Isolate Objects",
+            has_selection,
+            Message::Command("ISOLATEOBJECTS".to_string()),
+        ),
+        action_entry(
+            "Hide Objects",
+            has_selection,
+            Message::Command("HIDEOBJECTS".to_string()),
+        ),
+        action_entry(
+            "End Isolation",
+            isolation_active,
+            Message::Command("UNISOLATEOBJECTS".to_string()),
+        ),
+    ]
+}
+
+fn action_entry(label: &'static str, enabled: bool, msg: Message) -> Entry<'static> {
+    let row = action_row(label, enabled, msg);
+    if enabled {
+        Entry::close(row)
+    } else {
+        Entry::stay(row)
+    }
+}
+
+fn action_row(label: &'static str, enabled: bool, msg: Message) -> Element<'static, Message> {
+    let lbl = text(t!(label)).size(tokens::TEXT_LABEL);
+    let content = row![lbl].align_y(iced::Center);
+
+    let mut btn = plain_button(content)
+        .style(kit::subtle_style)
+        .width(Fill)
+        .padding(kit::PAD_MENU_ROW);
+    if enabled {
+        btn = btn.on_press(msg);
+    }
+    btn.into()
+}
