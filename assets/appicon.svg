@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" role="img" aria-label="流绘 CAD 应用图标，256 独立重绘">
+  <title>流绘 CAD 应用图标，256 独立重绘</title>
+  <defs>
+    <clipPath id="paper">
+      <path d="M80 48H144L176 80V208H80Z"/>
+    </clipPath>
+  </defs>
+  <rect width="256" height="256" rx="53.333" fill="#17191C"/>
+  <rect x="2.667" y="2.667" width="250.667" height="250.667" rx="50.667" fill="none" stroke="#3A4048" stroke-width="5.333"/>
+  <path d="M80 48H144L176 80V208H80Z" fill="#ECEEF0"/>
+  <g clip-path="url(#paper)">
+    <path d="M144 48V80H176Z" fill="#C3C8CE" stroke="#ECEEF0" stroke-width="2"/>
+  </g>
+  <path d="M43.374 175.293L96 122.667L138.667 154.667L202.016 79.241" fill="none" stroke="#F26A45" stroke-width="17.067" stroke-linecap="square" stroke-linejoin="miter"/>
+  <path d="M131 147h21v21h-21z" fill="#F26A45"/>
+</svg>

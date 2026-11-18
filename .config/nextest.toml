@@ -1,0 +1,7 @@
+# nextest: the fps probe measures wall-clock frame time under 2000-row scroll.
+# Run in parallel with the rest of the suite it competes for the CPU and reports
+# false 25-32 ms p95 (measured 2026-11-17); run alone it is a stable ~10.9 ms.
+# Giving it every core keeps the 20 ms budget honest instead of relaxing it.
+[[profile.default.overrides]]
+filter = 'test(fps_probe_2000_scroll)'
+threads-required = "num-cpus"

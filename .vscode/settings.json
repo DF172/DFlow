@@ -1,0 +1,17 @@
+{
+  // Keep rust-analyzer's target directory away from the terminal builds
+  // (D:\cargo-target). Sharing one target dir makes RA and `cargo build`
+  // fight over the same file locks every time you save.
+  "rust-analyzer.cargo.targetDir": "D:/cargo-target-ra",
+  "rust-analyzer.check.command": "clippy",
+  "rust-analyzer.check.extraArgs": ["--profile", "dev"],
+  "rust-analyzer.cargo.buildScripts.enable": true,
+  "rust-analyzer.procMacro.enable": true,
+  "rust-analyzer.inlayHints.chainingHints.enable": false,
+  "rust-analyzer.inlayHints.typeHints.enable": false,
+  "rust-analyzer.files.excludeDirs": ["vendor", "dist"],
+  "files.watcherExclude": {
+    "**/vendor/**": true,
+    "**/D:/cargo-target/**": true
+  }
+}

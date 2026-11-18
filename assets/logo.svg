@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024" role="img" aria-label="DraftFlow CAD 流绘 CAD 标识">
+  <title>DraftFlow CAD 流绘 CAD</title>
+  <defs>
+    <clipPath id="paper">
+      <path d="M320 192H576L704 320V832H320Z"/>
+    </clipPath>
+  </defs>
+  <rect width="1024" height="1024" rx="213.332" fill="#17191C"/>
+  <rect x="10.668" y="10.668" width="1002.664" height="1002.664" rx="202.664" fill="none" stroke="#3A4048" stroke-width="21.332"/>
+  <path d="M320 192H576L704 320V832H320Z" fill="#ECEEF0"/>
+  <g clip-path="url(#paper)">
+    <path d="M576 192V320H704Z" fill="#C3C8CE" stroke="#ECEEF0" stroke-width="8"/>
+  </g>
+  <path d="M173.5 701.2L384 490.7L554.7 618.7L808.1 316.96" fill="none" stroke="#F26A45" stroke-width="68.27" stroke-linecap="square" stroke-linejoin="miter"/>
+  <path d="M524 588h84v84h-84z" fill="#F26A45"/>
+</svg>
