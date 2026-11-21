@@ -48,3 +48,13 @@
 - rust-analyzer 用 `D:/cargo-target-ra`（`.vscode/settings.json`），避免和命令行抢锁。
 - sccache 缓存在 `D:/sccache`，上限 10 GiB。
 - Defender 白名单脚本：`scripts/defender-exclusions.ps1`（需管理员）。
+
+## 6. 工具链强制加载（2026-11-21 起）
+
+- 任何构建、测试、运行、发版前先执行 `just preflight`；`check/test/run/ship/perf` 已内置该依赖，不要绕过。
+- `check` 与 `test` 固定 `CARGO_BUILD_JOBS=1`：8 并发下 rustc 在本机多次以 `0xC0000409` 崩溃（2026-11-21 实测，全量清理后仍复现），单并发稳定通过。
+- 标准运行：`just run` 固定 `RUST_BACKTRACE=1`、`RUST_LOG`（默认 info），并把完整输出同时写入 `D:\Temp\draftflow-run.log`。
+- 标准性能门：`just perf`，只跑 `fps_probe_2000_scroll`，20 ms 阈值不得放宽。
+- 工具缺失或版本冲突必须记录并说明影响，不得静默跳过；必需项缺失时 `preflight` 直接失败。
+- 同一时间只保留一个 `DraftFlowCAD.exe` GUI 实例；MCP 附着现有实例，重复启动会因显存不足崩溃（0xc0000409）。
+- 调试用 CodeLLDB（`vadimcn.vscode-lldb`），语言服务用 rust-analyzer；两者由 `preflight` 检查。
