@@ -14464,17 +14464,23 @@ mod layout_cache_tests {
     #[test]
     fn resident_wires_are_zoom_independent_and_gpu_analytical() {
         let mut s = Scene::new();
-        let mut circle = codec::entities::Circle::default();
-        circle.radius = 100.0;
+        let circle = codec::entities::Circle {
+            radius: 100.0,
+            ..Default::default()
+        };
         let handle = s.add_entity(EntityType::Circle(circle));
 
         // Far camera: distance is large
-        let mut cam_far = Camera::default();
-        cam_far.distance = 1000.0;
+        let cam_far = Camera {
+            distance: 1000.0,
+            ..Default::default()
+        };
 
         // Close camera: distance is small
-        let mut cam_close = Camera::default();
-        cam_close.distance = 1.0;
+        let cam_close = Camera {
+            distance: 1.0,
+            ..Default::default()
+        };
 
         let wires_far = s.model_tile_wires_arc(0, &cam_far, 1.0, 1000.0);
         let circle_wire_far = wires_far
@@ -14502,14 +14508,18 @@ mod layout_cache_tests {
     fn block_circles_and_arcs_extract_as_analytical_gpu_instances() {
         let mut s = Scene::new();
         // Create initial entities
-        let mut circle = codec::entities::Circle::default();
-        circle.radius = 50.0;
+        let circle = codec::entities::Circle {
+            radius: 50.0,
+            ..Default::default()
+        };
         let c_h = s.add_entity(EntityType::Circle(circle));
 
-        let mut arc = codec::entities::Arc::default();
-        arc.radius = 25.0;
-        arc.start_angle = 0.0;
-        arc.end_angle = std::f64::consts::PI;
+        let arc = codec::entities::Arc {
+            radius: 25.0,
+            start_angle: 0.0,
+            end_angle: std::f64::consts::PI,
+            ..Default::default()
+        };
         let a_h = s.add_entity(EntityType::Arc(arc));
 
         let line = codec::entities::Line::from_points(

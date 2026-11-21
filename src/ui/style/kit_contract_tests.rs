@@ -2545,9 +2545,11 @@ fn scan_src() -> Counts {
     let style_fns = vendor_style_fns();
     let text_size_fns = vendor_text_size_fns();
 
-    let mut c = Counts::default();
-    c.vendor_style_fns = style_fns.len();
-    c.vendor_text_size_fns = text_size_fns.len();
+    let mut c = Counts {
+        vendor_style_fns: style_fns.len(),
+        vendor_text_size_fns: text_size_fns.len(),
+        ..Default::default()
+    };
     for path in files {
         let rel = match path.strip_prefix(&root) {
             Ok(r) => r.to_string_lossy().replace('\\', "/"),

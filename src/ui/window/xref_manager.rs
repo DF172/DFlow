@@ -2097,8 +2097,10 @@ mod tests {
 
     #[test]
     fn select_toggles_anchor_and_set() {
-        let mut panel = XrefManagerPanel::default();
-        panel.entries = vec![entry(1, "A", "a.dwg"), entry(2, "B", "b.dwg")];
+        let mut panel = XrefManagerPanel {
+            entries: vec![entry(1, "A", "a.dwg"), entry(2, "B", "b.dwg")],
+            ..Default::default()
+        };
         panel.toggle_select(0);
         panel.toggle_select(1);
         assert!(panel.selected.contains(&0) && panel.selected.contains(&1));
@@ -2112,13 +2114,15 @@ mod tests {
 
     #[test]
     fn tree_skips_repeat_paths() {
-        let mut panel = XrefManagerPanel::default();
-        panel.entries = vec![
-            entry(1, "A", "a.dwg"),
-            entry(2, "B", "b.dwg"),
-            entry(3, "B2", "b.dwg"),
-        ];
-        panel.tree = true;
+        let mut panel = XrefManagerPanel {
+            entries: vec![
+                entry(1, "A", "a.dwg"),
+                entry(2, "B", "b.dwg"),
+                entry(3, "B2", "b.dwg"),
+            ],
+            tree: true,
+            ..Default::default()
+        };
         // Host row leads; same file under two names renders twice; only
         // exact (path, name) repeats collapse.
         let rows = panel.display_rows();
@@ -2145,9 +2149,11 @@ mod tests {
 
     #[test]
     fn host_row_leads_and_ignores_selection() {
-        let mut panel = XrefManagerPanel::default();
-        panel.entries = vec![entry(1, "A", "a.dwg")];
-        panel.host_name = "host".to_string();
+        let mut panel = XrefManagerPanel {
+            entries: vec![entry(1, "A", "a.dwg")],
+            host_name: "host".to_string(),
+            ..Default::default()
+        };
         for tree in [false, true] {
             panel.tree = tree;
             let rows = panel.display_rows();
@@ -2161,9 +2167,11 @@ mod tests {
 
     #[test]
     fn tree_selects_single_reference() {
-        let mut panel = XrefManagerPanel::default();
-        panel.entries = vec![entry(1, "A", "a.dwg"), entry(2, "B", "b.dwg")];
-        panel.tree = true;
+        let mut panel = XrefManagerPanel {
+            entries: vec![entry(1, "A", "a.dwg"), entry(2, "B", "b.dwg")],
+            tree: true,
+            ..Default::default()
+        };
         panel.toggle_select(0);
         panel.toggle_select(1);
         assert_eq!(panel.selected, HashSet::from([1]));
@@ -2175,8 +2183,10 @@ mod tests {
 
     #[test]
     fn actionable_selection_skips_nested() {
-        let mut panel = XrefManagerPanel::default();
-        panel.entries = vec![entry(1, "A", "a.dwg"), entry(2, "B", "b.dwg")];
+        let mut panel = XrefManagerPanel {
+            entries: vec![entry(1, "A", "a.dwg"), entry(2, "B", "b.dwg")],
+            ..Default::default()
+        };
         panel.nested.insert(1);
         panel.toggle_select(0);
         panel.toggle_select(1);
@@ -2251,12 +2261,14 @@ mod tests {
         use super::SelectExtend;
         use super::XrefRowId;
         let id = |key: u64, saved: &str| XrefRowId::of(key, saved);
-        let mut panel = XrefManagerPanel::default();
-        panel.entries = vec![
-            entry(1, "A", "a.dwg"),
-            entry(2, "B", "b.dwg"),
-            entry(3, "C", "c.dwg"),
-        ];
+        let mut panel = XrefManagerPanel {
+            entries: vec![
+                entry(1, "A", "a.dwg"),
+                entry(2, "B", "b.dwg"),
+                entry(3, "C", "c.dwg"),
+            ],
+            ..Default::default()
+        };
         // Plain click selects exactly one row.
         panel.click_select(&id(1, "a.dwg"), SelectExtend::Single);
         panel.click_select(&id(3, "c.dwg"), SelectExtend::Single);
@@ -2276,16 +2288,20 @@ mod tests {
         panel.click_select(&id(4, "d.dwg"), SelectExtend::Toggle);
         assert_eq!(panel.selected, HashSet::from([2, 4]));
         // Range with no anchor starts at the clicked row.
-        let mut fresh = XrefManagerPanel::default();
-        fresh.entries = vec![entry(1, "A", "a.dwg"), entry(2, "B", "b.dwg")];
+        let mut fresh = XrefManagerPanel {
+            entries: vec![entry(1, "A", "a.dwg"), entry(2, "B", "b.dwg")],
+            ..Default::default()
+        };
         fresh.click_select(&id(2, "b.dwg"), SelectExtend::Range);
         assert_eq!(fresh.selected, HashSet::from([1]));
     }
 
     #[test]
     fn expand_collapses_by_default() {
-        let mut panel = XrefManagerPanel::default();
-        panel.entries = vec![entry(1, "A", "a.dwg"), entry(2, "B", "b.dwg")];
+        let mut panel = XrefManagerPanel {
+            entries: vec![entry(1, "A", "a.dwg"), entry(2, "B", "b.dwg")],
+            ..Default::default()
+        };
         panel.nested.insert(1);
         panel.children.insert(1, vec![1]);
         panel.tree = true;

@@ -903,8 +903,10 @@ mod tests {
     fn system_scheme_resolves_to_a_concrete_theme_and_keeps_its_name() {
         // Fresh configs keep the existing default; SYSTEM is opt-in.
         assert_ne!(UiThemeConfig::default().name, "System");
-        let mut cfg = UiThemeConfig::default();
-        cfg.name = "System".to_string();
+        let mut cfg = UiThemeConfig {
+            name: "System".to_string(),
+            ..Default::default()
+        };
         let resolved = cfg.to_iced();
         // Case-insensitive like the other stored names.
         cfg.name = "system".to_string();
@@ -1004,8 +1006,10 @@ mod tests {
         let missing: AppConfig = serde_json::from_str("{}").expect("deserialize old config");
         assert!(!missing.show_graphic_attributes);
 
-        let mut original = AppConfig::default();
-        original.show_graphic_attributes = true;
+        let original = AppConfig {
+            show_graphic_attributes: true,
+            ..Default::default()
+        };
         let serialized = serde_json::to_string(&original).expect("serialize config");
         let restored: AppConfig = serde_json::from_str(&serialized).expect("deserialize config");
         assert!(restored.show_graphic_attributes);

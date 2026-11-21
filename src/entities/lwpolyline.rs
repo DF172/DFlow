@@ -1675,8 +1675,10 @@ mod tests {
     use codec::{Vector2, Vector3};
 
     fn make_test_lwpolyline(count: usize, constant_width: f64) -> LwPolyline {
-        let mut pl = LwPolyline::default();
-        pl.constant_width = constant_width;
+        let mut pl = LwPolyline {
+            constant_width: constant_width,
+            ..Default::default()
+        };
         for i in 0..count {
             pl.vertices
                 .push(LwVertex::new(Vector2::new(i as f64 * 10.0, 0.0)));
@@ -1685,8 +1687,10 @@ mod tests {
     }
 
     fn make_test_rectangle() -> LwPolyline {
-        let mut pl = LwPolyline::default();
-        pl.is_closed = true;
+        let mut pl = LwPolyline {
+            is_closed: true,
+            ..Default::default()
+        };
         pl.vertices = [(0.0, 0.0), (10.0, 0.0), (10.0, 5.0), (0.0, 5.0)]
             .into_iter()
             .map(|(x, y)| LwVertex::new(Vector2::new(x, y)))
@@ -1764,8 +1768,10 @@ mod tests {
     }
 
     fn polyline(points: &[(f64, f64)], closed: bool) -> LwPolyline {
-        let mut pl = LwPolyline::default();
-        pl.is_closed = closed;
+        let mut pl = LwPolyline {
+            is_closed: closed,
+            ..Default::default()
+        };
         pl.vertices = points
             .iter()
             .map(|&(x, y)| LwVertex::new(Vector2::new(x, y)))

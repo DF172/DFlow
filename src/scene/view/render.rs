@@ -5333,14 +5333,20 @@ mod layer0_inherit_tests {
         );
         let line_h = doc.add_entity(EntityType::Line(line)).unwrap();
 
-        let mut w_face = WireModel::default();
-        w_face.name = face_h.value().to_string();
+        let w_face = WireModel {
+            name: face_h.value().to_string(),
+            ..Default::default()
+        };
 
-        let mut w_line = WireModel::default();
-        w_line.name = line_h.value().to_string();
+        let w_line = WireModel {
+            name: line_h.value().to_string(),
+            ..Default::default()
+        };
 
-        let mut w_other = WireModel::default();
-        w_other.name = "grid_wire".to_string();
+        let w_other = WireModel {
+            name: "grid_wire".to_string(),
+            ..Default::default()
+        };
 
         let wires = vec![w_face.clone(), w_line.clone(), w_other.clone()];
 
@@ -5406,14 +5412,16 @@ mod layer0_inherit_tests {
     fn render_environment_objects_cache_and_apply() {
         let mut scene = Scene::new();
 
-        let mut renv = codec::objects::RenderEnvironment::default();
-        renv.fog_enabled = true;
-        renv.fog_color = [100, 150, 200];
-        renv.fog_background_enabled = true;
-        renv.fog_density_near = 25.0;
-        renv.fog_density_far = 75.0;
-        renv.fog_distance_near = 10.0;
-        renv.fog_distance_far = 100.0;
+        let renv = codec::objects::RenderEnvironment {
+            fog_enabled: true,
+            fog_color: [100, 150, 200],
+            fog_background_enabled: true,
+            fog_density_near: 25.0,
+            fog_density_far: 75.0,
+            fog_distance_near: 10.0,
+            fog_distance_far: 100.0,
+            ..Default::default()
+        };
 
         let handle = Handle::new(42);
         scene.document.objects.insert(

@@ -1736,8 +1736,10 @@ mod tests {
     fn patterned_circle_and_arc_stay_in_regular_wire_pipeline() {
         use crate::scene::model::wire_model::TangentGeom;
 
-        let mut circle = WireModel::default();
-        circle.points = vec![[10.0, 0.0, 0.0], [0.0, 10.0, 0.0], [-10.0, 0.0, 0.0]];
+        let mut circle = WireModel {
+            points: vec![[10.0, 0.0, 0.0], [0.0, 10.0, 0.0], [-10.0, 0.0, 0.0]],
+            ..Default::default()
+        };
         circle.tangent_geoms.push(TangentGeom::PlanarCircle {
             center: [0.0, 0.0, 0.0],
             axis_x: [1.0, 0.0, 0.0],
@@ -1747,8 +1749,10 @@ mod tests {
         circle.pattern_length = 1.0;
         circle.pattern = [0.5, -0.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0];
 
-        let mut arc = WireModel::default();
-        arc.points = vec![[10.0, 0.0, 0.0], [7.0, 7.0, 0.0], [0.0, 10.0, 0.0]];
+        let mut arc = WireModel {
+            points: vec![[10.0, 0.0, 0.0], [7.0, 7.0, 0.0], [0.0, 10.0, 0.0]],
+            ..Default::default()
+        };
         arc.tangent_geoms.push(TangentGeom::Arc {
             center: [0.0, 0.0, 0.0],
             axis_x: [1.0, 0.0, 0.0],

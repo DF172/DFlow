@@ -476,8 +476,10 @@ fn test_selected_circle_arc_ellipse_highlight_overlay() {
     let mut pipeline = Pipeline::new(&device, &queue, wgpu::TextureFormat::Bgra8UnormSrgb);
     let depth = rustc_hash::FxHashMap::default();
 
-    let mut circle_wire = WireModel::default();
-    circle_wire.name = "circle_wire".into();
+    let mut circle_wire = WireModel {
+        name: "circle_wire".into(),
+        ..Default::default()
+    };
     circle_wire
         .tangent_geoms
         .push(crate::scene::model::wire_model::TangentGeom::PlanarCircle {
@@ -604,8 +606,10 @@ fn test_thick_and_tapered_arc_gpu_rendering() {
     let mut pipeline = Pipeline::new(&device, &queue, wgpu::TextureFormat::Bgra8UnormSrgb);
 
     // 1. Wide circular arc with pick triangles
-    let mut wide_arc = WireModel::default();
-    wide_arc.name = "wide_arc".into();
+    let mut wide_arc = WireModel {
+        name: "wide_arc".into(),
+        ..Default::default()
+    };
     wide_arc
         .tangent_geoms
         .push(crate::scene::model::wire_model::TangentGeom::Arc {
@@ -622,8 +626,10 @@ fn test_thick_and_tapered_arc_gpu_rendering() {
     wide_arc.pick_tris_low = vec![[0.0; 3]; 3];
 
     // 2. Tapered circular arc
-    let mut tapered_arc = WireModel::default();
-    tapered_arc.name = "tapered_arc".into();
+    let mut tapered_arc = WireModel {
+        name: "tapered_arc".into(),
+        ..Default::default()
+    };
     tapered_arc
         .tangent_geoms
         .push(crate::scene::model::wire_model::TangentGeom::Arc {
@@ -707,18 +713,22 @@ fn test_tilted_3d_donut_and_thick_arc_gpu_rendering() {
     let mut pipeline = Pipeline::new(&device, &queue, wgpu::TextureFormat::Bgra8UnormSrgb);
 
     // Setup 3D perspective camera with acute tilt
-    let mut camera = crate::scene::view::camera::Camera::default();
-    camera.projection = crate::scene::view::camera::Projection::Perspective;
-    camera.distance = 200.0;
-    camera.target = glam::DVec3::new(50.0, 50.0, 0.0);
+    let mut camera = crate::scene::view::camera::Camera {
+        projection: crate::scene::view::camera::Projection::Perspective,
+        distance: 200.0,
+        target: glam::DVec3::new(50.0, 50.0, 0.0),
+        ..Default::default()
+    };
     camera.rotation = glam::Quat::from_axis_angle(glam::Vec3::X, 1.1); // ~63 degree tilt (acute perspective)
     let bounds = iced::Rectangle::new(iced::Point::ORIGIN, iced::Size::new(512.0, 512.0));
     let uniforms = Uniforms::new(&camera, bounds, false);
     pipeline.upload_uniforms(&device, &queue, &uniforms);
 
     // Donut circular arc segments
-    let mut donut = WireModel::default();
-    donut.name = "donut".into();
+    let mut donut = WireModel {
+        name: "donut".into(),
+        ..Default::default()
+    };
     donut
         .tangent_geoms
         .push(crate::scene::model::wire_model::TangentGeom::Arc {
@@ -751,11 +761,13 @@ fn test_tilted_3d_donut_and_thick_arc_gpu_rendering() {
     pipeline.gpu_circles = std::sync::Arc::new(circles);
 
     // Wide straight polyline segment on the 3D plane
-    let mut straight_wide = WireModel::default();
-    straight_wide.name = "wide_straight".into();
-    straight_wide.points = vec![[0.0, 0.0, 0.0], [50.0, 50.0, 0.0]];
-    straight_wide.world_width = 10.0;
-    straight_wide.color = [0.9, 0.2, 0.3, 1.0];
+    let straight_wide = WireModel {
+        name: "wide_straight".into(),
+        points: vec![[0.0, 0.0, 0.0], [50.0, 50.0, 0.0]],
+        world_width: 10.0,
+        color: [0.9, 0.2, 0.3, 1.0],
+        ..Default::default()
+    };
 
     let wide_wires = vec![straight_wide];
     let gpu_wires = wire_gpu::WireGpu::from_run(
@@ -827,8 +839,10 @@ fn test_selected_ellipse_overlay() {
     let mut pipeline = Pipeline::new(&device, &queue, wgpu::TextureFormat::Bgra8UnormSrgb);
     let depth = rustc_hash::FxHashMap::default();
 
-    let mut ellipse_wire = WireModel::default();
-    ellipse_wire.name = "ellipse_wire".into();
+    let mut ellipse_wire = WireModel {
+        name: "ellipse_wire".into(),
+        ..Default::default()
+    };
     ellipse_wire.tangent_geoms.push(
         crate::scene::model::wire_model::TangentGeom::PlanarEllipse {
             center: [0.0, 0.0, 0.0],
@@ -1066,8 +1080,10 @@ fn x1_cycle_fade_highlight_frame_cost() {
     for (group, handle) in [h_old, h_new].iter().enumerate() {
         let mut idxs = Vec::new();
         for k in 0..128u32 {
-            let mut w = WireModel::default();
-            w.name = format!("x1_{}_{}", handle.value(), k);
+            let mut w = WireModel {
+                name: format!("x1_{}_{}", handle.value(), k),
+                ..Default::default()
+            };
             w.points = vec![
                 [0.0, 0.0, 0.0],
                 [1.0, 0.0, 0.0],

@@ -1498,11 +1498,13 @@ mod tests {
 
     #[test]
     fn join_group_index_counts_groups_before_the_move() {
-        let mut state = DockState::default();
-        state.left = vec![
-            DockGroup::single(PanelId::BlockPalette),
-            DockGroup::single(PanelId::Properties),
-        ];
+        let mut state = DockState {
+            left: vec![
+                DockGroup::single(PanelId::BlockPalette),
+                DockGroup::single(PanelId::Properties),
+            ],
+            ..Default::default()
+        };
         state.right.clear();
         // Group 1 (Properties) is group 0 once the palette's group is gone.
         assert!(state.join_group(PanelId::BlockPalette, DockSide::Left, 1, 1));
@@ -1557,11 +1559,13 @@ mod tests {
 
     #[test]
     fn shift_split_keeps_combined_share_and_minimum() {
-        let mut state = DockState::default();
-        state.left = vec![DockGroup::stack(vec![
-            PanelId::BlockPalette,
-            PanelId::Properties,
-        ])];
+        let mut state = DockState {
+            left: vec![DockGroup::stack(vec![
+                PanelId::BlockPalette,
+                PanelId::Properties,
+            ])],
+            ..Default::default()
+        };
         state.shift_split(DockSide::Left, 0, 0, 1, 0.5, 0.1);
         assert_eq!(state.left[0].weights, vec![1.5, 0.5]);
         state.shift_split(DockSide::Left, 0, 0, 1, 10.0, 0.1);

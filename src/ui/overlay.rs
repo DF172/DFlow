@@ -4995,8 +4995,10 @@ mod grid_key_tests {
         );
 
         // style opacity: change opacity
-        let mut style = GridStyle::default();
-        style.opacity = 50;
+        let style = GridStyle {
+            opacity: 50,
+            ..Default::default()
+        };
         assert_ne!(
             GridKey::from_grids(&baseline_grids, baseline_bounds, style),
             baseline_key,
@@ -5004,8 +5006,10 @@ mod grid_key_tests {
         );
 
         // style bg_luminance: change luminance (dark to light)
-        let mut style = GridStyle::default();
-        style.bg_luminance = 0.9;
+        let style = GridStyle {
+            bg_luminance: 0.9,
+            ..Default::default()
+        };
         assert_ne!(
             GridKey::from_grids(&baseline_grids, baseline_bounds, style),
             baseline_key,
@@ -5329,9 +5333,11 @@ mod selection_visual_color_tests {
 
     #[test]
     fn custom_aci_selection_colors_override_defaults() {
-        let mut visual = SelectionVisualOptions::default();
-        visual.crossing_color = 1; // Red
-        visual.window_color = 5; // Blue
+        let visual = SelectionVisualOptions {
+            crossing_color: 1, // Red
+            window_color: 5,   // Blue
+            ..Default::default()
+        };
         let dark_canvas = [0.0, 0.0, 0.0, 1.0];
         let light_canvas = [1.0, 1.0, 1.0, 1.0];
 

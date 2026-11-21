@@ -518,12 +518,14 @@ mod tests {
 
     #[test]
     fn midpoint_grip_drives_radius_and_arc_length_in_entity_plane() {
-        let mut arc = Arc::default();
-        arc.center = codec::types::Vector3::new(1.0, 2.0, 3.0);
-        arc.normal = codec::types::Vector3::new(0.0, 1.0, 0.0);
-        arc.radius = 2.0;
-        arc.start_angle = 0.0;
-        arc.end_angle = std::f64::consts::FRAC_PI_2;
+        let mut arc = Arc {
+            center: codec::types::Vector3::new(1.0, 2.0, 3.0),
+            normal: codec::types::Vector3::new(0.0, 1.0, 0.0),
+            radius: 2.0,
+            start_angle: 0.0,
+            end_angle: std::f64::consts::FRAC_PI_2,
+            ..Default::default()
+        };
 
         let curve = crate::entities::curve::arc_curve(&arc);
         let middle_angle = std::f64::consts::FRAC_PI_4;

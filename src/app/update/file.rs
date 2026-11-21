@@ -480,8 +480,10 @@ mod plot_owner_aci_tests {
             .add_entity(codec::EntityType::Insert(insert))
             .expect("insert must be added");
 
-        let mut wire = crate::scene::WireModel::default();
-        wire.name = insert_handle.value().to_string();
+        let mut wire = crate::scene::WireModel {
+            name: insert_handle.value().to_string(),
+            ..Default::default()
+        };
 
         // Pretend BlockCache resolved the layer-0 child to indexed color 5.
         // The plot preparation step must preserve it instead of replacing it
@@ -511,9 +513,11 @@ mod plot_owner_aci_tests {
             .add_entity(codec::EntityType::Line(line))
             .expect("line must be added");
 
-        let mut wire = crate::scene::WireModel::default();
-        wire.name = line_handle.value().to_string();
-        wire.aci = 5;
+        let mut wire = crate::scene::WireModel {
+            name: line_handle.value().to_string(),
+            aci: 5,
+            ..Default::default()
+        };
 
         plot_owner_aci(&scene, &mut wire);
 
@@ -7060,10 +7064,13 @@ mod plot_device_persistence_tests {
     /// page setup used to reset the choice to the system default on every
     /// open.
     #[test]
+    #[allow(clippy::field_reassign_with_default)] // PlotSettings.cached_scale is private
     fn reopening_the_plot_dialog_keeps_the_chosen_printer() {
         let mut app = DraftFlowCAD::new_for_test();
         // A real drawing's layout carries plot settings with no device; the
         // auto-applied setup used to reset the choice to the default.
+        // PlotSettings.cached_scale is private, so struct-update syntax is
+        // unavailable here; keep the default-then-assign form.
         let mut ps = codec::objects::PlotSettings::default();
         ps.printer_name = String::new();
         let layout = app.tabs[app.active_tab].scene.current_layout.clone();
@@ -7356,9 +7363,12 @@ mod plot_device_persistence_tests {
     /// A layout whose plot settings name an explicit device wins over the
     /// saved preference: selecting its setup is an explicit device choice.
     #[test]
+    #[allow(clippy::field_reassign_with_default)] // PlotSettings.cached_scale is private
     fn layout_device_overrides_the_saved_preference() {
         let mut app = DraftFlowCAD::new_for_test();
         app.plot_dialog.printer = Some("Brother DCP-L2520D series".into());
+        // PlotSettings.cached_scale is private, so struct-update syntax is
+        // unavailable here; keep the default-then-assign form.
         let mut ps = codec::objects::PlotSettings::default();
         ps.printer_name = "Godex G500".into();
         app.load_plotsettings_into_dialog(&ps);
@@ -7382,8 +7392,11 @@ mod plot_device_persistence_tests {
     /// A window freshly loaded from a layout's plot settings is mirrored into
     /// the dialog so it persists with the next config save.
     #[test]
+    #[allow(clippy::field_reassign_with_default)] // PlotSettings.cached_scale is private
     fn layout_window_is_mirrored_into_the_dialog() {
         let mut app = DraftFlowCAD::new_for_test();
+        // PlotSettings.cached_scale is private, so struct-update syntax is
+        // unavailable here; keep the default-then-assign form.
         let mut ps = codec::objects::PlotSettings::default();
         ps.plot_type = codec::objects::PlotType::Window;
         ps.set_plot_window(1.0, 2.0, 3.0, 4.0);
@@ -7394,9 +7407,12 @@ mod plot_device_persistence_tests {
 
     /// A layout pointing at a PDF device switches the dialog to file output.
     #[test]
+    #[allow(clippy::field_reassign_with_default)] // PlotSettings.cached_scale is private
     fn pdf_device_switches_to_file_output() {
         let mut app = DraftFlowCAD::new_for_test();
         app.plot_dialog.printer = Some("Brother DCP-L2520D series".into());
+        // PlotSettings.cached_scale is private, so struct-update syntax is
+        // unavailable here; keep the default-then-assign form.
         let mut ps = codec::objects::PlotSettings::default();
         ps.printer_name = "Microsoft Print to PDF".into();
         app.load_plotsettings_into_dialog(&ps);

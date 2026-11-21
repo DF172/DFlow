@@ -9137,11 +9137,13 @@ mod limits_format_tests {
     #[test]
     fn degenerate_angular_dimension_reports_its_stored_angle() {
         use codec::entities::DimensionAngular3Pt;
-        let mut d = DimensionAngular3Pt::default();
-        d.angle_vertex = Vector3::new(6.0, 4.85, 0.0);
-        d.first_point = d.angle_vertex;
-        d.second_point = Vector3::new(7.0, 4.85, 0.0);
-        d.definition_point = Vector3::new(8.0, 5.4, 0.0);
+        let mut d = DimensionAngular3Pt {
+            angle_vertex: Vector3::new(6.0, 4.85, 0.0),
+            first_point: Vector3::new(6.0, 4.85, 0.0),
+            second_point: Vector3::new(7.0, 4.85, 0.0),
+            definition_point: Vector3::new(8.0, 5.4, 0.0),
+            ..Default::default()
+        };
         d.base.actual_measurement = std::f64::consts::FRAC_PI_4;
         let dim = Dimension::Angular3Pt(d);
         let mut s = style();
@@ -9262,12 +9264,13 @@ mod layout_parity_tests {
     }
 
     fn vertical(top: f64) -> DimensionLinear {
-        let mut d = DimensionLinear::default();
-        d.first_point = Vector3::new(0.0, 0.0, 0.0);
-        d.second_point = Vector3::new(0.0, top, 0.0);
-        d.definition_point = Vector3::new(-0.5, top, 0.0);
-        d.rotation = std::f64::consts::FRAC_PI_2;
-        d
+        DimensionLinear {
+            first_point: Vector3::new(0.0, 0.0, 0.0),
+            second_point: Vector3::new(0.0, top, 0.0),
+            definition_point: Vector3::new(-0.5, top, 0.0),
+            rotation: std::f64::consts::FRAC_PI_2,
+            ..Default::default()
+        }
     }
 
     // Group 11 is authoritative whenever present, whether or not the user moved
@@ -9408,9 +9411,11 @@ mod layout_parity_tests {
     fn dimtmove_one_anchors_the_hook_start_at_the_stored_point() {
         let mut document = document();
         document.dim_styles.get_mut("Standard").unwrap().dimtmove = 1;
-        let mut d = DimensionRadius::default();
-        d.angle_vertex = Vector3::new(0.0, 0.0, 0.0);
-        d.definition_point = Vector3::new(1.0, 0.0, 0.0);
+        let mut d = DimensionRadius {
+            angle_vertex: Vector3::new(0.0, 0.0, 0.0),
+            definition_point: Vector3::new(1.0, 0.0, 0.0),
+            ..Default::default()
+        };
         d.base.text_middle_point = Vector3::new(3.0, 1.5, 0.0);
         let dim = Dimension::Radius(d);
         let (points, _) = drawn(&document, &dim);
@@ -9483,9 +9488,11 @@ mod layout_parity_tests {
     #[test]
     fn radius_text_outside_draws_a_hooked_leader_only() {
         let document = document();
-        let mut d = DimensionRadius::default();
-        d.angle_vertex = Vector3::new(0.0, 0.0, 0.0);
-        d.definition_point = Vector3::new(1.0, 0.0, 0.0);
+        let mut d = DimensionRadius {
+            angle_vertex: Vector3::new(0.0, 0.0, 0.0),
+            definition_point: Vector3::new(1.0, 0.0, 0.0),
+            ..Default::default()
+        };
         d.base.text_middle_point = Vector3::new(3.0, 0.8, 0.0);
         let (points, fills) = drawn(&document, &Dimension::Radius(d));
         assert!(
@@ -9509,9 +9516,11 @@ mod layout_parity_tests {
     #[test]
     fn diameter_text_outside_draws_one_leader_and_no_chord() {
         let document = document();
-        let mut d = DimensionDiameter::default();
-        d.angle_vertex = Vector3::new(-1.0, 0.0, 0.0);
-        d.definition_point = Vector3::new(1.0, 0.0, 0.0);
+        let mut d = DimensionDiameter {
+            angle_vertex: Vector3::new(-1.0, 0.0, 0.0),
+            definition_point: Vector3::new(1.0, 0.0, 0.0),
+            ..Default::default()
+        };
         d.base.text_middle_point = Vector3::new(3.0, 0.8, 0.0);
         let (points, fills) = drawn(&document, &Dimension::Diameter(d));
         assert!(

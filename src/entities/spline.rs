@@ -1295,8 +1295,10 @@ mod tests {
 
     #[test]
     fn knot_points_evaluate_distinct_interior_knots() {
-        let mut spline = Spline::default();
-        spline.degree = 3;
+        let mut spline = Spline {
+            degree: 3,
+            ..Default::default()
+        };
         spline.control_points = vec![
             codec::types::Vector3::new(0.0, 0.0, 0.0),
             codec::types::Vector3::new(1.0, 2.0, 0.0),
@@ -1322,8 +1324,10 @@ mod tests {
         // Interpolated curves invent their own knots at the fit nodes, which
         // already snap as endpoints — re-offering them as knots would double
         // every marker.
-        let mut spline = Spline::default();
-        spline.degree = 3;
+        let mut spline = Spline {
+            degree: 3,
+            ..Default::default()
+        };
         spline.fit_points = vec![
             codec::types::Vector3::new(0.0, 0.0, 0.0),
             codec::types::Vector3::new(4.0, 0.0, 1.0),
@@ -1334,8 +1338,10 @@ mod tests {
 
     #[test]
     fn fit_bounds_accept_closed_curves_with_unset_tangents() {
-        let mut spline = Spline::default();
-        spline.degree = 3;
+        let mut spline = Spline {
+            degree: 3,
+            ..Default::default()
+        };
         spline.flags.closed = true;
         spline.control_points.push(codec::types::Vector3::ZERO);
         spline.fit_points = vec![
@@ -1359,12 +1365,14 @@ mod tests {
 
     #[test]
     fn fit_tolerance_is_editable_and_rejects_invalid_values() {
-        let mut spline = Spline::default();
-        spline.fit_points = vec![
-            codec::types::Vector3::ZERO,
-            codec::types::Vector3::new(1.0, 0.0, 0.0),
-        ];
-        spline.fit_tolerance = 0.25;
+        let mut spline = Spline {
+            fit_points: vec![
+                codec::types::Vector3::ZERO,
+                codec::types::Vector3::new(1.0, 0.0, 0.0),
+            ],
+            fit_tolerance: 0.25,
+            ..Default::default()
+        };
 
         let tolerance = properties(&spline)
             .into_iter()
@@ -1383,11 +1391,13 @@ mod tests {
 
     #[test]
     fn tangent_properties_edit_only_the_stored_component() {
-        let mut spline = Spline::default();
-        spline.fit_points = vec![
-            codec::types::Vector3::ZERO,
-            codec::types::Vector3::new(1.0, 1.0, 0.0),
-        ];
+        let mut spline = Spline {
+            fit_points: vec![
+                codec::types::Vector3::ZERO,
+                codec::types::Vector3::new(1.0, 1.0, 0.0),
+            ],
+            ..Default::default()
+        };
 
         let start_y = properties(&spline)
             .into_iter()
@@ -1405,8 +1415,10 @@ mod tests {
 
     #[test]
     fn showing_derived_fit_points_does_not_change_the_curve() {
-        let mut spline = Spline::default();
-        spline.degree = 3;
+        let mut spline = Spline {
+            degree: 3,
+            ..Default::default()
+        };
         spline.control_points = vec![
             codec::types::Vector3::new(0.0, 0.0, 0.0),
             codec::types::Vector3::new(1.0, 3.0, 0.0),

@@ -1043,8 +1043,10 @@ impl DraftFlowCAD {
                     .or_default() += 1;
             }
         }
-        let mut state = DataExtractionState::default();
-        state.selection_handles = selection_handles;
+        let mut state = DataExtractionState {
+            selection_handles: selection_handles,
+            ..Default::default()
+        };
         state.objects = counts
             .into_iter()
             .map(
