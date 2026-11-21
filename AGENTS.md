@@ -28,6 +28,11 @@
 5. **构建中不要改源码**。中途编辑会让本轮产物作废，增量重建仍需整轮时间。
 6. **日志可能含 NUL 字节**，读之前先 `tr -d '\000'` 或 `grep -a`。
 7. **文件锁探测禁用 `: > file`**（会把文件清空）。用 `mv` 改名即可绕过运行中 exe 的占用。
+8. **已知天坑：release 全量编译会撞 Windows 命令行上限，sccache 报 `os error 206`**（2026-11-19 实测，同命令连续复现 2 次）。主 crate 的 rustc 命令行约 55 143 字符，超过 Windows `CreateProcess` 的 32 767 上限，sccache 转发 rustc 失败，日志尾巴是 `sccache: caused by: 文件名或扩展名太长 (os error 206)` 与 `exit code 0xfffffffe`、`CARGO_EXIT=101`。`cargo check`、dev、fast-release 都不受影响（命令行更短）。
+   - 对策已固化在 `just ship`：recipe 里 `$env:RUSTC_WRAPPER=''; cargo build --release`，显式绕过 sccache。
+   - 手动发版同样要加前缀：`RUSTC_WRAPPER= cargo build --release`。
+   - 代价与纪律：wrapper 变更会触发全树重编（实测 22m49s），所以 release 档**永远不加回 sccache**；不要在 release 里来回切换 wrapper。
+   - 若将来 sccache 升级并支持响应文件转发，可重测后撤销本条，先测再改。
 
 ## 4. 测试门槛
 
