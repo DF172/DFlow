@@ -57,7 +57,6 @@ impl DraftFlowCAD {
         }
     }
 
-
     /// Notice when the scene is drawn by a software rasterizer, or not at
     /// all, and say so everywhere the user might look: the command line,
     /// the log, a one-time popup, and a status-bar pill that stays.
@@ -112,8 +111,7 @@ impl DraftFlowCAD {
         match crate::gpu_backend::relaunch(extra_args) {
             Ok(()) => iced::exit(),
             Err(error) => {
-                let notice =
-                    crate::tr!("splash", "restart-failed", error = error.as_str());
+                let notice = crate::tr!("splash", "restart-failed", error = error.as_str());
                 self.command_line.push_error(&notice);
                 Task::none()
             }

@@ -1,15 +1,17 @@
 use super::document::DocumentTab;
 use super::document::DynComponent;
 use super::history::history_dropdown_labels;
-use super::{ArrowKey, Message, DraftFlowCAD};
+use super::{ArrowKey, DraftFlowCAD, Message};
 use crate::scene::pick::grip::{grips_to_screen, grips_to_screen_paper, grips_to_screen_rte};
 use crate::scene::view::viewport_pane::ViewportPane;
 use crate::scene::{VIEWCUBE_PAD, VIEWCUBE_REGION_PX};
 use crate::t;
+use crate::ui::kit::plain_button;
 use crate::ui::style::tokens;
 use crate::ui::wrap_bar::DensitySwap;
-use iced::widget::{column, container, mouse_area, pane_grid, responsive, row, shader, stack, text, Row, Space};
-use crate::ui::kit::plain_button;
+use iced::widget::{
+    column, container, mouse_area, pane_grid, responsive, row, shader, stack, text, Row, Space,
+};
 use iced::window;
 use iced::{keyboard, Color, Element, Fill, Subscription, Task, Theme};
 use iced_aw::ContextMenu;
@@ -20,13 +22,13 @@ mod modal;
 pub(in crate::app) mod overlay;
 mod viewcube;
 
+use crate::ui::kit;
 use controls::{dyn_component_value, viewport_controls};
 use overlay::{
     mtext_editor_overlay, position_canvas_overlay, position_canvas_overlay_near_cursor,
     qselect_overlay, text_inline_overlay, viewport_context_menu_overlay,
 };
 use viewcube::{viewcube_nav_controls, viewcube_ucs_picker, UCS_PICKER_W};
-use crate::ui::kit;
 
 // Re-export the text-input element ids so sibling modules can address them at
 // the `view::` path as before the split.
@@ -531,9 +533,7 @@ impl DraftFlowCAD {
             // The notice frame covers the canvas, so it has to wear the canvas's
             // own colour — model background or paper desk, whichever this layout
             // is settling into — and nothing else: no edge, no shadow.
-            .style(move |_| {
-                kit::document_style(Color::from_rgba(bg[0], bg[1], bg[2], bg[3]), "")
-            })
+            .style(move |_| kit::document_style(Color::from_rgba(bg[0], bg[1], bg[2], bg[3]), ""))
             .into()
         } else if tab.is_start {
             start_page_view(
@@ -1581,13 +1581,12 @@ bg={bg_ms:.1}ms n={view_count}"
                 0.0
             };
             if edge_alpha > 0.0 {
-                let edge = container(Space::new().width(Fill).height(Fill)).style(
-                    move |theme: &Theme| {
+                let edge =
+                    container(Space::new().width(Fill).height(Fill)).style(move |theme: &Theme| {
                         let mut s = kit::frame_style(theme.palette().primary.base.color, "");
                         s.border.color = s.border.color.scale_alpha(edge_alpha);
                         s
-                    },
-                );
+                    });
                 viewport_stack = viewport_stack.push(edge);
             }
         }
@@ -1706,8 +1705,7 @@ bg={bg_ms:.1}ms n={view_count}"
                             iced::Color::WHITE,
                             0.55,
                         );
-                        style.border.color =
-                            crate::ui::motion::mix(style.border.color, bright, p);
+                        style.border.color = crate::ui::motion::mix(style.border.color, bright, p);
                     }
                     style
                 });
@@ -1834,7 +1832,9 @@ bg={bg_ms:.1}ms n={view_count}"
                         .max()
                         .unwrap_or(8) as f32;
                     let row_w = max_len * 7.0 + 24.0;
-                    let mut col = column![].spacing(tokens::GAP_NONE).width(iced::Length::Fixed(row_w));
+                    let mut col = column![]
+                        .spacing(tokens::GAP_NONE)
+                        .width(iced::Length::Fixed(row_w));
                     for (idx, label) in labels.into_iter().enumerate() {
                         let is_sel = idx == popup.selected;
                         let btn = kit::list_row(
@@ -1874,7 +1874,9 @@ bg={bg_ms:.1}ms n={view_count}"
                         .unwrap_or(4) as f32;
                     // +2 chars for the leading "✓ " / "  " marker column.
                     let row_w = (max_len + 2.0) * 7.0 + 24.0;
-                    let mut col = column![].spacing(tokens::GAP_NONE).width(iced::Length::Fixed(row_w));
+                    let mut col = column![]
+                        .spacing(tokens::GAP_NONE)
+                        .width(iced::Length::Fixed(row_w));
                     for (idx, name) in popup.items.iter().enumerate() {
                         let is_cur = popup.current == Some(idx);
                         let mark: Element<'_, Message> = if is_cur {
@@ -1883,9 +1885,12 @@ bg={bg_ms:.1}ms n={view_count}"
                             Space::new().width(11).into()
                         };
                         let btn = kit::list_row(
-                            row![container(mark).width(16), text(name).size(tokens::TEXT_BODY),]
-                                .spacing(tokens::GAP_HAIRLINE)
-                                .align_y(iced::Center),
+                            row![
+                                container(mark).width(16),
+                                text(name).size(tokens::TEXT_BODY),
+                            ]
+                            .spacing(tokens::GAP_HAIRLINE)
+                            .align_y(iced::Center),
                             is_cur,
                             kit::Press::On(Message::VisibilityPick(idx)),
                             "",
@@ -1920,7 +1925,8 @@ bg={bg_ms:.1}ms n={view_count}"
             } else if let Some(shown) = self.ribbon.point_cloud_context() {
                 crate::ui::side_toolbar::view_with_active(
                     &crate::ui::ribbon::point_cloud_tools(),
-                    &move |id| id == "_PCCROPSHOW" && shown, &self.active_theme
+                    &move |id| id == "_PCCROPSHOW" && shown,
+                    &self.active_theme,
                 )
             } else if let Some(ctx) = self.ribbon.underlay_context() {
                 let ctx = ctx.clone();
@@ -1931,7 +1937,8 @@ bg={bg_ms:.1}ms n={view_count}"
                         "_PDFULSHOW" => ctx.shown,
                         "_PDFULSNAP" => ctx.snap,
                         _ => false,
-                    }, &self.active_theme
+                    },
+                    &self.active_theme,
                 )
             } else {
                 None
@@ -1939,9 +1946,10 @@ bg={bg_ms:.1}ms n={view_count}"
             if let Some(tb) = selection_tools {
                 viewport_stack = viewport_stack.push(tb);
             } else if is_paper && !tab.is_start {
-                if let Some(tb) =
-                    crate::ui::side_toolbar::view(&crate::modules::layout::paper_space_tools(), &self.active_theme)
-                {
+                if let Some(tb) = crate::ui::side_toolbar::view(
+                    &crate::modules::layout::paper_space_tools(),
+                    &self.active_theme,
+                ) {
                     viewport_stack = viewport_stack.push(tb);
                 }
             }
@@ -1950,7 +1958,8 @@ bg={bg_ms:.1}ms n={view_count}"
             // so the edit can be finished by clicking. (#136)
             if tab.refedit_session.is_some() && !tab.is_start {
                 if let Some(tb) = crate::ui::side_toolbar::view(
-                    &crate::modules::draw::modify::refedit::refedit_tools(), &self.active_theme
+                    &crate::modules::draw::modify::refedit::refedit_tools(),
+                    &self.active_theme,
                 ) {
                     viewport_stack = viewport_stack.push(tb);
                 }
@@ -1959,7 +1968,8 @@ bg={bg_ms:.1}ms n={view_count}"
             // BEDIT block editor: right-edge Save Block / Discard toolbar (#261).
             if tab.active_block_edit.is_some() && !tab.is_start {
                 if let Some(tb) = crate::ui::side_toolbar::view(
-                    &crate::modules::draw::modify::block_edit::block_edit_tools(), &self.active_theme
+                    &crate::modules::draw::modify::block_edit::block_edit_tools(),
+                    &self.active_theme,
                 ) {
                     viewport_stack = viewport_stack.push(tb);
                 }
@@ -2096,8 +2106,10 @@ bg={bg_ms:.1}ms n={view_count}"
                                 );
                                 crate::ui::popup::cycle_popup::CycleCandidate {
                                     handle: h,
-                                    type_name: crate::t!(crate::entities::traits::entity_type_name(e))
-                                        .into_owned(),
+                                    type_name: crate::t!(
+                                        crate::entities::traits::entity_type_name(e)
+                                    )
+                                    .into_owned(),
                                     layer: e.common().layer.clone(),
                                     color: style.0,
                                 }
@@ -2179,11 +2191,8 @@ bg={bg_ms:.1}ms n={view_count}"
                     ));
                 }
                 if let Some(ed) = &self.text_inline {
-                    viewport_stack = viewport_stack.push(text_inline_overlay(
-                        ed,
-                        canvas,
-                        &self.active_theme,
-                    ));
+                    viewport_stack =
+                        viewport_stack.push(text_inline_overlay(ed, canvas, &self.active_theme));
                 }
             }
         }
@@ -2235,7 +2244,8 @@ bg={bg_ms:.1}ms n={view_count}"
         // keeps the air between a card and the window frame — the panel never
         // touches the edge on three sides. Vendor themes keep their flush
         // docks, where the strip band is meant to meet the frame.
-        let sheet = crate::ui::style::draftflow_theme::draftflow_colors(&self.active_theme).is_some();
+        let sheet =
+            crate::ui::style::draftflow_theme::draftflow_colors(&self.active_theme).is_some();
         let mut parts: Vec<Element<'_, Message>> = Vec::new();
         if let Some(e) = left_edge {
             let pad = if sheet {
@@ -2349,14 +2359,12 @@ bg={bg_ms:.1}ms n={view_count}"
                 ]
                 .spacing(tokens::GAP_CONTROL)
                 .align_y(iced::Center);
-                let selection_overlay = iced::widget::container(
-                    kit::surface(
-                        pills,
-                        kit::Tier::Card,
-                        iced::Padding::from([tokens::GAP_CONTROL, tokens::GAP_FIELD]),
-                        "",
-                    ),
-                )
+                let selection_overlay = iced::widget::container(kit::surface(
+                    pills,
+                    kit::Tier::Card,
+                    iced::Padding::from([tokens::GAP_CONTROL, tokens::GAP_FIELD]),
+                    "",
+                ))
                 .width(Fill)
                 .height(Fill)
                 .align_x(iced::alignment::Horizontal::Right)
@@ -2425,7 +2433,8 @@ bg={bg_ms:.1}ms n={view_count}"
                         left: tokens::GAP_SECTION,
                     });
                     if sheet {
-                        bar.style(|theme: &Theme| kit::sheet_style(theme, "")).into()
+                        bar.style(|theme: &Theme| kit::sheet_style(theme, ""))
+                            .into()
                     } else {
                         bar.into()
                     }
@@ -2440,14 +2449,14 @@ bg={bg_ms:.1}ms n={view_count}"
                     ));
                 }
                 if !on_start {
-                    col = col.push(
-                        iced::widget::container(tools).width(Fill).padding(iced::Padding {
+                    col = col.push(iced::widget::container(tools).width(Fill).padding(
+                        iced::Padding {
                             top: tokens::GAP_CONTROL,
                             right: tokens::GAP_SECTION,
                             bottom: 0.0,
                             left: tokens::GAP_SECTION,
-                        }),
-                    );
+                        },
+                    ));
                     if !sheet {
                         col = col.push(crate::ui::ribbon::ribbon_hairline());
                     }
@@ -2802,8 +2811,7 @@ bg={bg_ms:.1}ms n={view_count}"
         if self.modal_entrance == iced::Vector::ZERO {
             return iced::Vector::ZERO;
         }
-        let left = 1.0
-            - crate::ui::motion::value(crate::ui::motion::MODAL_FADE).clamp(0.0, 1.0);
+        let left = 1.0 - crate::ui::motion::value(crate::ui::motion::MODAL_FADE).clamp(0.0, 1.0);
         self.modal_entrance * left
     }
 
@@ -2868,8 +2876,7 @@ impl DraftFlowCAD {
         let readonly_edge_tick = if !crate::ui::motion::enabled()
             && self.readonly_edge_at.is_some_and(|t| {
                 t.elapsed().as_millis() < crate::ui::motion::READONLY_EDGE_TIME as u128
-            })
-        {
+            }) {
             window::frames().map(Message::Tick)
         } else {
             Subscription::none()
@@ -3340,7 +3347,9 @@ pub(super) fn doc_tab_bar<'a>(
 
         // Start tab is fixed — no close button. Every other tab gets a close.
         let row_inner: Row<'_, Message> = if tab.is_start {
-            row![title_btn].spacing(tokens::GAP_NONE).align_y(iced::Center)
+            row![title_btn]
+                .spacing(tokens::GAP_NONE)
+                .align_y(iced::Center)
         } else {
             // Closing a drawing destroys work, but a framed red plate beside
             // every open tab would make the strip read as an alarm: `QuietDanger`
@@ -3789,24 +3798,21 @@ fn start_left<'a>(recents: &'a [std::path::PathBuf], theme: &Theme) -> Element<'
         )
         .push(Space::new().height(Fill))
         .push(
-        row![
-            positive_glyph(crate::ui::icons::CHECK, 13.0),
-            meta("GNU GPL v3"),
-            Space::new().width(Fill),
-            meta(format!("DraftFlow CAD {}", env!("CARGO_PKG_VERSION"))),
-        ]
-        .spacing(tokens::GAP_CONTROL)
-        .align_y(iced::Center),
-    );
+            row![
+                positive_glyph(crate::ui::icons::CHECK, 13.0),
+                meta("GNU GPL v3"),
+                Space::new().width(Fill),
+                meta(format!("DraftFlow CAD {}", env!("CARGO_PKG_VERSION"))),
+            ]
+            .spacing(tokens::GAP_CONTROL)
+            .align_y(iced::Center),
+        );
     col.into()
 }
 
 /// The right rail: autosave, the file commands' chords, the tips the drawing
 /// pipeline actually honours, and a shortcut back into the newest drawing.
-fn start_right<'a>(
-    savetime_min: i32,
-    recents: &'a [std::path::PathBuf],
-) -> Element<'a, Message> {
+fn start_right<'a>(savetime_min: i32, recents: &'a [std::path::PathBuf]) -> Element<'a, Message> {
     let card = move |title: String, body: Element<'a, Message>| -> Element<'a, Message> {
         kit::surface(
             column![
@@ -3847,11 +3853,20 @@ fn start_right<'a>(
 
     let mut shortcuts = column![].spacing(tokens::GAP_TIGHT).width(Fill);
     for (label, chord) in [
-        (crate::tr!("start", "new-drawing").to_string(), super::shortcuts::chord("N")),
-        (crate::tr!("start", "open-file").to_string(), super::shortcuts::chord("O")),
+        (
+            crate::tr!("start", "new-drawing").to_string(),
+            super::shortcuts::chord("N"),
+        ),
+        (
+            crate::tr!("start", "open-file").to_string(),
+            super::shortcuts::chord("O"),
+        ),
         (crate::t!("Save").to_string(), super::shortcuts::chord("S")),
         (crate::t!("Print").to_string(), super::shortcuts::chord("P")),
-        (crate::tr!("start", "command-list").to_string(), "F1".to_string()),
+        (
+            crate::tr!("start", "command-list").to_string(),
+            "F1".to_string(),
+        ),
     ] {
         shortcuts = shortcuts.push(start_shortcut_row(label, chord));
     }
@@ -4036,14 +4051,10 @@ fn meta_ink<'a>(label: impl Into<String>) -> Element<'a, Message> {
 
 /// A right-aligned numeric column in the recent-documents table.
 fn right_cell<'a>(label: String, width: f32) -> Element<'a, Message> {
-    container(
-        text(label)
-            .size(tokens::TEXT_LABEL)
-            .style(kit::faint_style),
-    )
-    .width(width)
-    .align_x(iced::alignment::Horizontal::Right)
-    .into()
+    container(text(label).size(tokens::TEXT_LABEL).style(kit::faint_style))
+        .width(width)
+        .align_x(iced::alignment::Horizontal::Right)
+        .into()
 }
 
 // ── Recent Documents panel (Start tab) ────────────────────────────────────
@@ -4079,7 +4090,6 @@ fn recent_is_missing(path: &std::path::Path) -> bool {
     !path.exists()
 }
 
-
 /// The age band filter reads the file's last write time; an entry whose
 /// metadata cannot be read is kept in every band rather than silently hidden.
 fn recent_within_band(path: &std::path::Path, filter: super::StartFilter) -> bool {
@@ -4099,7 +4109,6 @@ fn recent_age_secs(path: &std::path::Path) -> Option<u64> {
         .ok()
         .map(|elapsed| elapsed.as_secs())
 }
-
 
 pub(super) fn recent_files_panel<'a>(
     recents: &'a [std::path::PathBuf],
@@ -4215,12 +4224,9 @@ pub(super) fn recent_files_panel<'a>(
 
     let empty_state = |label: String| -> Element<'a, Message> {
         container(
-            column![
-                glyph(crate::ui::icons::DOC, 22.0),
-                meta(label),
-            ]
-            .spacing(tokens::GAP_ROW)
-            .align_x(iced::alignment::Horizontal::Center),
+            column![glyph(crate::ui::icons::DOC, 22.0), meta(label),]
+                .spacing(tokens::GAP_ROW)
+                .align_x(iced::alignment::Horizontal::Center),
         )
         .width(Fill)
         .height(Fill)
@@ -4292,13 +4298,13 @@ pub(super) fn recent_files_panel<'a>(
                         .size(tokens::TEXT_LABEL)
                         .style(move |_: &Theme| state_ink),
                 )
-                    .padding(iced::Padding {
-                        top: 1.0,
-                        right: tokens::GAP_CONTROL,
-                        bottom: 1.0,
-                        left: tokens::GAP_CONTROL,
-                    })
-                    .style(move |theme: &Theme| kit::Tier::Well.style(theme, "start:card2")),
+                .padding(iced::Padding {
+                    top: 1.0,
+                    right: tokens::GAP_CONTROL,
+                    bottom: 1.0,
+                    left: tokens::GAP_CONTROL,
+                })
+                .style(move |theme: &Theme| kit::Tier::Well.style(theme, "start:card2")),
             )
             .width(STATUS_W)
             .align_x(iced::alignment::Horizontal::Left);
@@ -4453,7 +4459,6 @@ fn recent_facts(path: &std::path::Path) -> (String, String) {
     (modified, size)
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -4578,7 +4583,10 @@ mod tests {
             if let Some(rest) = line.strip_prefix("pub(crate) ") {
                 let name = rest.split(':').next().unwrap_or("").trim();
                 assert!(
-                    matches!(name, "rect" | "camera" | "render_mode" | "grid_on" | "snap_on"),
+                    matches!(
+                        name,
+                        "rect" | "camera" | "render_mode" | "grid_on" | "snap_on"
+                    ),
                     "ModelTile grew field `{name}` outside the ruled set — focus \
                      feedback is item 32's push-in, not a ring (2026-11-20 ruling)"
                 );
@@ -4688,9 +4696,7 @@ mod tests {
         );
         let view = include_str!("mod.rs");
         let prod = view.split("\n#[cfg(test)]").next().unwrap_or(view);
-        let start = prod
-            .find("fn render_mode_veil(")
-            .expect("the veil builder");
+        let start = prod.find("fn render_mode_veil(").expect("the veil builder");
         let end = prod[start..]
             .find("\n    fn ")
             .map(|o| start + o)
@@ -4836,7 +4842,10 @@ mod tests {
             let t = std::time::Instant::now();
             let scrim = DraftFlowCAD::menu_scrim();
             scrim_ns.push(t.elapsed().as_nanos() as u64);
-            assert!(scrim.is_some(), "the probe must run while the scrim is live");
+            assert!(
+                scrim.is_some(),
+                "the probe must run while the scrim is live"
+            );
             let t = std::time::Instant::now();
             let _base: Element<'static, Message> =
                 container(Space::new()).width(Fill).height(Fill).into();

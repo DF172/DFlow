@@ -27,7 +27,6 @@ pub(crate) fn temp_pdf_path(kind: &str) -> std::path::PathBuf {
     ))
 }
 
-
 /// Extra options for a print job. On CUPS (Linux/macOS) these map to `lp`
 /// flags / `-o` options. On Windows the generated PDF already carries render
 /// options. Windows queues repeated jobs when more than one copy is requested;
@@ -50,10 +49,6 @@ pub struct PrintOptions {
     #[cfg_attr(target_os = "windows", allow(dead_code))]
     pub driver_options: Vec<(String, String)>,
 }
-
-
-
-
 
 /// Enumerate installed printers. Linux/macOS query CUPS via `lpstat -e`;
 /// Windows queries the spooler's cached local and connected printer list.
@@ -164,8 +159,6 @@ pub fn printer_media_report(printer: &str) -> Vec<String> {
     }
     lines
 }
-
-
 
 /// The Windows default printer, as the spooler names it.
 #[cfg(target_os = "windows")]
@@ -541,7 +534,6 @@ pub fn open_printer_properties(printer: Option<&str>) -> Result<(), String> {
         .map(|_| ())
         .map_err(|error| format!("Could not open printer properties: {error}"))
 }
-
 
 /// Render a page and send it to the selected printer.
 pub async fn print_wires_with(
@@ -1252,8 +1244,6 @@ pub fn preview_page_pdf(
     }
 }
 
-
-
 /// Dispatch a PDF to a specific printer with [`PrintOptions`].
 fn dispatch_to_printer_opts(path: &std::path::Path, opts: &PrintOptions) -> Result<String, String> {
     #[cfg(target_os = "windows")]
@@ -1391,7 +1381,9 @@ mod printer_properties_tests {
 
     #[cfg(target_os = "windows")]
     fn hold_spooler() -> std::sync::MutexGuard<'static, ()> {
-        SPOOL_LOCK.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
+        SPOOL_LOCK
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
     }
 
     /// The GDI fallback rasterises the plot PDF in-process; prove the 300 DPI

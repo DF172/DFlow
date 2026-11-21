@@ -1,7 +1,7 @@
 //! FIELD and the Field dialog behind the ƒ buttons of the attribute
 //! definition dialogs.
 
-use crate::app::{Message, DraftFlowCAD};
+use crate::app::{DraftFlowCAD, Message};
 use crate::command::CadCommand;
 use crate::modules::annotate::field_cmd::{
     FieldObjectPickCommand, FieldPlaceCommand, FieldTablePickCommand,
@@ -30,8 +30,10 @@ impl DraftFlowCAD {
                     .trim();
                 let current = crate::entities::field::fieldeval(&self.tabs[i].scene.document);
                 let ask = |app: &mut Self| {
-                    app.command_line
-                        .push_output(&crate::tf!("Enter new value for FIELDEVAL <{current}>:", current = current));
+                    app.command_line.push_output(&crate::tf!(
+                        "Enter new value for FIELDEVAL <{current}>:",
+                        current = current
+                    ));
                     app.pending_setvar = Some("FIELDEVAL".into());
                 };
                 match value.parse::<i32>() {

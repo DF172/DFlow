@@ -19,7 +19,9 @@ pub fn default_config_dir() -> Option<PathBuf> {
     // user's alias file holding a single line. Every store routes through here,
     // so one per-process scratch folder isolates them all.
     if cfg!(test) {
-        return Some(std::env::temp_dir().join(format!("draftflow-test-config-{}", std::process::id())));
+        return Some(
+            std::env::temp_dir().join(format!("draftflow-test-config-{}", std::process::id())),
+        );
     }
     let base: PathBuf = if cfg!(target_os = "windows") {
         std::env::var_os("APPDATA").map(PathBuf::from)?
@@ -124,7 +126,10 @@ mod pointer {
         if rc != 0 {
             return None;
         }
-        let len = buffer.iter().position(|unit| *unit == 0).unwrap_or(buffer.len());
+        let len = buffer
+            .iter()
+            .position(|unit| *unit == 0)
+            .unwrap_or(buffer.len());
         let text = String::from_utf16_lossy(&buffer[..len]);
         if text.trim().is_empty() {
             None
@@ -155,8 +160,16 @@ mod pointer {
         let name = wide(&value_name());
         let data = wide(&path.display().to_string());
         let cb = (data.len() * std::mem::size_of::<u16>()) as u32;
-        let rc =
-            unsafe { RegSetValueExW(key, name.as_ptr(), 0, REG_SZ, data.as_ptr() as *const u8, cb) };
+        let rc = unsafe {
+            RegSetValueExW(
+                key,
+                name.as_ptr(),
+                0,
+                REG_SZ,
+                data.as_ptr() as *const u8,
+                cb,
+            )
+        };
         unsafe { RegCloseKey(key) };
         if rc != 0 {
             return Err(format!("Could not store the folder location ({rc})"));
@@ -195,7 +208,8 @@ mod pointer {
     }
 
     pub(super) fn read() -> Option<PathBuf> {
-        file().and_then(|path| std::fs::read_to_string(path).ok())
+        file()
+            .and_then(|path| std::fs::read_to_string(path).ok())
             .map(|text| PathBuf::from(text.trim()))
             .filter(|path| path.is_absolute())
     }
@@ -454,7 +468,8 @@ fn plan_move(
     if !from.exists() {
         return Ok(());
     }
-    let entries = std::fs::read_dir(from).map_err(|error| format!("{}: {error}", from.display()))?;
+    let entries =
+        std::fs::read_dir(from).map_err(|error| format!("{}: {error}", from.display()))?;
     for entry in entries.flatten() {
         let src = entry.path();
         let name = entry.file_name();

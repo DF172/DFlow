@@ -1949,7 +1949,9 @@ mod view_fly_tests {
         // geometry epoch the extents cache is keyed on.
         scene.add_entity(codec::EntityType::Line(far));
         scene.fit_all();
-        let second = scene.view_fly_target().expect("the second fit must fly too");
+        let second = scene
+            .view_fly_target()
+            .expect("the second fit must fly too");
         assert!(second != first, "fixture: the destination must change");
         assert_eq!(
             pose(&scene),

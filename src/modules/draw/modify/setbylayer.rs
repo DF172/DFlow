@@ -127,11 +127,13 @@ impl CadCommand for SetByLayerCommand {
             Step::ByBlock => crate::tf!(
                 "Change ByBlock to ByLayer? [Yes/No] <{}>:",
                 if self.change_byblock { "Yes" } else { "No" }
-            ).into_owned(),
+            )
+            .into_owned(),
             Step::Blocks => crate::tf!(
                 "Include blocks? [Yes/No] <{}>:",
                 if self.include_blocks { "Yes" } else { "No" }
-            ).into_owned(),
+            )
+            .into_owned(),
         }
     }
     fn is_selection_gathering(&self) -> bool {

@@ -1025,15 +1025,25 @@ impl SectionCommand {
                 } else {
                     "Entire cross section"
                 }
-            ).into_owned(),
-            SectionStep::MinLength => crate::tf!("Minimum line length <{}>:", s.min_length).into_owned(),
-            SectionStep::Connect => crate::tf!("Connect lines tolerance <{}>:", s.connect).into_owned(),
-            SectionStep::Angle => crate::tf!("Collinear angle tolerance <{}>:", s.angle).into_owned(),
-            SectionStep::MaxPoints => crate::tf!("Maximum points to process <{}>:", s.max_points).into_owned(),
+            )
+            .into_owned(),
+            SectionStep::MinLength => {
+                crate::tf!("Minimum line length <{}>:", s.min_length).into_owned()
+            }
+            SectionStep::Connect => {
+                crate::tf!("Connect lines tolerance <{}>:", s.connect).into_owned()
+            }
+            SectionStep::Angle => {
+                crate::tf!("Collinear angle tolerance <{}>:", s.angle).into_owned()
+            }
+            SectionStep::MaxPoints => {
+                crate::tf!("Maximum points to process <{}>:", s.max_points).into_owned()
+            }
             SectionStep::Output => crate::tf!(
                 "Output geometry [Lines/2D Polylines] <{}>:",
                 if s.polylines { "2D Polylines" } else { "Lines" }
-            ).into_owned(),
+            )
+            .into_owned(),
             _ => String::new(),
         }
     }

@@ -104,9 +104,6 @@ pub fn open_url<Message>(url: &str, _parent: Option<iced::window::Id>) -> iced::
     iced::Task::none()
 }
 
-
-
-
 /// Reveal a saved drawing in the native platform's file manager.
 pub fn reveal_in_file_manager(path: &std::path::Path) -> Result<(), String> {
     #[cfg(target_os = "windows")]
@@ -206,9 +203,6 @@ pub fn restore_window_if_minimized() -> bool {
     false
 }
 
-
-
-
 /// Turn an `rfd` file handle into a `PathBuf` the rest of the app keys on.
 pub fn handle_path(h: &rfd::FileHandle) -> std::path::PathBuf {
     let p = h.path().to_path_buf();
@@ -217,7 +211,6 @@ pub fn handle_path(h: &rfd::FileHandle) -> std::path::PathBuf {
     crate::config::remember_dialog_dir(&p);
     p
 }
-
 
 /// New async file dialog seeded with the last directory a dialog was used in.
 /// All pickers should start from this instead of `rfd::AsyncFileDialog::new()`.
@@ -242,10 +235,6 @@ pub fn blocking_file_dialog() -> rfd::FileDialog {
     }
 }
 
-
-
-
-
 // The live preview overlay's Download-button closure. The closure captures
 // a full copy of the PDF bytes, so `forget()`-ing it would leak one PDF per
 // preview; holding it here lets the next `show_pdf_preview` drop and free
@@ -259,7 +248,6 @@ pub fn blocking_file_dialog() -> rfd::FileDialog {
 pub fn platform_info() -> String {
     format!("{} {}", std::env::consts::OS, std::env::consts::ARCH)
 }
-
 
 /// Desktop crash log.
 ///
@@ -400,7 +388,10 @@ pub mod crash_log {
         // boundaries still place the fault.
         let backtrace = std::backtrace::Backtrace::force_capture();
         [
-            format!("DraftFlow CAD {} crash report", env!("DRAFTFLOW_APP_VERSION")),
+            format!(
+                "DraftFlow CAD {} crash report",
+                env!("DRAFTFLOW_APP_VERSION")
+            ),
             format!("when: {when} (unix seconds)"),
             format!("os: {} {}", std::env::consts::OS, std::env::consts::ARCH),
             format!("gpu backend: {backend}"),
@@ -432,12 +423,13 @@ pub mod crash_log {
         // it was lost — which is what the whole file exists to prevent.
         match landed {
             Some(path) => {
-                eprintln!("DraftFlow CAD crashed. Report written to {}", path.display());
+                eprintln!(
+                    "DraftFlow CAD crashed. Report written to {}",
+                    path.display()
+                );
             }
             None => {
-                eprintln!(
-                    "DraftFlow CAD crashed and could not write its crash report.\n{text}"
-                );
+                eprintln!("DraftFlow CAD crashed and could not write its crash report.\n{text}");
             }
         }
     }
@@ -500,7 +492,10 @@ pub mod crash_log {
         let mut files: Vec<(std::time::SystemTime, PathBuf)> = entries
             .flatten()
             .filter(|e| {
-                let name = e.path().file_name().map(|n| n.to_string_lossy().into_owned());
+                let name = e
+                    .path()
+                    .file_name()
+                    .map(|n| n.to_string_lossy().into_owned());
                 name.is_some_and(|n| n.starts_with("crash-") && n.ends_with(".log"))
             })
             .filter_map(|e| {
@@ -640,4 +635,3 @@ pub mod crash_log {
         }
     }
 }
-

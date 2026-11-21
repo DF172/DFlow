@@ -382,7 +382,11 @@ impl CadCommand for FreeTextValuePromptCommand {
     }
 
     fn on_text_input(&mut self, text: &str) -> Option<CmdResult> {
-        Some(CmdResult::Dispatch(format!("{} {}", self.name, text.trim())))
+        Some(CmdResult::Dispatch(format!(
+            "{} {}",
+            self.name,
+            text.trim()
+        )))
     }
 
     fn on_point(&mut self, _pt: DVec3) -> CmdResult {

@@ -4,9 +4,9 @@
 //! object to the current selection. Clicking outside dismisses it.
 
 use crate::ui::kit;
+use crate::ui::kit::plain_button;
 use iced::alignment::Horizontal;
 use iced::widget::{column, container, mouse_area, opaque, row, rule, space, text};
-use crate::ui::kit::plain_button;
 use iced::{Element, Fill, Length, Theme};
 
 use crate::app::Message;
@@ -64,7 +64,14 @@ pub fn cycle_popup_overlay(
             // at its resting weight, so nothing is drawn differently.
             let ink = row_weight(c.handle, hover, fade_old, t);
             item_row(
-                c.handle, c.type_name, c.layer, c.color, type_w, layer_w, ink, base_ink,
+                c.handle,
+                c.type_name,
+                c.layer,
+                c.color,
+                type_w,
+                layer_w,
+                ink,
+                base_ink,
                 accent_ink,
             )
         })
@@ -159,7 +166,11 @@ fn item_row(
             .height(Length::Fixed(9.0)),
     )
     .style(move |theme: &Theme| {
-        kit::swatch_style(theme, iced::Color::from_rgba(color[0], color[1], color[2], color[3]), "")
+        kit::swatch_style(
+            theme,
+            iced::Color::from_rgba(color[0], color[1], color[2], color[3]),
+            "",
+        )
     });
 
     let content = row![
@@ -239,8 +250,8 @@ mod cycle_row_ink_tests {
         assert_eq!(row_weight(new, Some(new), Some(old), 1.0), 1.0);
         for step in 0..=4 {
             let t = step as f32 / 4.0;
-            let sum = row_weight(old, Some(new), Some(old), t)
-                + row_weight(new, Some(new), Some(old), t);
+            let sum =
+                row_weight(old, Some(new), Some(old), t) + row_weight(new, Some(new), Some(old), t);
             assert!((sum - 1.0).abs() < 1e-6, "the pair must always sum to 1");
             assert_eq!(
                 row_weight(other, Some(new), Some(old), t),
@@ -260,7 +271,12 @@ mod cycle_row_ink_tests {
         let mut acc = 0.0f32;
         for k in 0..200_000u32 {
             let t = (k % 60) as f32 / 60.0;
-            acc += row_ink_mix(base_ink, accent_ink, row_weight(new, Some(new), Some(old), t)).r;
+            acc += row_ink_mix(
+                base_ink,
+                accent_ink,
+                row_weight(new, Some(new), Some(old), t),
+            )
+            .r;
         }
         let per_row_ns = t0.elapsed().as_secs_f64() * 1e9 / 200_000.0;
 

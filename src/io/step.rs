@@ -252,7 +252,6 @@ pub fn build_step(meshes: &[&MeshModel]) -> Option<String> {
     Some(file)
 }
 
-
 /// Returns an ISO 8601-like timestamp string for the STEP file header.
 fn chrono_timestamp() -> String {
     // Use seconds since Unix epoch for a simple timestamp without chrono dep.

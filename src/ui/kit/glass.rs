@@ -21,7 +21,7 @@ use crate::ui::style::tokens;
 use bytemuck::{Pod, Zeroable};
 use iced::widget::shader::{self, Backdrop, Viewport};
 use iced::widget::{Shader, Stack};
-use iced::{Color, Element, Length, Rectangle, Theme, wgpu};
+use iced::{wgpu, Color, Element, Length, Rectangle, Theme};
 use rustc_hash::FxHashMap;
 use std::sync::Mutex;
 
@@ -91,11 +91,7 @@ impl GlassPipeline {
 }
 
 impl shader::Pipeline for GlassPipeline {
-    fn new(
-        device: &wgpu::Device,
-        _queue: &wgpu::Queue,
-        format: wgpu::TextureFormat,
-    ) -> Self {
+    fn new(device: &wgpu::Device, _queue: &wgpu::Queue, format: wgpu::TextureFormat) -> Self {
         let layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("draftflow.glass.layout"),
             entries: &[
@@ -303,24 +299,26 @@ impl shader::Primitive for GlassPane {
             return false;
         };
 
-        let bind_group = pipeline.device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("draftflow.glass.bind"),
-            layout: &pipeline.layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::TextureView(backdrop.view),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: wgpu::BindingResource::Sampler(&pipeline.sampler),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 2,
-                    resource: buffer.as_entire_binding(),
-                },
-            ],
-        });
+        let bind_group = pipeline
+            .device
+            .create_bind_group(&wgpu::BindGroupDescriptor {
+                label: Some("draftflow.glass.bind"),
+                layout: &pipeline.layout,
+                entries: &[
+                    wgpu::BindGroupEntry {
+                        binding: 0,
+                        resource: wgpu::BindingResource::TextureView(backdrop.view),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 1,
+                        resource: wgpu::BindingResource::Sampler(&pipeline.sampler),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 2,
+                        resource: buffer.as_entire_binding(),
+                    },
+                ],
+            });
 
         // The pass already carries this pane's viewport and scissor, so the
         // draw is one triangle that covers the clip rect and the shader decides
@@ -349,12 +347,7 @@ impl<Message> shader::Program<Message> for GlassPlate {
     type State = ();
     type Primitive = GlassPane;
 
-    fn draw(
-        &self,
-        _state: &(),
-        _cursor: iced::mouse::Cursor,
-        bounds: Rectangle,
-    ) -> GlassPane {
+    fn draw(&self, _state: &(), _cursor: iced::mouse::Cursor, bounds: Rectangle) -> GlassPane {
         GlassPane {
             bounds,
             tint: self.tint,
@@ -398,9 +391,7 @@ where
         fade: crate::ui::motion::value_or(track, 1.0),
     };
 
-    let glass = Shader::new(plate)
-        .width(Length::Fill)
-        .height(Length::Fill);
+    let glass = Shader::new(plate).width(Length::Fill).height(Length::Fill);
 
     // `push_under` is what keeps the two in the order the channel needs. The
     // first child of a `Stack` is painted inside the overlay's own layer and
@@ -631,9 +622,15 @@ mod tests {
             "the floating dock panel stopped reading the drawing through its frame"
         );
         for (path, src) in [
-            ("src/ui/command_line.rs", include_str!("../../ui/command_line.rs")),
+            (
+                "src/ui/command_line.rs",
+                include_str!("../../ui/command_line.rs"),
+            ),
             ("src/app/view/mod.rs", include_str!("../../app/view/mod.rs")),
-            ("src/app/view/overlay.rs", include_str!("../../app/view/overlay.rs")),
+            (
+                "src/app/view/overlay.rs",
+                include_str!("../../app/view/overlay.rs"),
+            ),
         ] {
             assert!(
                 src.contains("kit::glass_pane("),

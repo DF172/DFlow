@@ -252,7 +252,8 @@ impl CadCommand for PointCloudCropCommand {
             Step::Keep => crate::tf!(
                 "Keep points inside or outside? [Inside/Outside] <{}>:",
                 if last_inside() { "Inside" } else { "Outside" }
-            ).into_owned(),
+            )
+            .into_owned(),
         }
     }
 

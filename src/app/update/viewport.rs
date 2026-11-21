@@ -8,7 +8,7 @@ use crate::app::helpers::{
     polar_constrain_if_near, polar_constrain_near, ucs_rotate_vec, ucs_to_wcs, ucs_z_axis,
     CoordKind,
 };
-use crate::app::{Message, DraftFlowCAD, POLY_START_DELAY_MS};
+use crate::app::{DraftFlowCAD, Message, POLY_START_DELAY_MS};
 use crate::modules::ModuleEvent;
 use crate::scene::model::object::GripApply;
 use crate::scene::pick::grip::{
@@ -1071,8 +1071,11 @@ impl DraftFlowCAD {
         // directly would step the bar; the track is also the only thing keeping
         // a frame subscription alive while the sweep is indeterminate.
         if let Some(p) = self.opening.as_ref() {
-            let target = p.state.basis_points.load(std::sync::atomic::Ordering::Relaxed).min(10000)
-                as f32
+            let target = p
+                .state
+                .basis_points
+                .load(std::sync::atomic::Ordering::Relaxed)
+                .min(10000) as f32
                 / 10000.0;
             // A fresh open starts the bar at zero: the track is never pruned,
             // and without this the next file would begin at the last one's
@@ -1081,7 +1084,11 @@ impl DraftFlowCAD {
                 self.progress_seed = Some(p.started);
                 crate::ui::motion::set(crate::ui::motion::PROGRESS, 0.0, 0);
             }
-            crate::ui::motion::chase(crate::ui::motion::PROGRESS, target, crate::ui::motion::CHASE_MS);
+            crate::ui::motion::chase(
+                crate::ui::motion::PROGRESS,
+                target,
+                crate::ui::motion::CHASE_MS,
+            );
         }
 
         Task::none()
@@ -2839,9 +2846,7 @@ impl DraftFlowCAD {
                 if !self.angle_snap_engaged {
                     if let Some(base) = self.last_point {
                         let w2s = |w: glam::DVec3| {
-                            crate::scene::pick::hit_test::world_to_screen(
-                                w, view_rot, eye, bounds,
-                            )
+                            crate::scene::pick::hit_test::world_to_screen(w, view_rot, eye, bounds)
                         };
                         let base_s = w2s(base);
                         let pre_s = w2s(pre);
@@ -2851,8 +2856,8 @@ impl DraftFlowCAD {
                         let delta = (to - from + std::f32::consts::PI)
                             .rem_euclid(std::f32::consts::TAU)
                             - std::f32::consts::PI;
-                        let reach = ((post_s.x - base_s.x).hypot(post_s.y - base_s.y))
-                            .clamp(24.0, 120.0);
+                        let reach =
+                            ((post_s.x - base_s.x).hypot(post_s.y - base_s.y)).clamp(24.0, 120.0);
                         // A cursor already on the locked axis has no angular
                         // travel to show; the edge still latches so leaving
                         // and re-entering the axis replays exactly once.
@@ -3829,8 +3834,10 @@ impl DraftFlowCAD {
                 self.tabs[i].scene.select_entities(&handles);
                 self.refresh_selected_grips();
                 self.refresh_properties();
-                self.command_line
-                    .push_info(&crate::tf!("{} constraint selected.", crate::t!(kind.label())));
+                self.command_line.push_info(&crate::tf!(
+                    "{} constraint selected.",
+                    crate::t!(kind.label())
+                ));
                 self.tabs[i]
                     .scene
                     .selection
@@ -6294,11 +6301,11 @@ properties={:.1}ms picked={}",
         // the view with exactly the math the drag used (`Camera::spin`).
         let scale = crate::scene::view::camera::Camera::ORBIT_RAD_PER_PX;
         self.tabs[tab].scene.refresh_projection_bounds();
-        self.tabs[tab]
-            .scene
-            .camera
-            .borrow_mut()
-            .spin(dyaw * scale, dpitch * scale, self.orbit_glide_pivot);
+        self.tabs[tab].scene.camera.borrow_mut().spin(
+            dyaw * scale,
+            dpitch * scale,
+            self.orbit_glide_pivot,
+        );
         self.tabs[tab].scene.camera_generation += 1;
     }
 
@@ -6404,9 +6411,8 @@ properties={:.1}ms picked={}",
         if (extra - prev).abs() < 1e-6 {
             return;
         }
-        let steps = crate::scene::view::camera::Camera::zoom_steps_for_ratio(
-            (1.0 + extra) / (1.0 + prev),
-        );
+        let steps =
+            crate::scene::view::camera::Camera::zoom_steps_for_ratio((1.0 + extra) / (1.0 + prev));
         if steps != 0.0 {
             if self.tabs[i].scene.active_viewport.is_some() {
                 self.tabs[i].scene.zoom_active_viewport(steps, None);
@@ -6439,7 +6445,8 @@ properties={:.1}ms picked={}",
     /// model-space view moves (zoom/pan), so the selection rectangle tracks the
     /// drawing instead of staying frozen at its original pixel. No-op when no
     /// box is in progress. (#234)
-    pub(in crate::app) fn reproject_box_anchor(&mut self, i: usize, vw: f32, vh: f32) {        let world = self.tabs[i]
+    pub(in crate::app) fn reproject_box_anchor(&mut self, i: usize, vw: f32, vh: f32) {
+        let world = self.tabs[i]
             .scene
             .selection
             .borrow()
@@ -6552,7 +6559,12 @@ properties={:.1}ms picked={}",
         self.snap_view_region_as(region, glam::Mat4::IDENTITY, false)
     }
 
-    fn snap_view_region_as(&mut self, region: CubeRegion, r_ucs: glam::Mat4, cube: bool) -> Task<Message> {
+    fn snap_view_region_as(
+        &mut self,
+        region: CubeRegion,
+        r_ucs: glam::Mat4,
+        cube: bool,
+    ) -> Task<Message> {
         let i = self.active_tab;
         self.clear_navigation_hover(i);
         self.tabs[i].scene.remember_current_view();
@@ -7663,7 +7675,7 @@ mod snap_elevation_tests {
 #[cfg(test)]
 mod selection_preview_tests {
     use super::*;
-    use crate::app::{HoverDwell, DraftFlowCAD, HOVER_DWELL_MS};
+    use crate::app::{DraftFlowCAD, HoverDwell, HOVER_DWELL_MS};
 
     #[test]
     fn lower_endpoint_drag_previews_connected_tangent_profile_and_keeps_top_fixed() {
@@ -9087,7 +9099,8 @@ mod view_glide_tests {
         let step_ms = 16.0;
         for n in 1..=6 {
             let px = 300.0 * (n as f32) * step_ms / 1000.0;
-            app.pan_vel_x.push(t0 + Duration::from_millis((step_ms * n as f32) as u64), px);
+            app.pan_vel_x
+                .push(t0 + Duration::from_millis((step_ms * n as f32) as u64), px);
         }
         app.end_pan_gesture();
 
@@ -9138,7 +9151,10 @@ mod view_glide_tests {
         motion::tick_springs_dt(1.0 / 60.0);
         app.tick_view_glides(Instant::now());
 
-        assert!(!motion::spring_active(ZOOM_GLIDE), "the glide must be dropped");
+        assert!(
+            !motion::spring_active(ZOOM_GLIDE),
+            "the glide must be dropped"
+        );
         assert_eq!(
             app.tabs[1].scene.camera.borrow().distance,
             other,
@@ -9162,8 +9178,7 @@ mod view_glide_tests {
         app.pan_vel_x.push(t0, 0.0);
         app.pan_drag_active = true;
         // 10 px/s — under PAN_GLIDE_MIN.
-        app.pan_vel_x
-            .push(t0 + Duration::from_millis(100), 1.0);
+        app.pan_vel_x.push(t0 + Duration::from_millis(100), 1.0);
         app.end_pan_gesture();
 
         assert!(!motion::spring_active(PAN_GLIDE_X));
@@ -9221,7 +9236,10 @@ mod view_orient_tests {
         set_camera(&mut app, start);
         let region = CubeRegion::Face(0);
         let target = face_target(&app, region);
-        assert!(!quat_eq(start, target), "fixture must have somewhere to turn");
+        assert!(
+            !quat_eq(start, target),
+            "fixture must have somewhere to turn"
+        );
 
         let _ = app.snap_view_preset(region);
         assert!(
@@ -9645,10 +9663,12 @@ mod state_visibility_motion_tests {
         app.snapper.otrack_enabled = false;
         app.ortho_mode = false;
         app.polar_mode = false;
-        let handle = app.tabs[0].scene.add_entity(EntityType::Line(Line::from_points(
-            Vector3::ZERO,
-            Vector3::new(4.0, 0.0, 0.0),
-        )));
+        let handle = app.tabs[0]
+            .scene
+            .add_entity(EntityType::Line(Line::from_points(
+                Vector3::ZERO,
+                Vector3::new(4.0, 0.0, 0.0),
+            )));
         app.tabs[0].active_grip = Some(GripEdit::single(handle, 0, false, glam::DVec3::ZERO));
         (app, handle)
     }
@@ -9767,7 +9787,12 @@ mod state_visibility_motion_tests {
         let before = Instant::now();
         let _ = app.update(Message::EnterViewport(h));
         let after = Instant::now();
-        assert_pulse_fired(motion::VP_RING_PULSE, motion::VP_RING_PULSE_TIME, before, after);
+        assert_pulse_fired(
+            motion::VP_RING_PULSE,
+            motion::VP_RING_PULSE_TIME,
+            before,
+            after,
+        );
         assert_subscription_while_inside(motion::VP_RING_PULSE, after);
         assert_on_fall_curve(motion::VP_RING_PULSE);
         std::thread::sleep(Duration::from_millis(30));
@@ -9846,7 +9871,12 @@ mod state_visibility_motion_tests {
         let before = Instant::now();
         app.fire_readonly_edge();
         let after = Instant::now();
-        assert_pulse_fired(motion::READONLY_EDGE, motion::READONLY_EDGE_TIME, before, after);
+        assert_pulse_fired(
+            motion::READONLY_EDGE,
+            motion::READONLY_EDGE_TIME,
+            before,
+            after,
+        );
         assert_subscription_while_inside(motion::READONLY_EDGE, after);
         assert!(app.readonly_edge_at.is_some());
         assert_on_fall_curve(motion::READONLY_EDGE);
@@ -9887,7 +9917,12 @@ mod state_visibility_motion_tests {
         let before = Instant::now();
         app.command_line.push_error("boom");
         let after = Instant::now();
-        assert_pulse_fired(motion::CMD_ERROR_PULSE, motion::CMD_ERROR_PULSE_TIME, before, after);
+        assert_pulse_fired(
+            motion::CMD_ERROR_PULSE,
+            motion::CMD_ERROR_PULSE_TIME,
+            before,
+            after,
+        );
         assert_subscription_while_inside(motion::CMD_ERROR_PULSE, after);
         assert_on_fall_curve(motion::CMD_ERROR_PULSE);
         std::thread::sleep(Duration::from_millis(30));
@@ -9906,7 +9941,12 @@ mod state_visibility_motion_tests {
         let before2 = Instant::now();
         app.command_line.push_error_once("boom");
         let after2 = Instant::now();
-        assert_pulse_fired(motion::CMD_ERROR_PULSE, motion::CMD_ERROR_PULSE_TIME, before2, after2);
+        assert_pulse_fired(
+            motion::CMD_ERROR_PULSE,
+            motion::CMD_ERROR_PULSE_TIME,
+            before2,
+            after2,
+        );
         std::thread::sleep(Duration::from_millis(160));
         assert!(!motion::running(motion::CMD_ERROR_PULSE));
         let cmdline = include_str!("../../ui/command_line.rs");
@@ -9937,7 +9977,12 @@ mod state_visibility_motion_tests {
         app.undo_steps(1);
         let after = Instant::now();
         assert_eq!(app.undo_highlight_steps, 1);
-        assert_pulse_fired(motion::UNDO_HIGHLIGHT, motion::UNDO_HIGHLIGHT_TIME, before, after);
+        assert_pulse_fired(
+            motion::UNDO_HIGHLIGHT,
+            motion::UNDO_HIGHLIGHT_TIME,
+            before,
+            after,
+        );
         assert_subscription_while_inside(motion::UNDO_HIGHLIGHT, after);
         assert_on_fall_curve(motion::UNDO_HIGHLIGHT);
         std::thread::sleep(Duration::from_millis(30));

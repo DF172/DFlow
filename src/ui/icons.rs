@@ -1044,7 +1044,11 @@ mod tests {
         let text = String::from_utf8_lossy(&themed);
 
         assert!(!text.contains("currentColor"));
-        assert_eq!(text.matches(std::str::from_utf8(&colors.text).unwrap()).count(), 2);
+        assert_eq!(
+            text.matches(std::str::from_utf8(&colors.text).unwrap())
+                .count(),
+            2
+        );
     }
 
     #[test]
@@ -1115,9 +1119,8 @@ mod themed_cache_tests {
     fn themed_cache_remove_for_test(ptr: *const u8, len: usize) {
         THEMED_CACHE.with(|c| {
             let mut c = c.borrow_mut();
-            c.map.retain(|(address, length, _), _| {
-                !(*address == ptr as usize && *length == len)
-            });
+            c.map
+                .retain(|(address, length, _), _| !(*address == ptr as usize && *length == len));
             for slot in &mut c.mru {
                 if let Some(((address, length, _), _)) = slot {
                     if *address == ptr as usize && *length == len {
@@ -1470,7 +1473,9 @@ mod check_cell_tests {
             "a glyph is built outside `glyph`, so it ignores the entrance alpha"
         );
         assert_eq!(
-            source.matches(["svg(", "themed_handle("].concat().as_str()).count(),
+            source
+                .matches(["svg(", "themed_handle("].concat().as_str())
+                .count(),
             1,
             "more than one glyph construction path"
         );

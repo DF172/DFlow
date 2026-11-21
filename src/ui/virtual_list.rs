@@ -120,7 +120,10 @@ mod tests {
             mid.end
         );
         assert!(mid.start > 0, "row 1000 must not start the list");
-        assert!(mid.top_spacer > 0.0, "rows above the window still reserve space");
+        assert!(
+            mid.top_spacer > 0.0,
+            "rows above the window still reserve space"
+        );
         let top = window(TOTAL, ROW, 0.0, VIEW);
         assert_eq!(top.start, 0);
         assert_eq!(top.top_spacer, 0.0);

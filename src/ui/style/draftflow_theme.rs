@@ -24,7 +24,7 @@
 //! drawing surface. DraftFlow Dark paints model space as a lighter charcoal than
 //! its shell, and DraftFlow Light paints a near-white sheet.
 
-use iced::theme::palette::{Background, Palette, Pair, Seed, Swatch};
+use iced::theme::palette::{Background, Pair, Palette, Seed, Swatch};
 use iced::{Color, Theme};
 
 /// Display name of the dark scheme. Persisted verbatim in `settings.json` as
@@ -328,10 +328,7 @@ mod tests {
     /// slot the kit reads is one of the named tokens, unchanged.
     #[test]
     fn the_palette_carries_the_named_tokens_exactly() {
-        for (theme, colors) in [
-            (draftflow_dark(), DARK),
-            (draftflow_light(), LIGHT),
-        ] {
+        for (theme, colors) in [(draftflow_dark(), DARK), (draftflow_light(), LIGHT)] {
             let p = theme.palette();
             assert_eq!(p.background.base.color, colors.shell);
             assert_eq!(p.background.weakest.color, colors.panel2);
@@ -428,19 +425,10 @@ mod tests {
 
     #[test]
     fn toggle_flips_between_the_two_schemes() {
-        assert_eq!(
-            toggle_theme(&draftflow_dark()).to_string(),
-            DRAFTFLOW_LIGHT
-        );
-        assert_eq!(
-            toggle_theme(&draftflow_light()).to_string(),
-            DRAFTFLOW_DARK
-        );
+        assert_eq!(toggle_theme(&draftflow_dark()).to_string(), DRAFTFLOW_LIGHT);
+        assert_eq!(toggle_theme(&draftflow_light()).to_string(), DRAFTFLOW_DARK);
         // A third-party dark theme still lands on the light scheme.
-        assert_eq!(
-            toggle_theme(&Theme::Oxocarbon).to_string(),
-            DRAFTFLOW_LIGHT
-        );
+        assert_eq!(toggle_theme(&Theme::Oxocarbon).to_string(), DRAFTFLOW_LIGHT);
         assert_eq!(toggle_theme(&Theme::Light).to_string(), DRAFTFLOW_DARK);
     }
 

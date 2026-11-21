@@ -1,8 +1,8 @@
 //! Status-bar customization and layout-list menu entries.
 
 use crate::ui::kit;
-use iced::widget::{button, row, text};
 use crate::ui::kit::plain_button;
+use iced::widget::{button, row, text};
 use iced::{Element, Fill, Theme};
 
 use crate::app::Message;
@@ -72,7 +72,9 @@ fn menu_row(
 
     let lbl = text(label).size(tokens::TEXT_LABEL);
 
-    let content = row![check, lbl].spacing(tokens::GAP_CONTROL).align_y(iced::Center);
+    let content = row![check, lbl]
+        .spacing(tokens::GAP_CONTROL)
+        .align_y(iced::Center);
 
     plain_button(content)
         .on_press(msg)

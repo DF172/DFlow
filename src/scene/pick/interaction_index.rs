@@ -564,9 +564,7 @@ pub(crate) struct MeshFaceIndex {
 }
 
 impl MeshFaceIndex {
-    pub(crate) fn build(
-        triangles: impl IntoIterator<Item = ([f64; 6], MeshTriRef)>,
-    ) -> Self {
+    pub(crate) fn build(triangles: impl IntoIterator<Item = ([f64; 6], MeshTriRef)>) -> Self {
         let entries: Vec<Entry3<MeshTriRef>> = triangles
             .into_iter()
             .map(|(aabb, value)| Entry3 { aabb, value })

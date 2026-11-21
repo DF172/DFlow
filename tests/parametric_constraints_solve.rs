@@ -1,9 +1,7 @@
 use codec::entities::EntityType;
 use codec::types::{Handle, Vector3};
 use DraftFlowCAD::scene::named_parameters::DrivingValue;
-use DraftFlowCAD::scene::parametric_constraints::{
-    ConstraintKind, ParametricRef, ParametricScope,
-};
+use DraftFlowCAD::scene::parametric_constraints::{ConstraintKind, ParametricRef, ParametricScope};
 use DraftFlowCAD::scene::{ChangeKind, Scene};
 
 fn add_line(scene: &mut Scene, x1: f64, y1: f64, x2: f64, y2: f64) -> Handle {

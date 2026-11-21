@@ -6,7 +6,7 @@ use super::{format_size, VIEWCUBE_HIT_SIZE};
 use crate::app::helpers::{
     parse_coord, polar_constrain_near, ucs_rotate_vec, ucs_to_wcs, ucs_z_axis, CoordKind,
 };
-use crate::app::{Message, DraftFlowCAD, POLY_START_DELAY_MS};
+use crate::app::{DraftFlowCAD, Message, POLY_START_DELAY_MS};
 use crate::modules::ModuleEvent;
 use crate::scene::model::object::GripApply;
 use crate::scene::pick::grip::{find_hit_grip, find_hit_grip_paper, find_hit_grip_rte, GripEdit};
@@ -1284,7 +1284,8 @@ impl DraftFlowCAD {
         self.show_graphic_attributes = cfg.show_graphic_attributes;
         self.graphic_attributes.fill_on_current_layer = cfg.graphic_fills_on_current_layer;
         if self.show_graphic_attributes {
-            self.dock.dock_below_properties(crate::ui::dock::PanelId::GraphicAttributes);
+            self.dock
+                .dock_below_properties(crate::ui::dock::PanelId::GraphicAttributes);
         }
         self.ribbon
             .set_graphic_attributes(self.show_graphic_attributes);
@@ -1391,8 +1392,6 @@ impl DraftFlowCAD {
         }
     }
 
-
-
     pub(in crate::app) fn next_open_id(&mut self) -> u64 {
         self.open_job_serial = self.open_job_serial.wrapping_add(1).max(1);
         self.open_job_serial
@@ -1406,7 +1405,6 @@ impl DraftFlowCAD {
     /// resolved (deleted since) matches nothing and falls through to the normal
     /// open, which reports the miss.
     pub(in crate::app) fn tab_showing(&self, path: &std::path::Path) -> Option<usize> {
-
         {
             let want = std::fs::canonicalize(path).ok()?;
             self.tabs.iter().position(|t| {
@@ -1488,8 +1486,7 @@ impl DraftFlowCAD {
         // `File::open` — the part of `capture` that fails while another
         // process holds the drawing — is exactly when the comparison below
         // has to run, so it must not depend on opening the path again.
-        let current_fingerprint = self
-            .tabs[i]
+        let current_fingerprint = self.tabs[i]
             .edit_lease
             .as_mut()
             .and_then(|lease| lease.fingerprint().ok().flatten())
@@ -1557,8 +1554,7 @@ impl DraftFlowCAD {
             }
             None => self.install_native_edit_guard(i, path, None),
         }
-        self.tabs[i].disk_fingerprint = self
-            .tabs[i]
+        self.tabs[i].disk_fingerprint = self.tabs[i]
             .edit_lease
             .as_mut()
             .and_then(|lease| lease.fingerprint().ok().flatten())
@@ -2145,7 +2141,10 @@ impl DraftFlowCAD {
                     let document = if worker_name == "*" {
                         crate::modules::insert::wblock::extract_entities_to_doc(&document, &handles)
                     } else {
-                        crate::modules::insert::wblock::extract_block_to_doc(&document, &worker_name)
+                        crate::modules::insert::wblock::extract_block_to_doc(
+                            &document,
+                            &worker_name,
+                        )
                     }
                     .map_err(|e| e.to_string())?;
                     crate::io::save(&document, &worker_path).map_err(|e| e.to_string())
@@ -2154,9 +2153,6 @@ impl DraftFlowCAD {
             )
         }
     }
-
-
-
 
     pub(super) fn on_stl_export_path_some(&mut self, path: std::path::PathBuf) -> Task<Message> {
         // Re-build STL bytes (we can't easily pass them through the message).
@@ -2295,7 +2291,6 @@ impl DraftFlowCAD {
         Ok((expected, reader))
     }
 
-
     pub(super) fn on_thumbnail_capture_frame(&mut self) -> Task<Message> {
         let Some(pending) = self.pending_native_thumbnail_save.take() else {
             return Task::none();
@@ -2314,11 +2309,6 @@ impl DraftFlowCAD {
             pending.check_external_change,
         )
     }
-
-
-
-
-
 
     pub(in crate::app) fn queue_native_save(
         &mut self,
@@ -3144,8 +3134,6 @@ impl DraftFlowCAD {
         // showSaveFilePicker pick, or the legacy download.
     }
 
-
-
     /// Native: a destination path came back from the OS save dialog — write the
     /// file there in the chosen version. `None` means the user cancelled.
     pub(super) fn on_save_dialog_path_picked(
@@ -3257,7 +3245,6 @@ impl DraftFlowCAD {
         }
     }
 
-
     /// Periodic autosave (SAVETIME): write a `.sv$` recovery copy for every
     /// dirty tab — beside the file if it's saved, else under the temp dir — at
     /// the document's own DWG version. Best-effort and non-destructive: it never
@@ -3283,18 +3270,6 @@ impl DraftFlowCAD {
         }
         Task::batch(tasks)
     }
-
-
-
-
-
-
-
-
-
-
-
-
 
     /// Delete the `.sv$` autosave recovery files for all open drawings. They
     /// exist only to survive a crash, so a clean save or exit removes them.
@@ -4250,9 +4225,9 @@ impl DraftFlowCAD {
             background_task(
                 crate::t!("Print to printer"),
                 move || {
-                    iced::futures::executor::block_on(crate::io::print_to_printer::print_wires_with(
-                        page, options,
-                    ))
+                    iced::futures::executor::block_on(
+                        crate::io::print_to_printer::print_wires_with(page, options),
+                    )
                 },
                 Message::PrintResult,
             )
@@ -6004,7 +5979,7 @@ impl DraftFlowCAD {
 
 #[cfg(test)]
 mod plot_paper_tests {
-    use crate::app::{Message, DraftFlowCAD};
+    use crate::app::{DraftFlowCAD, Message};
     use crate::ui::window::plot::PlotDlgMsg;
 
     /// A drawing on `Layout1` whose page setup names its sheet the way a
@@ -6741,7 +6716,10 @@ mod plot_paper_tests {
         // and PDF drivers, so an SVG plot stores the PDF driver spelling.
         let _ = app.on_plot_dlg(PlotDlgMsg::Printer(crate::ui::window::plot::OUT_SVG.into()));
         let _ = app.on_plot_dlg(PlotDlgMsg::SetCurrent);
-        let ps = app.tabs[app.active_tab].scene.plot_settings_for("Layout1").unwrap();
+        let ps = app.tabs[app.active_tab]
+            .scene
+            .plot_settings_for("Layout1")
+            .unwrap();
         assert_eq!(ps.printer_name, "DWG To PDF.pc3");
     }
 
@@ -6829,7 +6807,10 @@ mod plot_paper_tests {
         assert_eq!(ps.printer_name, "DraftFlow Test Printer");
         // Reopening resolves the stored name back to the same printer.
         let _ = app.on_plot_dialog_open();
-        assert_eq!(app.plot_dialog.printer.as_deref(), Some("DraftFlow Test Printer"));
+        assert_eq!(
+            app.plot_dialog.printer.as_deref(),
+            Some("DraftFlow Test Printer")
+        );
         // A media answer for a printer that is no longer selected is ignored.
         let _ = app.on_plot_dlg(PlotDlgMsg::Printer(crate::ui::window::plot::OUT_PDF.into()));
         let caps = std::sync::Arc::new(crate::io::plot_device::PrinterCapabilities::default());
@@ -7427,7 +7408,7 @@ mod plot_device_persistence_tests {
 #[cfg(test)]
 mod background_task_tests {
     use super::background_task;
-    use crate::app::{Message, DraftFlowCAD};
+    use crate::app::{DraftFlowCAD, Message};
     use iced::futures::StreamExt;
     use iced::Task;
 
@@ -7481,8 +7462,7 @@ mod background_task_tests {
     }
 }
 
-impl DraftFlowCAD {
-}
+impl DraftFlowCAD {}
 
 /// B1: the open picker hands the app three states, not `Option`. These guard
 /// the receiving side (`Message::OpenPathPicked`), one test per state, plus a
@@ -7620,7 +7600,11 @@ mod open_pick_round_trip_tests {
             body.contains("size_bytes: meta.len()"),
             "the only size the picker may hand on is the one metadata reported, got:\n{body}"
         );
-        for state in ["OpenPick::Cancelled", "OpenPick::Unreadable", "OpenPick::Picked"] {
+        for state in [
+            "OpenPick::Cancelled",
+            "OpenPick::Unreadable",
+            "OpenPick::Picked",
+        ] {
             assert!(
                 body.contains(state),
                 "pick_open_path must still produce {state:?}, got:\n{body}"
@@ -7644,7 +7628,10 @@ mod recovery_retry_size_tests {
             .duration_since(std::time::UNIX_EPOCH)
             .map(|elapsed| elapsed.as_nanos())
             .unwrap_or(0);
-        std::env::temp_dir().join(format!("draftflow-b8-{name}-{}-{nanos}", std::process::id()))
+        std::env::temp_dir().join(format!(
+            "draftflow-b8-{name}-{}-{nanos}",
+            std::process::id()
+        ))
     }
 
     #[test]
@@ -7669,9 +7656,8 @@ mod recovery_retry_size_tests {
                 .expect("a picked path must start the loading overlay");
             assert_eq!(opening.size_bytes, measured);
             // The state this branch reacts to: the disk moved under the read.
-            opening.fingerprint = Some(
-                FileFingerprint::capture(&path).expect("fingerprint of the scratch file"),
-            );
+            opening.fingerprint =
+                Some(FileFingerprint::capture(&path).expect("fingerprint of the scratch file"));
         }
         // Now the file is unreachable, so both the fingerprint and the re-stat
         // inside the branch fail — the exact case that used to write 0.
@@ -7708,9 +7694,8 @@ mod recovery_retry_size_tests {
                 .opening
                 .as_mut()
                 .expect("a picked path must start the loading overlay");
-            opening.fingerprint = Some(
-                FileFingerprint::capture(&path).expect("fingerprint of the scratch file"),
-            );
+            opening.fingerprint =
+                Some(FileFingerprint::capture(&path).expect("fingerprint of the scratch file"));
         }
         let bigger = b"DWG followed by a lot more bytes than before";
         std::fs::write(&path, bigger).expect("grow the scratch file");
@@ -7764,9 +7749,8 @@ mod autosave_discard_tests {
     #[cfg(windows)]
     fn refuse_unlink(path: &std::path::Path) -> std::fs::File {
         use std::os::windows::fs::OpenOptionsExt;
-        const SHARE_WITHOUT_DELETE: u32 =
-            windows_sys::Win32::Storage::FileSystem::FILE_SHARE_READ
-                | windows_sys::Win32::Storage::FileSystem::FILE_SHARE_WRITE;
+        const SHARE_WITHOUT_DELETE: u32 = windows_sys::Win32::Storage::FileSystem::FILE_SHARE_READ
+            | windows_sys::Win32::Storage::FileSystem::FILE_SHARE_WRITE;
         std::fs::OpenOptions::new()
             .read(true)
             .write(true)

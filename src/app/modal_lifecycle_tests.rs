@@ -243,11 +243,7 @@ fn every_dialog_kind_fades_before_it_is_torn_down() {
     motion::set_enabled(false);
     let mut app = DraftFlowCAD::new_for_test();
     let kinds = all_kinds();
-    assert_eq!(
-        kinds.len(),
-        55,
-        "the variant list and the enum disagree"
-    );
+    assert_eq!(kinds.len(), 55, "the variant list and the enum disagree");
     for (index, kind) in kinds.iter().enumerate() {
         for other in &kinds[index + 1..] {
             assert_ne!(kind, other, "the variant list repeats a kind");
@@ -277,7 +273,10 @@ fn a_dismissed_dialog_stays_painted_until_its_fade_lands() {
     motion::set_enabled(true);
     let mut app = DraftFlowCAD::new_for_test();
     app.open_modal(ModalKind::Options);
-    assert!(motion::running(motion::MODAL_FADE), "the entrance is in flight");
+    assert!(
+        motion::running(motion::MODAL_FADE),
+        "the entrance is in flight"
+    );
 
     app.close_active_modal();
     assert!(app.modal_exit);
@@ -336,7 +335,10 @@ fn a_chained_open_swaps_the_sheet_without_replaying_the_entrance() {
 
     app.open_modal(ModalKind::Shortcuts);
     assert_eq!(app.active_modal, Some(ModalKind::Shortcuts));
-    assert!(!app.modal_exit, "the pending exit was committed, not inherited");
+    assert!(
+        !app.modal_exit,
+        "the pending exit was committed, not inherited"
+    );
     assert_eq!(
         app.modal_entrance,
         iced::Vector::ZERO,

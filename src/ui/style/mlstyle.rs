@@ -2,13 +2,13 @@
 
 use crate::app::Message;
 use crate::t;
+use crate::ui::kit;
 use crate::ui::kit::muted_style;
-use iced::widget::{canvas, checkbox, column, container, row, text, text_input};
 use crate::ui::kit::plain_button;
+use crate::ui::style::tokens;
+use iced::widget::{canvas, checkbox, column, container, row, text, text_input};
 use iced::{mouse, Color, Element, Length, Point, Rectangle, Theme};
 use std::borrow::Cow;
-use crate::ui::style::tokens;
-use crate::ui::kit;
 
 pub struct MlStyleView<'a> {
     pub styles: Vec<String>,
@@ -38,7 +38,10 @@ fn input_row<'a>(
     field: &'static str,
 ) -> Element<'a, Message> {
     row![
-        text(label).size(tokens::TEXT_LABEL).style(muted_style).width(165),
+        text(label)
+            .size(tokens::TEXT_LABEL)
+            .style(muted_style)
+            .width(165),
         text_input(placeholder, value)
             .on_input(move |value| Message::MlStyleEdit { field, value })
             .size(tokens::TEXT_LABEL)
@@ -282,12 +285,23 @@ pub fn view_window<'a>(
 ) -> Element<'a, Message> {
     let style = v.style;
     let content: Element<'a, Message> = match (v.tab, style) {
-        (_, None) => text(t!("Select a style to view details.")).size(tokens::TEXT_LABEL).into(),
+        (_, None) => text(t!("Select a style to view details."))
+            .size(tokens::TEXT_LABEL)
+            .into(),
         (0, Some(_)) => {
             let mut items = column![row![
-                text(t!("Offset")).size(tokens::TEXT_MICRO).style(muted_style).width(110),
-                text(t!("Color")).size(tokens::TEXT_MICRO).style(muted_style).width(100),
-                text(t!("Line type")).size(tokens::TEXT_MICRO).style(muted_style).width(170),
+                text(t!("Offset"))
+                    .size(tokens::TEXT_MICRO)
+                    .style(muted_style)
+                    .width(110),
+                text(t!("Color"))
+                    .size(tokens::TEXT_MICRO)
+                    .style(muted_style)
+                    .width(100),
+                text(t!("Line type"))
+                    .size(tokens::TEXT_MICRO)
+                    .style(muted_style)
+                    .width(170),
                 plain_button(text(t!("Add")).size(tokens::TEXT_MICRO))
                     .on_press(Message::MlStyleElementAdd)
                     .padding(kit::PAD_MENU_ROW),
@@ -334,14 +348,18 @@ pub fn view_window<'a>(
         }
         (_, Some(style)) => column![
             input_row(t!("Description"), "", v.description, "description"),
-            text(t!("Fill and joints")).size(tokens::TEXT_LABEL).style(|theme: &Theme| kit::color_style(theme.palette().primary.base.color)),
+            text(t!("Fill and joints"))
+                .size(tokens::TEXT_LABEL)
+                .style(|theme: &Theme| kit::color_style(theme.palette().primary.base.color)),
             row![
                 toggle(t!("Fill enabled"), style.flags.fill_on, "fill"),
                 toggle(t!("Display joints"), style.flags.display_joints, "joints"),
             ]
             .spacing(tokens::GAP_GUTTER),
             input_row(t!("Fill color"), "256", v.fill_color, "fill_color"),
-            text(t!("Start caps")).size(tokens::TEXT_LABEL).style(|theme: &Theme| kit::color_style(theme.palette().primary.base.color)),
+            text(t!("Start caps"))
+                .size(tokens::TEXT_LABEL)
+                .style(|theme: &Theme| kit::color_style(theme.palette().primary.base.color)),
             row![
                 toggle(t!("Line"), style.flags.start_square_cap, "start_square"),
                 toggle(
@@ -353,7 +371,9 @@ pub fn view_window<'a>(
             ]
             .spacing(tokens::GAP_GUTTER),
             input_row(t!("Start angle"), "90", v.start_angle, "start_angle"),
-            text(t!("End caps")).size(tokens::TEXT_LABEL).style(|theme: &Theme| kit::color_style(theme.palette().primary.base.color)),
+            text(t!("End caps"))
+                .size(tokens::TEXT_LABEL)
+                .style(|theme: &Theme| kit::color_style(theme.palette().primary.base.color)),
             row![
                 toggle(t!("Line"), style.flags.end_square_cap, "end_square"),
                 toggle(

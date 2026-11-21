@@ -42,9 +42,7 @@ pub fn meter<Message: 'static>(fraction: f32, height: f32) -> Element<'static, M
             container(Space::new())
                 .width(Length::FillPortion(filled))
                 .height(Fill)
-                .style(|theme: &Theme| {
-                    field_radius_plate_style(tokens::focus_ring(theme).into())
-                }),
+                .style(|theme: &Theme| field_radius_plate_style(tokens::focus_ring(theme).into())),
         );
     }
     if rest > 0 {

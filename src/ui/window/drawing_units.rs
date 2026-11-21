@@ -72,11 +72,17 @@ pub enum Field {
 }
 
 fn group<'a>(title: String, body: Element<'a, Message>) -> Element<'a, Message> {
-    container(column![text(title).size(tokens::TEXT_LABEL).style(kit::muted_style), body].spacing(tokens::GAP_CONTROL))
-        .padding(tokens::GAP_ROW)
-        .width(Fill)
-        .style(kit::fieldset_well_style)
-        .into()
+    container(
+        column![
+            text(title).size(tokens::TEXT_LABEL).style(kit::muted_style),
+            body
+        ]
+        .spacing(tokens::GAP_CONTROL),
+    )
+    .padding(tokens::GAP_ROW)
+    .width(Fill)
+    .style(kit::fieldset_well_style)
+    .into()
 }
 
 fn drop_row<'a>(
@@ -90,10 +96,16 @@ fn drop_row<'a>(
         .text_size(tokens::TEXT_BODY)
         .padding(kit::PAD_FIELD)
         .width(Fill);
-    row![text(label).size(tokens::TEXT_LABEL).style(kit::muted_style).width(78), picker]
-        .spacing(tokens::GAP_ROW)
-        .align_y(iced::Center)
-        .into()
+    row![
+        text(label)
+            .size(tokens::TEXT_LABEL)
+            .style(kit::muted_style)
+            .width(78),
+        picker
+    ]
+    .spacing(tokens::GAP_ROW)
+    .align_y(iced::Center)
+    .into()
 }
 
 /// Precision is 0–8 places everywhere it applies; fractional and architectural
@@ -127,10 +139,7 @@ const FRACTION_SAMPLES: [&str; 9] = [
     "1", "1/2", "1/4", "1/8", "1/16", "1/32", "1/64", "1/128", "1/256",
 ];
 
-pub fn view_window<'a>(
-    state: &State,
-    sizing: crate::ui::shell::Sizing,
-) -> Element<'a, Message> {
+pub fn view_window<'a>(state: &State, sizing: crate::ui::shell::Sizing) -> Element<'a, Message> {
     let linear_options: Vec<Choice> = units::linear_formats()
         .map(|(code, label, sample)| Choice {
             code,
@@ -196,13 +205,18 @@ pub fn view_window<'a>(
             ),
             precision_row(state.angular_precision, false, Field::AngularPrecision),
             row![
-                text(t!("Zero at")).size(tokens::TEXT_LABEL).style(kit::muted_style).width(78),
+                text(t!("Zero at"))
+                    .size(tokens::TEXT_LABEL)
+                    .style(kit::muted_style)
+                    .width(78),
                 text_input("0", &state.base_angle)
                     .on_input(|value| Message::DrawingUnitsField(Field::BaseAngle(value)))
                     .size(tokens::TEXT_BODY)
                     .padding(kit::PAD_FIELD)
                     .width(Length::Fixed(80.0)),
-                text(t!("degrees")).size(tokens::TEXT_LABEL).style(kit::muted_style),
+                text(t!("degrees"))
+                    .size(tokens::TEXT_LABEL)
+                    .style(kit::muted_style),
             ]
             .spacing(tokens::GAP_ROW)
             .align_y(iced::Center),
@@ -254,11 +268,15 @@ pub fn view_window<'a>(
 
     // Actions are the shell footer's job (see `DraftFlowCAD::modal_footer`), so
     // the body ends at the sample and the buttons sit on the full-bleed band.
-    column![row![length, angle].spacing(tokens::GAP_ROW), insertion, sample,]
-        .spacing(tokens::GAP_ROW)
-        .padding(tokens::GAP_FIELD)
-        .width(sizing.width)
-        .into()
+    column![
+        row![length, angle].spacing(tokens::GAP_ROW),
+        insertion,
+        sample,
+    ]
+    .spacing(tokens::GAP_ROW)
+    .padding(tokens::GAP_FIELD)
+    .width(sizing.width)
+    .into()
 }
 
 /// The sample is produced by the same formatters the drawing uses, so what it

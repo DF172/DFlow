@@ -1502,52 +1502,52 @@ fn viewport_dimension_invalid_paths_leave_no_partial_association() {
 /// producer, and the pulse must keep the frame loop awake.
 #[test]
 fn a_severed_association_pulses_once_and_keeps_frames_coming() {
-        use crate::ui::motion;
-        let _lock = motion::test_gate_lock();
-        let was = motion::enabled();
-        let (mut app, line, frame) = fixture();
-        let i = app.active_tab;
-        finish_aligned(&mut app, line, frame);
-        let handle = dimension(&app.tabs[i].scene.document).base().common.handle;
-        motion::set_enabled(true);
-        app.tabs[i].scene.select_entity(handle, true);
-        // First rebuild seats the handle as "resolved"; the second would be a
-        // no-op on a quiet document, which is exactly what proves the flash is
-        // tied to the severance and not to re-selecting.
-        app.refresh_properties();
-        app.refresh_properties();
-        assert!(
-            !motion::running(motion::ASSOC_BREAK),
-            "watching a healthy association stays quiet"
-        );
+    use crate::ui::motion;
+    let _lock = motion::test_gate_lock();
+    let was = motion::enabled();
+    let (mut app, line, frame) = fixture();
+    let i = app.active_tab;
+    finish_aligned(&mut app, line, frame);
+    let handle = dimension(&app.tabs[i].scene.document).base().common.handle;
+    motion::set_enabled(true);
+    app.tabs[i].scene.select_entity(handle, true);
+    // First rebuild seats the handle as "resolved"; the second would be a
+    // no-op on a quiet document, which is exactly what proves the flash is
+    // tied to the severance and not to re-selecting.
+    app.refresh_properties();
+    app.refresh_properties();
+    assert!(
+        !motion::running(motion::ASSOC_BREAK),
+        "watching a healthy association stays quiet"
+    );
 
-        let pending = app
-            .begin_undo(i, "Erase source", 1, false)
-            .expect("undo scope for the erase");
-        app.tabs[i].scene.erase_entities(&[line]);
-        app.commit_undo_delta(i, pending);
-        app.refresh_properties();
-        assert!(
-            motion::running(motion::ASSOC_BREAK),
-            "losing the reference starts the warning pulse"
-        );
-        assert!(
-            motion::any_active(),
-            "the warning pulse must request frames"
-        );
-        std::thread::sleep(std::time::Duration::from_millis(160));
-        assert!(
-            !motion::running(motion::ASSOC_BREAK),
-            "the pulse ends inside its 100 ms budget"
-        );
-        assert!(
-            (motion::value_or(motion::ASSOC_BREAK, -1.0)).abs() < 1e-3,
-            "the plate settles back to its resting tint"
-        );
-        app.refresh_properties();
-        assert!(
-            !motion::running(motion::ASSOC_BREAK),
-            "holding a broken association does not replay the pulse"
-        );
-        motion::set_enabled(was);
-    }
+    let pending = app
+        .begin_undo(i, "Erase source", 1, false)
+        .expect("undo scope for the erase");
+    app.tabs[i].scene.erase_entities(&[line]);
+    app.commit_undo_delta(i, pending);
+    app.refresh_properties();
+    assert!(
+        motion::running(motion::ASSOC_BREAK),
+        "losing the reference starts the warning pulse"
+    );
+    assert!(
+        motion::any_active(),
+        "the warning pulse must request frames"
+    );
+    std::thread::sleep(std::time::Duration::from_millis(160));
+    assert!(
+        !motion::running(motion::ASSOC_BREAK),
+        "the pulse ends inside its 100 ms budget"
+    );
+    assert!(
+        (motion::value_or(motion::ASSOC_BREAK, -1.0)).abs() < 1e-3,
+        "the plate settles back to its resting tint"
+    );
+    app.refresh_properties();
+    assert!(
+        !motion::running(motion::ASSOC_BREAK),
+        "holding a broken association does not replay the pulse"
+    );
+    motion::set_enabled(was);
+}

@@ -5,9 +5,9 @@ pub mod status_menu;
 pub mod statusbar_config;
 pub mod statusbar_menu;
 
+use crate::ui::kit::plain_button;
 use iced::widget::tooltip::Position as TipPos;
 use iced::widget::{column, container, mouse_area, row, text, text_input, tooltip};
-use crate::ui::kit::plain_button;
 use iced::{Element, Length, Theme};
 use iced_aw::ContextMenu;
 use std::sync::Arc;
@@ -25,10 +25,10 @@ use crate::app::Message;
 use crate::snap::Snapper;
 use crate::t;
 use crate::ui::kit;
-use crate::ui::style::draftflow_theme::draftflow_colors;
-use crate::ui::style::tokens;
 use crate::ui::statusbar::status_menu::Entry as StatusMenuEntry;
 use crate::ui::statusbar::statusbar_config::{StatusBarConfig, StatusPill};
+use crate::ui::style::draftflow_theme::draftflow_colors;
+use crate::ui::style::tokens;
 use crate::ui::wrap_bar::WrapBar;
 
 /// Height of one status-bar row. Matches the drawing-tab strip above it so the
@@ -250,11 +250,14 @@ impl StatusBar {
         } else {
             crate::ui::icons::themed_secondary(crate::ui::icons::MENU, 16.0)
         };
-        let menu_button = plain_button(menu_icon).style(kit::subtle_style).padding(kit::Size::Compact.padding());
+        let menu_button = plain_button(menu_icon)
+            .style(kit::subtle_style)
+            .padding(kit::Size::Compact.padding());
         let menu_btn = if is_start {
             tip(
                 menu_button.into(),
-                t!("Open or create a drawing to manage layouts."), theme
+                t!("Open or create a drawing to manage layouts."),
+                theme,
             )
         } else {
             status_menu::menu_bar(
@@ -263,7 +266,8 @@ impl StatusBar {
                         .on_press(Message::StatusMenuTooltipHidden(true))
                         .into(),
                     t!("Model and layout list"),
-                    tooltip_hidden, theme
+                    tooltip_hidden,
+                    theme,
                 ),
                 statusbar_menu::layout_entries(&layout_names, current_layout),
                 200.0,
@@ -276,7 +280,8 @@ impl StatusBar {
         let add_btn = if is_start {
             tip(
                 add_button.into(),
-                t!("Open or create a drawing to add a layout."), theme
+                t!("Open or create a drawing to add a layout."),
+                theme,
             )
         } else {
             add_button.on_press(Message::LayoutCreate).into()
@@ -321,7 +326,8 @@ impl StatusBar {
                 menu_tip(
                     popup_pill(&scale_text),
                     t!("Annotation / Viewport Scale\nClick to change"),
-                    tooltip_hidden, theme
+                    tooltip_hidden,
+                    theme,
                 ),
                 crate::ui::popup::scale_popup::menu_entries(
                     scale_is_model,
@@ -359,7 +365,14 @@ impl StatusBar {
                 }
                 _ => crate::tr!("gpu", "pill-tip"),
             };
-            pills.push(tip(warning_pill(label, Message::GpuWarningOpen), detail.into(), theme).into());
+            pills.push(
+                tip(
+                    warning_pill(label, Message::GpuWarningOpen),
+                    detail.into(),
+                    theme,
+                )
+                .into(),
+            );
         }
         // The coordinate readout leads the bar, next to the layout tabs — it is
         // a readout, not a mode, so it does not belong among the toggles on
@@ -369,7 +382,8 @@ impl StatusBar {
             let coords_label = format_coords(cursor_world, last_point, coords_mode, picking);
             tip(
                 action_pill(&coords_label, Message::CycleCoordsMode),
-                t!("Cursor coordinates ($COORDS)\nClick to cycle: static / live / polar"), theme
+                t!("Cursor coordinates ($COORDS)\nClick to cycle: static / live / polar"),
+                theme,
             )
             .into()
         };
@@ -417,7 +431,8 @@ impl StatusBar {
                         ortho_mode,
                         Message::ToggleOrtho,
                     ),
-                    t!("Orthogonal Mode\nF8"), theme
+                    t!("Orthogonal Mode\nF8"),
+                    theme,
                 )
                 .into(),
             );
@@ -432,7 +447,8 @@ impl StatusBar {
                         lineweight_display,
                         Message::ToggleLineweightDisplay,
                     ),
-                    t!("Show Lineweight\nLWDISPLAY"), theme
+                    t!("Show Lineweight\nLWDISPLAY"),
+                    theme,
                 )
                 .into(),
             );
@@ -446,7 +462,8 @@ impl StatusBar {
                     crate::ui::popup::polar_popup::menu_entries(
                         polar_increment_deg,
                         polar_custom_input,
-                    ), theme
+                    ),
+                    theme,
                 )
                 .into(),
             );
@@ -461,7 +478,8 @@ impl StatusBar {
                         dyn_input,
                         Message::ToggleDynInput,
                     ),
-                    t!("Dynamic Input\nF12"), theme
+                    t!("Dynamic Input\nF12"),
+                    theme,
                 )
                 .into(),
             );
@@ -476,7 +494,8 @@ impl StatusBar {
                         otrack,
                         Message::ToggleOTrack,
                     ),
-                    t!("Object Snap Tracking\nF11"), theme
+                    t!("Object Snap Tracking\nF11"),
+                    theme,
                 )
                 .into(),
             );
@@ -491,7 +510,8 @@ impl StatusBar {
                         snapper,
                         isometric_drafting,
                         iso_plane,
-                    ), theme
+                    ),
+                    theme,
                 )
                 .into(),
             );
@@ -521,7 +541,8 @@ impl StatusBar {
                         annotation_all_visible,
                         Message::ToggleAnnotationVisibility,
                     ),
-                    t!("Show Annotation Objects"), theme
+                    t!("Show Annotation Objects"),
+                    theme,
                 )
                 .into(),
             );
@@ -536,7 +557,8 @@ impl StatusBar {
                         annotation_auto_add,
                         Message::ToggleAnnotationAutoAdd,
                     ),
-                    t!("Automatically Add Scales"), theme
+                    t!("Automatically Add Scales"),
+                    theme,
                 )
                 .into(),
             );
@@ -552,7 +574,8 @@ impl StatusBar {
                             synced,
                             Message::SyncViewportAnnotationScale,
                         ),
-                        t!("Viewport / Annotation Scale Sync"), theme
+                        t!("Viewport / Annotation Scale Sync"),
+                        theme,
                     )
                     .into(),
                 );
@@ -566,7 +589,8 @@ impl StatusBar {
                             linear_format
                         ))),
                         t!("Units (LUNITS)\nHow lengths are written\nClick to change"),
-                        tooltip_hidden, theme
+                        tooltip_hidden,
+                        theme,
                     ),
                     crate::ui::popup::units_popup::menu_entries(linear_format),
                     140.0,
@@ -584,7 +608,8 @@ impl StatusBar {
                         transparency_display,
                         Message::ToggleTransparencyDisplay,
                     ),
-                    t!("Show Transparency\nForce opaque when off"), theme
+                    t!("Show Transparency\nForce opaque when off"),
+                    theme,
                 )
                 .into(),
             );
@@ -604,7 +629,8 @@ impl StatusBar {
                             Message::StatusMenuTooltipHidden(true),
                         ),
                         t!("Isolate Objects\nClick for Isolate / Hide / End"),
-                        tooltip_hidden, theme
+                        tooltip_hidden,
+                        theme,
                     ),
                     crate::ui::popup::isolate_popup::menu_entries(has_selection, isolation_active),
                     160.0,
@@ -622,7 +648,8 @@ impl StatusBar {
                         quick_properties,
                         Message::ToggleQuickProperties,
                     ),
-                    t!("Quick Properties\nFloating panel on selection"), theme
+                    t!("Quick Properties\nFloating panel on selection"),
+                    theme,
                 )
                 .into(),
             );
@@ -639,7 +666,8 @@ impl StatusBar {
                             Message::StatusMenuTooltipHidden(true),
                         ),
                         t!("Selection Filtering\nLimit which object types can be picked"),
-                        tooltip_hidden, theme
+                        tooltip_hidden,
+                        theme,
                     ),
                     crate::ui::popup::selection_filter_popup::menu_entries(
                         &selection_types,
@@ -660,7 +688,8 @@ impl StatusBar {
                         selection_cycling,
                         Message::ToggleSelectionCycling,
                     ),
-                    t!("Selection Cycling\nRepeat-click to step through overlapping objects"), theme
+                    t!("Selection Cycling\nRepeat-click to step through overlapping objects"),
+                    theme,
                 )
                 .into(),
             );
@@ -672,7 +701,8 @@ impl StatusBar {
             pills.push(
                 tip(
                     status_pill("ST_VP_COUNT", vp_label).into(),
-                    t!("Viewport count in active layout"), theme
+                    t!("Viewport count in active layout"),
+                    theme,
                 )
                 .into(),
             );
@@ -687,7 +717,8 @@ impl StatusBar {
                         clean_screen,
                         Message::ToggleCleanScreen,
                     ),
-                    t!("Clean Screen\nHide ribbon and panels"), theme
+                    t!("Clean Screen\nHide ribbon and panels"),
+                    theme,
                 )
                 .into(),
             );
@@ -701,7 +732,8 @@ impl StatusBar {
                 menu_tip(
                     customize_btn(),
                     t!("Customization\nShow or hide status-bar items"),
-                    tooltip_hidden, theme
+                    tooltip_hidden,
+                    theme,
                 ),
                 statusbar_menu::customization_entries(config),
                 200.0,
@@ -760,7 +792,8 @@ impl StatusBar {
                         true,
                         reorderable_layouts.clone(),
                         switch_msg,
-                        "SB_LAYOUT_TAB", theme
+                        "SB_LAYOUT_TAB",
+                        theme,
                     )
                     .into(),
                 );
@@ -777,7 +810,8 @@ impl StatusBar {
                         false,
                         empty_reorderable.clone(),
                         switch_msg,
-                        "SB_BLOCK_TAB", theme
+                        "SB_BLOCK_TAB",
+                        theme,
                     )
                     .into(),
                 );
@@ -897,7 +931,11 @@ fn menu_tip<'a>(
     hidden: bool,
     theme: &Theme,
 ) -> Element<'a, Message> {
-    let content = if hidden { content } else { tip(content, label, theme) };
+    let content = if hidden {
+        content
+    } else {
+        tip(content, label, theme)
+    };
 
     mouse_area(content)
         .on_exit(Message::StatusMenuTooltipHidden(false))
@@ -972,12 +1010,12 @@ fn toggle_pill(
             .spacing(tokens::GAP_TIGHT)
             .align_y(iced::Center),
         )
-            .on_press(msg)
-            .style(move |theme: &Theme, status| {
-                kit::surface::pill_button_style(key, active, theme, status, "")
-            })
-            .padding([tokens::GAP_TIGHT, tokens::GAP_CONTROL])
-            .height(Length::Fixed(ROW_HEIGHT - kit::RULE_THICKNESS)),
+        .on_press(msg)
+        .style(move |theme: &Theme, status| {
+            kit::surface::pill_button_style(key, active, theme, status, "")
+        })
+        .padding([tokens::GAP_TIGHT, tokens::GAP_CONTROL])
+        .height(Length::Fixed(ROW_HEIGHT - kit::RULE_THICKNESS)),
     )
     .on_enter(Message::UiHover {
         key: hover_key,
@@ -1011,10 +1049,14 @@ fn split_pill<'a>(
 ) -> Element<'a, Message> {
     let hover_key = crate::ui::motion::hover_key(key);
     let pill = mouse_area(
-        container(row![main, caret].spacing(tokens::GAP_TIGHT).align_y(iced::Center))
-            .style(move |theme: &Theme| kit::pill_style(key, active, theme, ""))
-            .padding(kit::PAD_PLATE)
-            .center_y(Length::Fixed(ROW_HEIGHT - kit::RULE_THICKNESS)),
+        container(
+            row![main, caret]
+                .spacing(tokens::GAP_TIGHT)
+                .align_y(iced::Center),
+        )
+        .style(move |theme: &Theme| kit::pill_style(key, active, theme, ""))
+        .padding(kit::PAD_PLATE)
+        .center_y(Length::Fixed(ROW_HEIGHT - kit::RULE_THICKNESS)),
     )
     .on_enter(Message::UiHover {
         key: hover_key,
@@ -1067,9 +1109,9 @@ fn polar_pill<'a>(
             text(t!(StatusPill::Polar.label()).into_owned())
                 .size(tokens::TEXT_LABEL)
                 .style(move |theme: &Theme| kit::color_style(ink(theme))),
-            text(angle).size(tokens::TEXT_LABEL).style(move |theme: &Theme| {
-                kit::color_style(ink(theme))
-            }),
+            text(angle)
+                .size(tokens::TEXT_LABEL)
+                .style(move |theme: &Theme| { kit::color_style(ink(theme)) }),
         ]
         .spacing(tokens::GAP_HAIRLINE)
         .align_y(iced::Center),
@@ -1103,7 +1145,8 @@ fn polar_pill<'a>(
             .on_press(Message::StatusMenuTooltipHidden(true))
             .into(),
             t!("Polar angle\nClick to choose"),
-            tooltip_hidden, theme
+            tooltip_hidden,
+            theme,
         ),
         entries,
         120.0,
@@ -1137,9 +1180,10 @@ fn osnap_btn<'a>(
             .spacing(tokens::GAP_TIGHT)
             .align_y(iced::Center),
         )
-            .on_press(Message::ToggleSnapEnabled)
-            .into(),
-        t!("Object Snap: toggle on/off\nF3"), theme
+        .on_press(Message::ToggleSnapEnabled)
+        .into(),
+        t!("Object Snap: toggle on/off\nF3"),
+        theme,
     );
 
     let caret = status_menu::menu_bar(
@@ -1154,7 +1198,8 @@ fn osnap_btn<'a>(
             .on_press(Message::StatusMenuTooltipHidden(true))
             .into(),
             t!("Object Snap list\nClick to choose snap types"),
-            tooltip_hidden, theme
+            tooltip_hidden,
+            theme,
         ),
         entries,
         210.0,
@@ -1255,10 +1300,7 @@ fn space_tab<'a>(
         }
         let display = container(label_text)
             .style(paint)
-            .padding(iced::Padding::from([
-                tokens::GAP_NONE,
-                tokens::GAP_SECTION,
-            ]))
+            .padding(iced::Padding::from([tokens::GAP_NONE, tokens::GAP_SECTION]))
             // The rule lands on the row's own edge only when the tab is one
             // `RULE` shorter than the row; `WrapBar` centres its blocks.
             .center_y(Length::Fixed(ROW_HEIGHT - kit::RULE_THICKNESS));
@@ -1266,7 +1308,8 @@ fn space_tab<'a>(
             report_key,
             tip(
                 display.into(),
-                t!("Open or create a drawing to switch layouts."), theme
+                t!("Open or create a drawing to switch layouts."),
+                theme,
             ),
         )
         .into()
@@ -1301,10 +1344,7 @@ fn space_tab<'a>(
         }
         let display = container(label_text)
             .style(paint)
-            .padding(iced::Padding::from([
-                tokens::GAP_NONE,
-                tokens::GAP_SECTION,
-            ]))
+            .padding(iced::Padding::from([tokens::GAP_NONE, tokens::GAP_SECTION]))
             .center_y(Length::Fixed(ROW_HEIGHT - kit::RULE_THICKNESS));
 
         let has_context_menu = reorderable_layouts.contains(&label);
@@ -1357,17 +1397,17 @@ fn space_mode_btn(current_layout: &str, in_mspace: bool) -> Element<'static, Mes
 
     let mut btn = plain_button(text(label).size(tokens::TEXT_LABEL))
         .style(move |theme: &Theme, status| {
-        // The lit rung of this capsule is the same pill ladder every other
-        // mode pill in the band rides (`split_pill` → `kit::pill_style`), so it
-        // gets the kit's painter rather than a hand-mixed pair of primary slots.
-        // The old code painted `primary.weak.color` with `primary.weak.text` and
-        // jumped to `primary.base.color` on hover — a rung that exists nowhere
-        // else in the app, and an ink contrast solved for a plate the rest of
-        // the bar had already stopped drawing.
-        kit::surface::pill_button_style("ST_SPACE", active, theme, status, "")
-    })
-    .padding([tokens::GAP_TIGHT, tokens::GAP_CONTROL])
-    .height(Length::Fixed(ROW_HEIGHT - kit::RULE_THICKNESS));
+            // The lit rung of this capsule is the same pill ladder every other
+            // mode pill in the band rides (`split_pill` → `kit::pill_style`), so it
+            // gets the kit's painter rather than a hand-mixed pair of primary slots.
+            // The old code painted `primary.weak.color` with `primary.weak.text` and
+            // jumped to `primary.base.color` on hover — a rung that exists nowhere
+            // else in the app, and an ink contrast solved for a plate the rest of
+            // the bar had already stopped drawing.
+            kit::surface::pill_button_style("ST_SPACE", active, theme, status, "")
+        })
+        .padding([tokens::GAP_TIGHT, tokens::GAP_CONTROL])
+        .height(Length::Fixed(ROW_HEIGHT - kit::RULE_THICKNESS));
 
     if let Some(msg) = on_press {
         btn = btn.on_press(msg);
@@ -1404,7 +1444,10 @@ fn gpu_pill_label(status: &crate::scene::pipeline::GpuStatus) -> Option<String> 
 fn warning_pill(label: impl Into<String>, msg: Message) -> Element<'static, Message> {
     plain_button(text(label.into()).size(tokens::TEXT_LABEL))
         .on_press(msg)
-        .style(kit::signal_button_style(kit::Tone::Warning, kit::Tier::Band))
+        .style(kit::signal_button_style(
+            kit::Tone::Warning,
+            kit::Tier::Band,
+        ))
         .padding(kit::Size::Compact.padding())
         .into()
 }
@@ -1546,7 +1589,11 @@ mod b5_e3_tests {
         let mut listed = LIT_PILLS.to_vec();
         listed.sort_unstable();
         listed.dedup();
-        assert_eq!(listed.len(), LIT_PILLS.len(), "LIT_PILLS has a duplicate id");
+        assert_eq!(
+            listed.len(),
+            LIT_PILLS.len(),
+            "LIT_PILLS has a duplicate id"
+        );
 
         assert_eq!(
             painted, listed,

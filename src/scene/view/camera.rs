@@ -489,8 +489,7 @@ impl Camera {
         let yaw = Quat::from_rotation_z(delta_yaw);
         self.rotation = (yaw * self.rotation).normalize();
         let cam_right = self.rotation * Vec3::X;
-        self.rotation =
-            (Quat::from_axis_angle(cam_right, delta_pitch) * self.rotation).normalize();
+        self.rotation = (Quat::from_axis_angle(cam_right, delta_pitch) * self.rotation).normalize();
 
         // Revolve the target around the pivot by the same rotation delta so the
         // view orbits the chosen centre instead of the fixed file centre (#229).

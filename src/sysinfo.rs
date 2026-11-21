@@ -59,7 +59,6 @@ fn unknown_if_empty(s: String) -> String {
     }
 }
 
-
 fn read() -> SystemInfo {
     let (cpu, ram_total, ram_available, os) = platform();
     SystemInfo {

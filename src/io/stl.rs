@@ -96,7 +96,6 @@ pub fn build_stl(meshes: &[&MeshModel]) -> Option<Vec<u8>> {
     Some(buf)
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::build_stl;

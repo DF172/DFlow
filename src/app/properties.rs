@@ -875,7 +875,11 @@ impl DraftFlowCAD {
                     .get(&ins.block_name)
                     .map(|br| br.units)
                     .unwrap_or(0);
-                set_row(&mut sections, "block_unit", crate::t!(insunits_name(src)).into_owned());
+                set_row(
+                    &mut sections,
+                    "block_unit",
+                    crate::t!(insunits_name(src)).into_owned(),
+                );
                 let factor = insert_unit_scale(host, src).unwrap_or(1.0);
                 set_row(&mut sections, "unit_factor", format_unit_factor(factor));
 
@@ -1762,18 +1766,17 @@ impl DraftFlowCAD {
         // per frame. Re-selecting an already-broken dimension is not a
         // severance and stays quiet.
         {
-            let target = match self.property_target_handles(i).as_slice() {
-                [handle]
-                    if self.tabs[i]
-                        .scene
-                        .document
-                        .get_entity(*handle)
-                        .is_some_and(|entity| matches!(entity, codec::EntityType::Dimension(_))) =>
-                {
-                    Some(*handle)
-                }
-                _ => None,
-            };
+            let target =
+                match self.property_target_handles(i).as_slice() {
+                    [handle]
+                        if self.tabs[i].scene.document.get_entity(*handle).is_some_and(
+                            |entity| matches!(entity, codec::EntityType::Dimension(_)),
+                        ) =>
+                    {
+                        Some(*handle)
+                    }
+                    _ => None,
+                };
             let broken_now = target.is_some_and(|handle| {
                 self.tabs[i]
                     .scene
@@ -2763,12 +2766,15 @@ handles={handles_ms:.1} panel={:.1} ribbon={ribbon_ms:.1} tail={:.1} selected={}
             ) && !dim.base().text_user_positioned
             {
                 let anno_scale = annotation_scale_handle
-                    .and_then(|handle| match self.tabs[i].scene.document.objects.get(&handle) {
-                        Some(codec::objects::ObjectType::Scale(scale)) => Some(
-                            scale.inverse_factor() / self.tabs[i].scene.annotation_scale_unit_factor(),
-                        ),
-                        _ => None,
-                    })
+                    .and_then(
+                        |handle| match self.tabs[i].scene.document.objects.get(&handle) {
+                            Some(codec::objects::ObjectType::Scale(scale)) => Some(
+                                scale.inverse_factor()
+                                    / self.tabs[i].scene.annotation_scale_unit_factor(),
+                            ),
+                            _ => None,
+                        },
+                    )
                     .unwrap_or(self.tabs[i].scene.annotation_scale as f64);
 
                 if let Some(position) = crate::entities::dimension::dimension_text_grip_position(
@@ -2799,12 +2805,11 @@ handles={handles_ms:.1} panel={:.1} ribbon={ribbon_ms:.1} tail={:.1} selected={}
             // A dynamic angle shows a triangle at each end of its arc
             // pointing away from it, and squares at the arc point and
             // the text — nothing on the sides.
-            let (arc_id, text_id) =
-                if matches!(dim, codec::entities::Dimension::Angular2Ln(_)) {
-                    (4, 5)
-                } else {
-                    (3, 4)
-                };
+            let (arc_id, text_id) = if matches!(dim, codec::entities::Dimension::Angular2Ln(_)) {
+                (4, 5)
+            } else {
+                (3, 4)
+            };
             if let Some(ends) = crate::entities::dimension::angular_arc_ends(dim) {
                 entity_grips.retain(|grip| grip.id == arc_id || grip.id == text_id);
                 for (point, away) in ends {
@@ -2828,7 +2833,8 @@ handles={handles_ms:.1} panel={:.1} ribbon={ribbon_ms:.1} tail={:.1} selected={}
                 if grip.id <= 1 {
                     let other = points.get(1 - grip.id).copied().unwrap_or(grip.world);
                     let dir = (other - grip.world).normalize_or(glam::DVec3::X);
-                    *grip = crate::entities::common::oriented_triangle_grip(grip.id, grip.world, dir);
+                    *grip =
+                        crate::entities::common::oriented_triangle_grip(grip.id, grip.world, dir);
                 }
             }
         }
@@ -2897,13 +2903,11 @@ handles={handles_ms:.1} panel={:.1} ribbon={ribbon_ms:.1} tail={:.1} selected={}
         // slot.
         let old_handles = std::mem::take(&mut self.tabs[i].selected_grip_handles);
         let old_grips = std::mem::take(&mut self.tabs[i].selected_grips);
-        let mut last_slot: rustc_hash::FxHashMap<Handle, usize> =
-            rustc_hash::FxHashMap::default();
+        let mut last_slot: rustc_hash::FxHashMap<Handle, usize> = rustc_hash::FxHashMap::default();
         for (index, handle) in old_handles.iter().enumerate() {
             last_slot.insert(*handle, index);
         }
-        let mut consumed: rustc_hash::FxHashMap<Handle, usize> =
-            rustc_hash::FxHashMap::default();
+        let mut consumed: rustc_hash::FxHashMap<Handle, usize> = rustc_hash::FxHashMap::default();
         let mut grips = Vec::with_capacity(old_grips.len());
         let mut handles = Vec::with_capacity(old_handles.len());
         for (index, (handle, grip)) in old_handles.into_iter().zip(old_grips).enumerate() {
@@ -4647,7 +4651,7 @@ mod apply_property_op_tests {
 
 #[cfg(test)]
 mod chprop_integration_tests {
-    use crate::app::{Message, DraftFlowCAD};
+    use crate::app::{DraftFlowCAD, Message};
     use codec::entities::Line;
     use codec::types::{Color, LineWeight, Vector3};
 

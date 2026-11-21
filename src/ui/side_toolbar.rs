@@ -81,7 +81,11 @@ pub fn view_with_active(
         // An on tool wears the aurora wash + edge; a rest tool is a plain
         // framed plate that lifts under the pointer. Both are the kit's
         // numbers, decided in `kit::style_for`.
-        let role = if active(t.id) { Role::Engaged } else { Role::Standard };
+        let role = if active(t.id) {
+            Role::Engaged
+        } else {
+            Role::Standard
+        };
         let btn = icon_btn(
             icon_el(t.icon),
             role,

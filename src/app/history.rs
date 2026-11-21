@@ -59,7 +59,6 @@ fn defer_history_drop(entries: Vec<HistorySnapshot>) {
     }
 }
 
-
 /// Pre-command state captured by [`DraftFlowCAD::begin_undo`] and handed back to
 /// [`DraftFlowCAD::commit_undo_delta`] to close a delta entry. Lives on the
 /// stack across the (synchronous) command body — no per-tab field needed.

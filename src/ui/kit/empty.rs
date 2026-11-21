@@ -43,9 +43,14 @@ pub fn state<'a, M: 'a>(
     let alpha = motion::engage(key, true);
     super::alpha::entrance(alpha, move || {
         container(
-            column![glyph, text(label.into()).size(tokens::TEXT_LABEL).style(faint_style)]
-                .spacing(tokens::GAP_ROW)
-                .align_x(iced::Alignment::Center),
+            column![
+                glyph,
+                text(label.into())
+                    .size(tokens::TEXT_LABEL)
+                    .style(faint_style)
+            ]
+            .spacing(tokens::GAP_ROW)
+            .align_x(iced::Alignment::Center),
         )
         .width(Fill)
         .height(Fill)
@@ -68,9 +73,14 @@ pub fn line<'a, M: 'a>(
     let alpha = motion::engage(key, true);
     super::alpha::entrance(alpha, move || {
         container(
-            row![glyph, text(label.into()).size(tokens::TEXT_LABEL).style(faint_style)]
-                .spacing(tokens::GAP_CONTROL)
-                .align_y(iced::Center),
+            row![
+                glyph,
+                text(label.into())
+                    .size(tokens::TEXT_LABEL)
+                    .style(faint_style)
+            ]
+            .spacing(tokens::GAP_CONTROL)
+            .align_y(iced::Center),
         )
         .width(Fill)
         .padding(Size::Compact.padding())
@@ -98,7 +108,6 @@ mod b6_empty_tests {
         assert_eq!(
             full("b6:empty:slot").as_widget().size(),
             iced::Size::new(Fill, Fill),
-
             "the empty state must claim the list's box, not shrink-wrap its text"
         );
     }
@@ -120,11 +129,9 @@ mod b6_empty_tests {
     /// starts borrowing the loader's vocabulary and the two become one state.
     #[test]
     fn nothing_in_an_empty_state_sweeps() {
-        let file = std::fs::read_to_string(concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/src/ui/kit/empty.rs"
-        ))
-        .expect("the empty-state source must be readable");
+        let file =
+            std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/src/ui/kit/empty.rs"))
+                .expect("the empty-state source must be readable");
         let paint = file.split("\n#[cfg(test)]").next().unwrap_or(&file);
         for loader in ["tri_wave", "LOOP_MS", "pulse(", "replay("] {
             assert!(
@@ -143,18 +150,18 @@ mod b6_empty_tests {
     /// glyph built outside the closure would stay full strength over faded text.
     #[test]
     fn both_forms_build_their_glyph_inside_the_fade() {
-        let file = std::fs::read_to_string(concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/src/ui/kit/empty.rs"
-        ))
-        .expect("the empty-state source must be readable");
+        let file =
+            std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/src/ui/kit/empty.rs"))
+                .expect("the empty-state source must be readable");
         let paint = file.split("\n#[cfg(test)]").next().unwrap_or(&file);
         assert_eq!(
             paint.matches("alpha::entrance(alpha").count(),
             2,
             "there are two forms, so there are two entrances"
         );
-        let first_glyph_use = paint.find("glyph,").expect("the glyph is placed in a layout");
+        let first_glyph_use = paint
+            .find("glyph,")
+            .expect("the glyph is placed in a layout");
         assert!(
             first_glyph_use > paint.find("alpha::entrance(alpha").unwrap(),
             "the first glyph use must be inside the entrance closure"

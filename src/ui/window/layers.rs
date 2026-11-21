@@ -3,8 +3,8 @@
 use crate::app::Message;
 use crate::t;
 use crate::ui::kit;
-use crate::ui::properties::{lw_options, LinetypeItem, LwItem};
 use crate::ui::kit::muted_style;
+use crate::ui::properties::{lw_options, LinetypeItem, LwItem};
 use crate::ui::style::tokens;
 use crate::ui::ROW_H;
 use codec::tables::layer::Layer as DocLayer;
@@ -399,9 +399,7 @@ impl LayerPanel {
     pub fn table_window(&self) -> crate::ui::virtual_list::Window {
         let total = {
             let mut cache = self.row_cache.borrow_mut();
-            cache
-                .rows(&self.layers, &self.filter, self.rows_rev)
-                .len()
+            cache.rows(&self.layers, &self.filter, self.rows_rev).len()
         };
         let viewport_h = if self.table_height > 0.0 {
             self.table_height
@@ -489,7 +487,10 @@ impl LayerPanel {
         let sc = self.sort_col;
         let sa = self.sort_asc;
         let mut header_row = row![
-            text(t!("Status")).size(tokens::TEXT_MICRO).style(muted_style).width(COL_STATUS),
+            text(t!("Status"))
+                .size(tokens::TEXT_MICRO)
+                .style(muted_style)
+                .width(COL_STATUS),
             sortable_header(
                 t!("Name"),
                 LayerSortCol::Name,
@@ -586,9 +587,8 @@ impl LayerPanel {
         let no_rows = rows.is_empty();
         let mut rows_col = column![].spacing(tokens::GAP_NONE);
         if win.top_spacer > 0.0 {
-            rows_col = rows_col.push(
-                iced::widget::Space::new().height(Length::Fixed(win.top_spacer)),
-            );
+            rows_col =
+                rows_col.push(iced::widget::Space::new().height(Length::Fixed(win.top_spacer)));
         }
         for (row, &i) in rows[win.start..win.end].iter().enumerate() {
             let layer = &self.layers[i];
@@ -612,36 +612,32 @@ impl LayerPanel {
             // the turn-off dim: for 120 ms after the layer goes OFF the row
             // fades toward 45% ink and recovers, so the eye follows the state
             // change. The row stays in the tree — this is not a removal.
-            let off_dim = crate::ui::motion::value_or(
-                crate::ui::motion::layer_off_key(&layer.name),
-                0.0,
-            );
+            let off_dim =
+                crate::ui::motion::value_or(crate::ui::motion::layer_off_key(&layer.name), 0.0);
             let row_alpha = crate::ui::motion::entrance_value(
                 crate::ui::dock::entrance_keys(crate::ui::dock::PanelId::Layers),
                 row,
             ) * (1.0 - 0.55 * off_dim);
             rows_col = rows_col.push(crate::ui::kit::alpha::entrance(row_alpha, || {
-                    layer_row(
-                        i,
-                        layer,
-                        is_sel,
-                        is_current,
-                        is_editing,
-                        &self.edit_buf,
-                        color_open,
-                        ltc,
-                        lwc,
-                        &self.vp_cols,
-                        name_col_w,
-                        theme,
-                    )
-                },
-            ));
+                layer_row(
+                    i,
+                    layer,
+                    is_sel,
+                    is_current,
+                    is_editing,
+                    &self.edit_buf,
+                    color_open,
+                    ltc,
+                    lwc,
+                    &self.vp_cols,
+                    name_col_w,
+                    theme,
+                )
+            }));
         }
         if win.bottom_spacer > 0.0 {
-            rows_col = rows_col.push(
-                iced::widget::Space::new().height(Length::Fixed(win.bottom_spacer)),
-            );
+            rows_col =
+                rows_col.push(iced::widget::Space::new().height(Length::Fixed(win.bottom_spacer)));
         }
 
         let table: Element<'_, Message> = if no_rows {
@@ -705,16 +701,14 @@ impl LayerPanel {
             .or_else(|| self.layers.iter().find(|l| l.name == self.current_layer))
             .or_else(|| self.layers.first());
         let status = container(
-            row![
-                text(crate::tr!(
-                    "layers",
-                    "status-line",
-                    current = self.current_layer.clone(),
-                    count = self.layers.len(),
-                ))
-                .size(tokens::TEXT_LABEL)
-                .style(muted_style),
-            ]
+            row![text(crate::tr!(
+                "layers",
+                "status-line",
+                current = self.current_layer.clone(),
+                count = self.layers.len(),
+            ))
+            .size(tokens::TEXT_LABEL)
+            .style(muted_style),]
             .width(Length::Fill),
         )
         .style(|theme: &Theme| kit::strip_style(theme, ""))
@@ -773,7 +767,13 @@ fn layer_rail<'a>(panel: &'a LayerPanel, anchor: Option<&'a Layer>) -> Element<'
         .style(move |theme: &Theme| kit::swatch_style(theme, fill, ""));
         column![
             rail_row(t!("Name"), layer.name.clone()),
-            rail_row_left(t!("Color"), row![swatch, text(color_label).size(FONT_SZ)].spacing(tokens::GAP_CONTROL).align_y(iced::Center).into()),
+            rail_row_left(
+                t!("Color"),
+                row![swatch, text(color_label).size(FONT_SZ)]
+                    .spacing(tokens::GAP_CONTROL)
+                    .align_y(iced::Center)
+                    .into()
+            ),
             rail_row(t!("Linetype"), layer.linetype.clone()),
             rail_row(t!("Lineweight"), LwItem(layer.lineweight).to_string()),
             rail_row(t!("Transparency"), format!("{}%", layer.transparency)),
@@ -800,7 +800,10 @@ fn layer_rail<'a>(panel: &'a LayerPanel, anchor: Option<&'a Layer>) -> Element<'
     let frozen = panel.layers.iter().filter(|l| l.frozen).count();
     let locked = panel.layers.iter().filter(|l| l.locked).count();
     let stats = column![
-        rail_row(crate::tr!("layers", "total-layers"), panel.layers.len().to_string()),
+        rail_row(
+            crate::tr!("layers", "total-layers"),
+            panel.layers.len().to_string()
+        ),
         rail_row(t!("On"), on.to_string()),
         rail_row(t!("Freeze"), frozen.to_string()),
         rail_row(t!("Lock"), locked.to_string()),
@@ -897,9 +900,12 @@ fn toolbar_btn<'a>(
     msg: Message,
 ) -> Element<'a, Message> {
     kit::btn(
-        row![crate::ui::icons::themed(icon, 12.0), text(label).size(tokens::TEXT_LABEL),]
-            .spacing(tokens::GAP_TIGHT)
-            .align_y(iced::Center),
+        row![
+            crate::ui::icons::themed(icon, 12.0),
+            text(label).size(tokens::TEXT_LABEL),
+        ]
+        .spacing(tokens::GAP_TIGHT)
+        .align_y(iced::Center),
         kit::Role::Standard,
         kit::Size::Control,
         kit::Press::On(msg),
@@ -1295,7 +1301,10 @@ mod tests {
         }
         panel.table_offset_y = total_h / 2.0;
         let win = panel.table_window();
-        assert!(win.start > 0 && win.end < 2000, "mid-list window is a slice");
+        assert!(
+            win.start > 0 && win.end < 2000,
+            "mid-list window is a slice"
+        );
         assert!(win.top_spacer > 0.0 && win.bottom_spacer > 0.0);
     }
 

@@ -329,7 +329,10 @@ mod tests {
         enroll("focus-test:only");
         assert!(has_focusables());
         begin_pass();
-        assert!(!has_focusables(), "a frame with no controls unregisters them");
+        assert!(
+            !has_focusables(),
+            "a frame with no controls unregisters them"
+        );
         assert!(!advance(true));
     }
 
@@ -372,7 +375,11 @@ mod tests {
         begin_pass();
         enroll("focus-test:pointer-trigger");
         assert_eq!(current(), Some("focus-test:pointer-trigger"));
-        assert_eq!(ring("focus-test:pointer-trigger"), 0.0, "pointer shows no ring");
+        assert_eq!(
+            ring("focus-test:pointer-trigger"),
+            0.0,
+            "pointer shows no ring"
+        );
     }
 
     #[test]

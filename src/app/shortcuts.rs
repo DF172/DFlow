@@ -1,6 +1,6 @@
 //! Editable keyboard shortcut table shared by the CUI dialog and key events.
 
-use super::{Message, DraftFlowCAD};
+use super::{DraftFlowCAD, Message};
 use iced::Task;
 use rustc_hash::FxHashMap;
 use std::collections::BTreeMap;

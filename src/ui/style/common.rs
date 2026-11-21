@@ -96,11 +96,7 @@ pub(crate) fn wcag_contrast(c1: Color, c2: Color) -> f32 {
 /// would be noise under an 8-bit channel.
 #[must_use]
 pub(crate) fn oklab_of(color: Color) -> [f32; 3] {
-    let (r, g, b) = (
-        to_linear(color.r),
-        to_linear(color.g),
-        to_linear(color.b),
-    );
+    let (r, g, b) = (to_linear(color.r), to_linear(color.g), to_linear(color.b));
     // linear sRGB -> cone response -> the cube-rooted space the axes are
     // near-orthogonal in.
     let l = (0.4122_214_7 * r + 0.5363_325_4 * g + 0.0514_459_9 * b).cbrt();

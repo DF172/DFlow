@@ -3,11 +3,11 @@
 use crate::app::Message;
 use crate::t;
 use crate::ui::kit::muted_style;
+use crate::ui::style::tokens;
 use iced::widget::{canvas, checkbox, column, container, row, text, text_input};
 use iced::{mouse, Color, Element, Length, Point, Rectangle, Size, Theme};
 use std::borrow::Cow;
 use std::fmt;
-use crate::ui::style::tokens;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 struct EnumChoice {
@@ -82,7 +82,10 @@ fn input_row<'a>(
     field: &'static str,
 ) -> Element<'a, Message> {
     row![
-        text(label).size(tokens::TEXT_LABEL).style(muted_style).width(165),
+        text(label)
+            .size(tokens::TEXT_LABEL)
+            .style(muted_style)
+            .width(165),
         text_input(placeholder, value)
             .on_input(move |value| Message::MLeaderStyleEdit { field, value })
             .size(tokens::TEXT_LABEL)
@@ -95,7 +98,10 @@ fn input_row<'a>(
 
 fn readonly_row<'a>(label: Cow<'static, str>, value: Cow<'static, str>) -> Element<'a, Message> {
     row![
-        text(label).size(tokens::TEXT_LABEL).style(muted_style).width(165),
+        text(label)
+            .size(tokens::TEXT_LABEL)
+            .style(muted_style)
+            .width(165),
         crate::ui::read_only::field(value.as_ref(), 11.0, Length::Fixed(190.0)),
     ]
     .spacing(tokens::GAP_ROW)
@@ -129,10 +135,16 @@ fn color_row<'a>(
         Message::OpenColorWindow(crate::app::ColorPickTarget::MLeader(field), current),
         theme,
     );
-    row![text(label).size(tokens::TEXT_LABEL).style(muted_style).width(165), selector]
-        .spacing(tokens::GAP_ROW)
-        .align_y(iced::Center)
-        .into()
+    row![
+        text(label)
+            .size(tokens::TEXT_LABEL)
+            .style(muted_style)
+            .width(165),
+        selector
+    ]
+    .spacing(tokens::GAP_ROW)
+    .align_y(iced::Center)
+    .into()
 }
 
 fn enum_row<'a>(
@@ -147,7 +159,10 @@ fn enum_row<'a>(
         .map(|(_, label)| crate::i18n::translate(label))
         .unwrap_or_else(|| crate::i18n::translate(&selected));
     row![
-        text(label).size(tokens::TEXT_LABEL).style(muted_style).width(165),
+        text(label)
+            .size(tokens::TEXT_LABEL)
+            .style(muted_style)
+            .width(165),
         crate::ui::kit::themed_pick_list(
             Some(EnumChoice {
                 code: selected,
@@ -192,7 +207,10 @@ fn handle_row<'a>(
         })
         .collect();
     row![
-        text(label).size(tokens::TEXT_LABEL).style(muted_style).width(165),
+        text(label)
+            .size(tokens::TEXT_LABEL)
+            .style(muted_style)
+            .width(165),
         crate::ui::kit::themed_pick_list(Some(selected), options, |value| value.to_string())
             .on_select(move |value| Message::MLeaderStyleSetHandle {
                 field,
@@ -686,7 +704,9 @@ pub fn view_window<'a>(
 ) -> Element<'a, Message> {
     let style = v.style;
     let content: Element<'a, Message> = match (v.tab, style) {
-        (_, None) => text(t!("Select a style to view details.")).size(tokens::TEXT_LABEL).into(),
+        (_, None) => text(t!("Select a style to view details."))
+            .size(tokens::TEXT_LABEL)
+            .into(),
         (0, Some(style)) => column![
             input_row(t!("Description"), "", v.description, "description"),
             enum_row(

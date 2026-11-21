@@ -8,15 +8,15 @@ use crate::app::Message;
 use crate::io::paper_catalog::{self, CustomPaper, Margins, PaperSize, PaperUnits};
 use crate::io::plot_device::PrinterCapabilities;
 use crate::t;
-use crate::ui::kit::muted_style;
 use crate::ui::kit;
-use crate::ui::kit::{hdivider, vseparator as vsep};
-use iced::widget::{checkbox, column, container, mouse_area, row, text, text_input, Space};
+use crate::ui::kit::muted_style;
 use crate::ui::kit::plain_button;
+use crate::ui::kit::{hdivider, vseparator as vsep};
+use crate::ui::style::tokens;
+use iced::widget::{checkbox, column, container, mouse_area, row, text, text_input, Space};
 use iced::{Element, Fit, Length, Theme};
 use std::borrow::Cow;
 use std::fmt;
-use crate::ui::style::tokens;
 
 /// Sentinel entries in the printer dropdown (not real printer names).
 pub const OUT_DEFAULT: &str = "System default printer";
@@ -849,7 +849,11 @@ fn page_setup_import_chooser<'a>(
     let msg = |m: PageSetupImportMsg| Message::PlotDlg(PlotDlgMsg::Import(m));
     let mut rows = column![].spacing(tokens::GAP_HAIRLINE);
     if let Some(error) = &draft.error {
-        rows = rows.push(text(error.clone()).size(tokens::TEXT_MICRO).style(muted_style));
+        rows = rows.push(
+            text(error.clone())
+                .size(tokens::TEXT_MICRO)
+                .style(muted_style),
+        );
     } else if draft.setups.is_empty() {
         let none = text(t!("No named page setups in this drawing.")).size(tokens::TEXT_MICRO);
         rows = rows.push(none.style(muted_style));
@@ -873,7 +877,9 @@ fn page_setup_import_chooser<'a>(
         import = import.on_press(msg(PageSetupImportMsg::Apply));
     }
     column![
-        text(draft.file.clone()).size(tokens::TEXT_MICRO).style(muted_style),
+        text(draft.file.clone())
+            .size(tokens::TEXT_MICRO)
+            .style(muted_style),
         crate::ui::kit::themed_scrollable(rows).height(height),
         checkbox(all)
             .label(t!("All"))
@@ -898,7 +904,10 @@ fn page_setup_import_chooser<'a>(
 /// either side replaces the picked scale with the typed ratio.
 fn custom_scale_row<'a>(s: &'a PlotDialogState, enabled: bool) -> Element<'a, Message> {
     let field = |value: &'a str, ctor: fn(String) -> PlotDlgMsg| {
-        let mut input = text_input("", value).size(tokens::TEXT_LABEL).padding(kit::PAD_FIELD).width(58);
+        let mut input = text_input("", value)
+            .size(tokens::TEXT_LABEL)
+            .padding(kit::PAD_FIELD)
+            .width(58);
         if enabled {
             input = input.on_input(move |v| Message::PlotDlg(ctor(v)));
         }
@@ -909,7 +918,9 @@ fn custom_scale_row<'a>(s: &'a PlotDialogState, enabled: bool) -> Element<'a, Me
         PaperUnits::Millimeters => t!("Millimeters"),
     };
     row![
-        text(t!("Custom")).size(tokens::TEXT_LABEL).width(kit::LABEL_WIDTH),
+        text(t!("Custom"))
+            .size(tokens::TEXT_LABEL)
+            .width(kit::LABEL_WIDTH),
         field(&s.custom_scale_paper, PlotDlgMsg::CustomScalePaper),
         text(unit).size(tokens::TEXT_LABEL),
         text("=").size(tokens::TEXT_LABEL),
@@ -925,7 +936,10 @@ fn custom_scale_row<'a>(s: &'a PlotDialogState, enabled: bool) -> Element<'a, Me
 /// the file's own problem, or where a copy would be found.
 fn style_note<'a>(s: &'a PlotDialogState) -> Element<'a, Message> {
     match &s.style_error {
-        Some(error) if s.style_missing => text(error.clone()).size(tokens::TEXT_MICRO).style(muted_style).into(),
+        Some(error) if s.style_missing => text(error.clone())
+            .size(tokens::TEXT_MICRO)
+            .style(muted_style)
+            .into(),
         _ => Space::new().height(tokens::GAP_NONE).into(),
     }
 }
@@ -1191,11 +1205,17 @@ pub fn view_window(
         .map(|name| setup_row(name, &s.selected_setup, renaming, rename_buf))
         .collect();
     let list_body: Element<'_, Message> = if rows.is_empty() {
-        container(text(t!("(no page setups)")).size(tokens::TEXT_LABEL).style(muted_style))
-            .padding(kit::PAD_WELL)
-            .into()
+        container(
+            text(t!("(no page setups)"))
+                .size(tokens::TEXT_LABEL)
+                .style(muted_style),
+        )
+        .padding(kit::PAD_WELL)
+        .into()
     } else {
-        crate::ui::kit::themed_scrollable(column(rows).spacing(tokens::GAP_HAIRLINE)).height(height).into()
+        crate::ui::kit::themed_scrollable(column(rows).spacing(tokens::GAP_HAIRLINE))
+            .height(height)
+            .into()
     };
     let new_name: Element<'_, Message> = if !s.name_rename && s.name_input.is_some() {
         row![
@@ -1228,7 +1248,9 @@ pub fn view_window(
     };
     let list_panel = container(
         column![
-            text(t!("Page setups")).size(tokens::TEXT_MICRO).style(muted_style),
+            text(t!("Page setups"))
+                .size(tokens::TEXT_MICRO)
+                .style(muted_style),
             new_name,
             container(list_body)
                 .style(|theme: &Theme| kit::Tier::Plate.style(theme, ""))
@@ -1286,13 +1308,16 @@ pub fn view_window(
         kit::Role::Standard,
         kit::Size::Control,
         if !print_all_options && s.import_draft.is_none() {
-            kit::Press::On(Message::PlotDlg(PlotDlgMsg::Import(PageSetupImportMsg::Pick)))
+            kit::Press::On(Message::PlotDlg(PlotDlgMsg::Import(
+                PageSetupImportMsg::Pick,
+            )))
         } else {
             kit::Press::Off
         },
         "",
     );
-    let left_bar = row![new_button, copy_button, delete_button, import_button,].spacing(tokens::GAP_TIGHT);
+    let left_bar =
+        row![new_button, copy_button, delete_button, import_button,].spacing(tokens::GAP_TIGHT);
 
     // ── Printer / plotter ─────────────────────────────────────────────────
     // The default entry names the printer it resolves to, when known, so the
@@ -1313,13 +1338,11 @@ pub fn view_window(
         *first = default_entry.clone();
     }
     let printer_sel = if to_file {
-        Some(PlotChoice::localized(
-            if s.file_svg && true {
-                OUT_SVG
-            } else {
-                OUT_PDF
-            },
-        ))
+        Some(PlotChoice::localized(if s.file_svg && true {
+            OUT_SVG
+        } else {
+            OUT_PDF
+        }))
     } else {
         Some(match &s.printer {
             Some(printer) => PlotChoice::raw(printer.clone()),
@@ -1432,7 +1455,8 @@ pub fn view_window(
         }
         _ => Space::new().height(tokens::GAP_NONE).into(),
     };
-    let printer_panel = panel(column![output_field, printer_controls, printer_note].spacing(tokens::GAP_FIELD));
+    let printer_panel =
+        panel(column![output_field, printer_controls, printer_note].spacing(tokens::GAP_FIELD));
 
     // ── Paper, area, offset, scale ────────────────────────────────────────
     // The picker takes the whole row so long media names stay readable; the
@@ -1473,8 +1497,10 @@ pub fn view_window(
     };
     // Like the printer row: the section is its one picker, so heading and
     // control share a line.
-    let paper_panel =
-        panel(column![size_row, custom_controls, paper_source_note, paper_note,].spacing(tokens::GAP_FIELD));
+    let paper_panel = panel(
+        column![size_row, custom_controls, paper_source_note, paper_note,]
+            .spacing(tokens::GAP_FIELD),
+    );
 
     let mut area_options = if print_all_options {
         choices(&["Layout"])
@@ -1783,9 +1809,12 @@ pub fn view_window(
     ]
     .spacing(tokens::GAP_SECTION)
     .width(width);
-    let detail = crate::ui::kit::themed_scrollable(container(row![left, right].spacing(tokens::GAP_GUTTER).width(width)).padding(kit::PAD_CARD))
-        .width(width)
-        .height(height);
+    let detail = crate::ui::kit::themed_scrollable(
+        container(row![left, right].spacing(tokens::GAP_GUTTER).width(width))
+            .padding(kit::PAD_CARD),
+    )
+    .width(width)
+    .height(height);
     let body = row![list_panel, vsep(height), detail]
         .width(width)
         .height(height);

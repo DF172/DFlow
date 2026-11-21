@@ -215,7 +215,11 @@ pub fn tone_style_on(theme: &Theme, tone: Tone, plate: Color) -> text::Style {
 /// dropped into.
 #[must_use]
 pub fn tone_ink_on(theme: &Theme, tone: Tone, plate: Color) -> Color {
-    resolve_on(tone_pair(theme, tone).color, &[plate], tokens::AA_INK_CONTRAST)
+    resolve_on(
+        tone_pair(theme, tone).color,
+        &[plate],
+        tokens::AA_INK_CONTRAST,
+    )
 }
 
 impl Tone {
@@ -239,7 +243,11 @@ impl Tone {
 /// every plane a kit word can land on.
 #[must_use]
 pub fn tone_ink(theme: &Theme, tone: Tone) -> Color {
-    resolve_on(tone_pair(theme, tone).color, &kit_planes(theme), tokens::AA_INK_CONTRAST)
+    resolve_on(
+        tone_pair(theme, tone).color,
+        &kit_planes(theme),
+        tokens::AA_INK_CONTRAST,
+    )
 }
 
 /// The accent as a word: [`tone_style`] with the one [`Tone`] that is not a
@@ -301,11 +309,7 @@ pub fn kit_planes(theme: &Theme) -> Vec<Color> {
             .weak
             .color
             .scale_alpha(tokens::TINT_SELECTED),
-        palette
-            .primary
-            .weak
-            .color
-            .scale_alpha(tokens::TINT_DROPPED),
+        palette.primary.weak.color.scale_alpha(tokens::TINT_DROPPED),
     ];
 
     let mut planes: Vec<Color> = tiers.iter().map(|tier| plane(theme, *tier)).collect();

@@ -3,7 +3,7 @@
 //! the control protocol's `set_property_value`) aimed at that entity. The
 //! `graph` crate evaluates; [`AppHost`] gives it the drawing.
 
-use super::{Message, DraftFlowCAD};
+use super::{DraftFlowCAD, Message};
 use crate::scene::model::object::PropSection;
 use crate::ui::node_graph::{Drag, GraphMsg, NodeRow, NodeSection, ObjectKind, RowWidget};
 use codec::Handle;

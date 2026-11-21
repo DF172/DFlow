@@ -1,12 +1,12 @@
 //! Dock drawing: the edges (icon strip and shown group), floating pallets,
 //! the + menu and the drag preview.
 
-use crate::ui::kit;
-use crate::ui::style::tokens;
 use crate::app::document::DocumentTab;
-use crate::app::{Message, DraftFlowCAD};
+use crate::app::{DraftFlowCAD, Message};
 use crate::t;
 use crate::ui::dock::DOCK_DIVIDER_W;
+use crate::ui::kit;
+use crate::ui::style::tokens;
 use iced::widget::{canvas, column, container, mouse_area, row, stack, text, Space};
 use iced::{Element, Fill, Length, Theme};
 
@@ -136,38 +136,38 @@ impl DraftFlowCAD {
             .dock_shown_group(side)
             .filter(|_| self.dock_edge_expanded(side))
             .map(|gi| {
-            let width = self.dock_group_width(side, gi);
-            let group = &self.dock.groups(side)[gi];
-            let mut layers: Vec<Element<'_, Message>> = Vec::new();
-            let mut prev: Option<usize> = None;
-            for (pos, id) in group.panels.iter().enumerate() {
-                if !self.dock_panel_visible(*id) {
-                    continue;
+                let width = self.dock_group_width(side, gi);
+                let group = &self.dock.groups(side)[gi];
+                let mut layers: Vec<Element<'_, Message>> = Vec::new();
+                let mut prev: Option<usize> = None;
+                for (pos, id) in group.panels.iter().enumerate() {
+                    if !self.dock_panel_visible(*id) {
+                        continue;
+                    }
+                    if let Some(upper) = prev {
+                        layers.push(dock_splitter(side, gi, upper, pos, width));
+                    }
+                    layers.push(
+                        container(self.expanded_panel(*id, side, width, tab))
+                            .height(Length::FillPortion(crate::ui::dock::portion(
+                                group.weights[pos],
+                            )))
+                            .clip(true)
+                            .into(),
+                    );
+                    prev = Some(pos);
                 }
-                if let Some(upper) = prev {
-                    layers.push(dock_splitter(side, gi, upper, pos, width));
-                }
-                layers.push(
-                    container(self.expanded_panel(*id, side, width, tab))
-                        .height(Length::FillPortion(crate::ui::dock::portion(
-                            group.weights[pos],
-                        )))
-                        .clip(true)
-                        .into(),
-                );
-                prev = Some(pos);
-            }
-            // Slide-in: the column keeps its full content width and the
-            // animated viewport clips it, so labels never reflow while the
-            // group reveals. `value_or(.., 1.0)` keeps groups that were
-            // never hidden at full width (e.g. the ones visible at boot).
-            let slide_key = crate::ui::motion::indexed_key("dockgrp:", side as usize * 8 + gi);
-            let p = crate::ui::motion::value_or(slide_key, 1.0);
-            container(column(layers).height(Fill))
-                .width(Length::Fixed((width * p).max(1.0)))
-                .clip(true)
-                .into()
-        });
+                // Slide-in: the column keeps its full content width and the
+                // animated viewport clips it, so labels never reflow while the
+                // group reveals. `value_or(.., 1.0)` keeps groups that were
+                // never hidden at full width (e.g. the ones visible at boot).
+                let slide_key = crate::ui::motion::indexed_key("dockgrp:", side as usize * 8 + gi);
+                let p = crate::ui::motion::value_or(slide_key, 1.0);
+                container(column(layers).height(Fill))
+                    .width(Length::Fixed((width * p).max(1.0)))
+                    .clip(true)
+                    .into()
+            });
 
         let mut children: Vec<Element<'_, Message>> = Vec::new();
         match side {
@@ -376,7 +376,9 @@ impl DraftFlowCAD {
             title_hovered: self.dock_title_hover == Some(id),
         };
         let body = match id {
-            crate::ui::dock::PanelId::Properties => tab.properties.view(width, chrome, &self.active_theme),
+            crate::ui::dock::PanelId::Properties => {
+                tab.properties.view(width, chrome, &self.active_theme)
+            }
             crate::ui::dock::PanelId::GraphicAttributes => {
                 crate::ui::window::graphic_attributes::view(
                     &self.graphic_attributes,
@@ -394,13 +396,19 @@ impl DraftFlowCAD {
                     &self.active_theme,
                 )
             }
-            crate::ui::dock::PanelId::BlockPalette => {
-                crate::ui::window::block_palette::view(&self.block_palette, width, chrome, &self.active_theme)
-            }
-            crate::ui::dock::PanelId::ExternalReferences => {
-                self.xref_manager
-                    .view(width, chrome, tab.xref_missing, &tab.scene.document, &self.active_theme)
-            }
+            crate::ui::dock::PanelId::BlockPalette => crate::ui::window::block_palette::view(
+                &self.block_palette,
+                width,
+                chrome,
+                &self.active_theme,
+            ),
+            crate::ui::dock::PanelId::ExternalReferences => self.xref_manager.view(
+                width,
+                chrome,
+                tab.xref_missing,
+                &tab.scene.document,
+                &self.active_theme,
+            ),
             crate::ui::dock::PanelId::Browser => crate::ui::window::browser::view(
                 &tab.scene.document,
                 tab.sketch_session
@@ -427,11 +435,15 @@ impl DraftFlowCAD {
                 width,
                 chrome,
             ),
-            crate::ui::dock::PanelId::SheetSetManager => {
-                crate::ui::window::sheet_set::view(&self.sheet_set, width, chrome, &self.active_theme)
-            }
+            crate::ui::dock::PanelId::SheetSetManager => crate::ui::window::sheet_set::view(
+                &self.sheet_set,
+                width,
+                chrome,
+                &self.active_theme,
+            ),
             crate::ui::dock::PanelId::Layers => {
-                tab.layers.view_panel(self.layer_name_col_w, width, chrome, &self.active_theme)
+                tab.layers
+                    .view_panel(self.layer_name_col_w, width, chrome, &self.active_theme)
             }
         };
         // One card tier under every pallet: the panel reads as a raised sheet
@@ -644,7 +656,9 @@ impl DraftFlowCAD {
             Space::new().width(12).height(12).into()
         };
         let docking = row![
-            text(t!("Allow docking")).size(tokens::TEXT_BODY).width(Fill),
+            text(t!("Allow docking"))
+                .size(tokens::TEXT_BODY)
+                .width(Fill),
             check
         ]
         .align_y(iced::Center);
@@ -696,11 +710,7 @@ impl DraftFlowCAD {
                 // An open drop target is the loudest wash in the kit; it
                 // arrives on the same track as the ghost.
                 .style(|theme: &Theme| {
-                    kit::tint_style(
-                        kit::Tint::Dropped,
-                        theme,
-                        crate::ui::motion::DOCK_DROP,
-                    )
+                    kit::tint_style(kit::Tint::Dropped, theme, crate::ui::motion::DOCK_DROP)
                 });
             container(band)
                 .width(Fill)
@@ -743,7 +753,11 @@ impl DraftFlowCAD {
                     DockSide::Right => (x - settle).max(0.0),
                 };
                 layers.push(tint(side, w));
-                layers.push(place_at(dock_ghost(id, w, bottom - top, p), x, top + settle));
+                layers.push(place_at(
+                    dock_ghost(id, w, bottom - top, p),
+                    x,
+                    top + settle,
+                ));
             }
         }
         // On top: the strip's drop marks and a ghost of what is dragged
@@ -838,14 +852,13 @@ impl DraftFlowCAD {
                     (y - 2.0).max(0.0),
                 ));
                 const BADGE_W: f32 = 96.0;
-                let badge = container(
-                    text(format!("+ {}", t!("New group"))).size(tokens::TEXT_MICRO),
-                )
-                .width(Length::Fixed(BADGE_W))
-                .center_x(Length::Fixed(BADGE_W))
-                .padding(kit::PAD_GLYPH)
-                // A count plate pinned to the strip: accent fill, accent ink.
-                .style(|theme: &Theme| kit::tint_style(kit::Tint::Badge, theme, ""));
+                let badge =
+                    container(text(format!("+ {}", t!("New group"))).size(tokens::TEXT_MICRO))
+                        .width(Length::Fixed(BADGE_W))
+                        .center_x(Length::Fixed(BADGE_W))
+                        .padding(kit::PAD_GLYPH)
+                        // A count plate pinned to the strip: accent fill, accent ink.
+                        .style(|theme: &Theme| kit::tint_style(kit::Tint::Badge, theme, ""));
                 let badge_x = match side {
                     DockSide::Left => DOCK_STRIP_W + 6.0,
                     DockSide::Right => ww - DOCK_STRIP_W - 6.0 - BADGE_W,
@@ -1000,7 +1013,12 @@ fn floating_title_bar(
             .push(crate::ui::dock::pin_button(id, auto_collapse, tip));
     }
     let bar = bar
-        .push(container(title).width(Fill).height(Fill).padding([tokens::GAP_CONTROL, tokens::GAP_NONE]))
+        .push(
+            container(title)
+                .width(Fill)
+                .height(Fill)
+                .padding([tokens::GAP_CONTROL, tokens::GAP_NONE]),
+        )
         .push(container(crate::ui::icons::themed(id.icon(), 16.0)).center_x(Fill))
         .padding([tokens::GAP_TIGHT, tokens::GAP_NONE])
         .align_x(iced::Center)
@@ -1088,7 +1106,10 @@ fn dock_edge_menu(
         })
         .collect();
     menu_frame(
-        column(rows).spacing(tokens::GAP_HAIRLINE).padding(tokens::GAP_TIGHT).into(),
+        column(rows)
+            .spacing(tokens::GAP_HAIRLINE)
+            .padding(tokens::GAP_TIGHT)
+            .into(),
         theme,
     )
 }
@@ -1133,12 +1154,7 @@ fn dock_splitter(
 /// its name as the header. `p` is the drop-preview track, `0.0..=1.0`; the
 /// head plate and its ink both ride it so the ghost is not fully opaque on the
 /// frame it first appears.
-fn dock_ghost(
-    id: crate::ui::dock::PanelId,
-    w: f32,
-    h: f32,
-    p: f32,
-) -> Element<'static, Message> {
+fn dock_ghost(id: crate::ui::dock::PanelId, w: f32, h: f32, p: f32) -> Element<'static, Message> {
     let header = container(
         text(t!(id.title()))
             .size(tokens::TEXT_BODY)

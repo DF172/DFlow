@@ -176,7 +176,13 @@ pub fn modal<'a>(
             kit::Role::QuietDanger,
         )
     };
-    let close = kit::btn(glyph, role, kit::Size::Compact, kit::Press::On(on_close), "");
+    let close = kit::btn(
+        glyph,
+        role,
+        kit::Size::Compact,
+        kit::Press::On(on_close),
+        "",
+    );
 
     // The dialog name is centred across the content width with the ✕ overlaid
     // at the right edge. The title bar is itself an overlay: the content layer
@@ -305,16 +311,12 @@ pub fn modal<'a>(
             if let Some(trailing) = footer.trailing {
                 actions = actions.push(trailing);
             }
-            section = section.push(
-                container(actions)
-                    .width(Length::Fill)
-                    .padding(Padding {
-                        top: tokens::GAP_FIELD,
-                        right: kit::PAD_CARD.right,
-                        bottom: tokens::GAP_FIELD,
-                        left: kit::PAD_CARD.left,
-                    }),
-            );
+            section = section.push(container(actions).width(Length::Fill).padding(Padding {
+                top: tokens::GAP_FIELD,
+                right: kit::PAD_CARD.right,
+                bottom: tokens::GAP_FIELD,
+                left: kit::PAD_CARD.left,
+            }));
         }
         section.into()
     });

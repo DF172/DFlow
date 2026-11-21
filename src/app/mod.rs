@@ -13,8 +13,6 @@ pub(crate) mod commands;
 pub(crate) mod dim_viewport;
 #[cfg(test)]
 mod dimension_preview_tests;
-#[cfg(test)]
-mod modal_lifecycle_tests;
 mod dock;
 mod document;
 mod drafting_settings;
@@ -23,6 +21,8 @@ mod find_replace;
 pub(crate) mod helpers;
 mod history;
 mod layers;
+#[cfg(test)]
+mod modal_lifecycle_tests;
 mod model_ops;
 mod mtext_editor;
 mod navigation;
@@ -357,9 +357,7 @@ struct AddSelectedRestore {
 /// gone, and so are the variants. `#[serde(other)]` matters: a stored
 /// `"section":"Videos"` would otherwise fail the whole parse and `AppConfig::load`
 /// would silently reset every other preference too.
-#[derive(
-    Clone, Copy, PartialEq, Eq, Default, Debug, serde::Serialize, serde::Deserialize,
-)]
+#[derive(Clone, Copy, PartialEq, Eq, Default, Debug, serde::Serialize, serde::Deserialize)]
 pub enum StartSection {
     Recent,
     #[default]
@@ -1642,7 +1640,6 @@ pub(super) struct PendingNativeThumbnailSave {
     check_external_change: bool,
 }
 
-
 #[derive(Debug, Clone)]
 pub(super) struct PendingSaveFailure {
     tab_id: u64,
@@ -1663,7 +1660,6 @@ pub(super) struct PendingExternalChange {
     continuation: SaveContinuation,
     set_current_path: bool,
 }
-
 
 #[derive(Debug, Clone)]
 pub struct SaveOutcome {
@@ -2256,7 +2252,9 @@ pub enum Message {
     /// A frame has been drawn (or the anti-hang timer expired) for a parked
     /// `capture` request: take the screenshot now, so it shows the latest
     /// state instead of the previous frame (C11).
-    ControlCaptureFrame { redrew: bool },
+    ControlCaptureFrame {
+        redrew: bool,
+    },
     ControlToggle,
     /// Node graph overlay interaction.
     Graph(crate::ui::node_graph::GraphMsg),
@@ -4085,7 +4083,10 @@ pub enum Message {
     ),
     /// Chrome micro-motion: pointer entered or left a hover-tracked region.
     /// `key` is the motion registry key (`&'static str`, see `ui::motion`).
-    UiHover { key: &'static str, entered: bool },
+    UiHover {
+        key: &'static str,
+        entered: bool,
+    },
     /// Frame tick while chrome motion is live; only drives a redraw, the
     /// registry itself samples `Instant::now()` so no state update is needed.
     MotionTick(Instant),
@@ -5009,57 +5010,50 @@ impl DraftFlowCAD {
             ]),
         )
     }
-
 }
 
 use std::path::PathBuf;
 
 pub fn run() -> iced::Result {
-    iced::daemon(
-        DraftFlowCAD::boot,
-        DraftFlowCAD::update,
-        DraftFlowCAD::view,
-    )
-    .settings(iced::Settings {
-        power_preference: iced::backend::PowerPreference::HighPerformance,
-        ..iced::Settings::default()
-    })
-    .subscription(DraftFlowCAD::subscription)
-    .scale_factor(|state: &DraftFlowCAD, _| f32::from(state.ui_scale_percent) / 100.0)
-    .title(|state: &DraftFlowCAD, window_id: window::Id| {
-        let _ = window_id; // all dialogs are in-canvas modals now
-        if let Some(tab) = state.tabs.get(state.active_tab) {
-            let dot = if tab.dirty { "● " } else { "" };
-            let name = tab.tab_display_name();
-            format!(
-                "{}DraftFlow CAD {} - {}",
-                dot,
-                env!("DRAFTFLOW_APP_VERSION"),
-                name
-            )
-        } else {
-            concat!("DraftFlow CAD ", env!("DRAFTFLOW_APP_VERSION")).to_string()
-        }
-    })
-    .theme(|state: &DraftFlowCAD, _| state.active_theme.clone())
-    .font(iced_aw::ICED_AW_FONT_BYTES)
-    // The shell's own face: Noto Sans SC (SIL OFL 1.1) carries Latin and
-    // Simplified Chinese in one design, and its variable weight axis gives the
-    // kit's Medium/Semibold voices real instances instead of a fallback face.
-    // See `ui::style::tokens::UI_FONT_FAMILY` for why this is native-only.
-    .font(include_bytes!("../../assets/fonts/NotoSansSC-VF.ttf").as_slice())
-    // The plate's display pair: Playfair Display (SIL OFL 1.1) roman 700 and
-    // italic 400, registered under one family so the wordmark can pair a
-    // roman DRAFT with an italic FLOW. It is bundled for the splash only —
-    // see `ui::style::tokens::splash::WORDMARK_FAMILY`.
-    .font(include_bytes!("../../assets/fonts/PlayfairDisplay-Bold.ttf").as_slice())
-    .font(include_bytes!("../../assets/fonts/PlayfairDisplay-Italic.ttf").as_slice())
-    .default_font(crate::ui::style::tokens::UI_FONT)
-    .run()
+    iced::daemon(DraftFlowCAD::boot, DraftFlowCAD::update, DraftFlowCAD::view)
+        .settings(iced::Settings {
+            power_preference: iced::backend::PowerPreference::HighPerformance,
+            ..iced::Settings::default()
+        })
+        .subscription(DraftFlowCAD::subscription)
+        .scale_factor(|state: &DraftFlowCAD, _| f32::from(state.ui_scale_percent) / 100.0)
+        .title(|state: &DraftFlowCAD, window_id: window::Id| {
+            let _ = window_id; // all dialogs are in-canvas modals now
+            if let Some(tab) = state.tabs.get(state.active_tab) {
+                let dot = if tab.dirty { "● " } else { "" };
+                let name = tab.tab_display_name();
+                format!(
+                    "{}DraftFlow CAD {} - {}",
+                    dot,
+                    env!("DRAFTFLOW_APP_VERSION"),
+                    name
+                )
+            } else {
+                concat!("DraftFlow CAD ", env!("DRAFTFLOW_APP_VERSION")).to_string()
+            }
+        })
+        .theme(|state: &DraftFlowCAD, _| state.active_theme.clone())
+        .font(iced_aw::ICED_AW_FONT_BYTES)
+        // The shell's own face: Noto Sans SC (SIL OFL 1.1) carries Latin and
+        // Simplified Chinese in one design, and its variable weight axis gives the
+        // kit's Medium/Semibold voices real instances instead of a fallback face.
+        // See `ui::style::tokens::UI_FONT_FAMILY` for why this is native-only.
+        .font(include_bytes!("../../assets/fonts/NotoSansSC-VF.ttf").as_slice())
+        // The plate's display pair: Playfair Display (SIL OFL 1.1) roman 700 and
+        // italic 400, registered under one family so the wordmark can pair a
+        // roman DRAFT with an italic FLOW. It is bundled for the splash only —
+        // see `ui::style::tokens::splash::WORDMARK_FAMILY`.
+        .font(include_bytes!("../../assets/fonts/PlayfairDisplay-Bold.ttf").as_slice())
+        .font(include_bytes!("../../assets/fonts/PlayfairDisplay-Italic.ttf").as_slice())
+        .default_font(crate::ui::style::tokens::UI_FONT)
+        .run()
 }
 
 impl Drop for DraftFlowCAD {
-    fn drop(&mut self) {
-    }
+    fn drop(&mut self) {}
 }
-

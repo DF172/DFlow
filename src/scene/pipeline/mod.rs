@@ -2722,20 +2722,14 @@ impl Pipeline {
                 if let Some(color) = color {
                     if let Some(instances) = circles.as_mut() {
                         for instance in instances {
-                            instance.color = wire_gpu::mix_highlight_tint(
-                                instance.color,
-                                color,
-                                tint_strength,
-                            );
+                            instance.color =
+                                wire_gpu::mix_highlight_tint(instance.color, color, tint_strength);
                         }
                     }
                     if let Some(instances) = ellipses.as_mut() {
                         for instance in instances {
-                            instance.color = wire_gpu::mix_highlight_tint(
-                                instance.color,
-                                color,
-                                tint_strength,
-                            );
+                            instance.color =
+                                wire_gpu::mix_highlight_tint(instance.color, color, tint_strength);
                         }
                     }
                 }
@@ -3107,8 +3101,7 @@ analytic={:.1} regular={:.1} blocks={:.1}",
                             continue;
                         }
                         for v in &w.text_verts {
-                            let mixed =
-                                wire_gpu::mix_highlight_tint(v.color, tint, tint_strength);
+                            let mixed = wire_gpu::mix_highlight_tint(v.color, tint, tint_strength);
                             out.push(text_gpu::TextVertex {
                                 color: [mixed[0], mixed[1], mixed[2], v.color[3]],
                                 ..*v
@@ -5759,10 +5752,7 @@ impl MultiPipeline {
             total.wire_arena += slot.wire_arena;
             total.block_geometry +=
                 wire_gpu::block_arena_bytes(&inner.gpu_block_wires, &mut counted)
-                    + wire_gpu::block_arena_bytes(
-                        &inner.gpu_selected_block_wires,
-                        &mut counted,
-                    );
+                    + wire_gpu::block_arena_bytes(&inner.gpu_selected_block_wires, &mut counted);
         }
         for entry in self.wire_buffer_cache.values() {
             total.block_geometry += wire_gpu::block_arena_bytes(&entry.1, &mut counted);
@@ -6365,7 +6355,8 @@ mod highlight_classification_tests {
         assert_eq!(tinted_circles[0].color, WireModel::HOVER);
         assert_eq!(tinted_ellipses[0].color, WireModel::HOVER);
 
-        let (plain_circles, _, _, _) = Pipeline::classify_highlight_wires(&refs, None, 1.0, &depth_map);
+        let (plain_circles, _, _, _) =
+            Pipeline::classify_highlight_wires(&refs, None, 1.0, &depth_map);
         assert_ne!(
             plain_circles[0].color,
             WireModel::HOVER,

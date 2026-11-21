@@ -1,10 +1,10 @@
 use crate::app::Message;
 use crate::input::spacemouse::{NavigationMode, Preferences, Status};
-use iced::widget::{checkbox, column, container, row, slider, text, Space};
-use crate::ui::kit::plain_button;
-use iced::{Element, Fill};
 use crate::ui::kit;
+use crate::ui::kit::plain_button;
 use crate::ui::style::tokens;
+use iced::widget::{checkbox, column, container, row, slider, text, Space};
+use iced::{Element, Fill};
 
 pub(crate) const ICON: &[u8] = include_bytes!("../../../../assets/icons/ui/spacemouse.svg");
 
@@ -19,10 +19,11 @@ pub(crate) fn view(
     if supported {
         enabled = enabled.on_toggle(Message::SpaceMouseEnabled);
     }
-    let mode = crate::ui::kit::themed_pick_list(Some(preferences.mode), NavigationMode::ALL, |mode| {
-        crate::t!(mode.label()).into_owned()
-    })
-    .width(220);
+    let mode =
+        crate::ui::kit::themed_pick_list(Some(preferences.mode), NavigationMode::ALL, |mode| {
+            crate::t!(mode.label()).into_owned()
+        })
+        .width(220);
     let mode = if supported {
         mode.on_select(Message::SpaceMouseMode)
     } else {
@@ -42,17 +43,25 @@ pub(crate) fn view(
         ]
         .spacing(tokens::GAP_ROW)
         .align_y(iced::Center),
-        row![enabled, text(crate::t!("Enable SpaceMouse")).size(tokens::TEXT_BODY)]
-            .spacing(tokens::GAP_ROW)
-            .align_y(iced::Center),
+        row![
+            enabled,
+            text(crate::t!("Enable SpaceMouse")).size(tokens::TEXT_BODY)
+        ]
+        .spacing(tokens::GAP_ROW)
+        .align_y(iced::Center),
         row![
             text(crate::t!("Status")).size(tokens::TEXT_BODY).width(150),
             text(status_text).size(tokens::TEXT_BODY)
         ]
         .spacing(tokens::GAP_FIELD),
-        row![text(crate::t!("Navigation")).size(tokens::TEXT_BODY).width(150), mode]
-            .spacing(tokens::GAP_FIELD)
-            .align_y(iced::Center),
+        row![
+            text(crate::t!("Navigation"))
+                .size(tokens::TEXT_BODY)
+                .width(150),
+            mode
+        ]
+        .spacing(tokens::GAP_FIELD)
+        .align_y(iced::Center),
         text(crate::t!(preferences.mode.description()).into_owned())
             .size(tokens::TEXT_LABEL)
             .width(Fill),
@@ -71,7 +80,9 @@ pub(crate) fn view(
         );
         content = content.push(
             row![
-                text(crate::t!("Pan speed")).size(tokens::TEXT_BODY).width(150),
+                text(crate::t!("Pan speed"))
+                    .size(tokens::TEXT_BODY)
+                    .width(150),
                 slider(
                     10..=300,
                     preferences.pan_speed.clamp(10, 300),
@@ -130,7 +141,11 @@ pub(crate) fn view(
             Status::Disconnected => "3DxWare is running. Connect a SpaceMouse; DraftFlow CAD reconnects automatically.".into(),
             _ => "Uses the installed 3DxWare driver. Navigation pauses while a dialog is open. Your selected navigation mode is saved across drawings and sessions.".into(),
         };
-        content = content.push(text(crate::t!(&detail).into_owned()).size(tokens::TEXT_LABEL).width(Fill));
+        content = content.push(
+            text(crate::t!(&detail).into_owned())
+                .size(tokens::TEXT_LABEL)
+                .width(Fill),
+        );
     }
     container(content.push(Space::new().height(8)))
         .width(Fill)

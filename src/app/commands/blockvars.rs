@@ -4,7 +4,7 @@
 //! name; `BLOCKSTATE` is read-only. Each answers to its bare name (prompting
 //! for the value) and to `SETVAR NAME value`, with the reference's messages.
 
-use crate::app::{Message, DraftFlowCAD};
+use crate::app::{DraftFlowCAD, Message};
 use iced::Task;
 
 /// The variables this family answers for, for the command registry and the
@@ -42,8 +42,10 @@ impl DraftFlowCAD {
         match name.as_str() {
             "BLOCKSTATE" => {
                 let state = self.tabs[i].refedit_session.is_some() as u8;
-                self.command_line
-                    .push_output(&crate::tf!("BLOCKSTATE = {state} (read only)", state = state));
+                self.command_line.push_output(&crate::tf!(
+                    "BLOCKSTATE = {state} (read only)",
+                    state = state
+                ));
             }
             "INSNAME" | "BLOCKNAVIGATE" => {
                 let current = if name == "INSNAME" {
@@ -67,8 +69,10 @@ impl DraftFlowCAD {
                     }
                     None => {
                         self.command_line.push_output(&crate::tf!(
-                            "Enter new value for {name}, or . for none <\"{current}\">:"
-                        , name = name, current = current));
+                            "Enter new value for {name}, or . for none <\"{current}\">:",
+                            name = name,
+                            current = current
+                        ));
                         self.pending_setvar = Some(name);
                     }
                 }
@@ -80,22 +84,27 @@ impl DraftFlowCAD {
                     _ => (explmode(&self.tabs[i].scene.document) as i32, 1),
                 };
                 let ask = |app: &mut Self, name: String| {
-                    app.command_line
-                        .push_output(&crate::tf!("Enter new value for {name} <{current}>:", name = name, current = current));
+                    app.command_line.push_output(&crate::tf!(
+                        "Enter new value for {name} <{current}>:",
+                        name = name,
+                        current = current
+                    ));
                     app.pending_setvar = Some(name);
                 };
                 match value {
                     None => ask(self, name),
                     Some(v) => match v.parse::<i32>() {
                         Err(_) => {
-                            self.command_line.push_error(crate::t!("Requires an integer value.").as_ref());
+                            self.command_line
+                                .push_error(crate::t!("Requires an integer value.").as_ref());
                             ask(self, name);
                         }
                         Ok(n) if !(0..=max).contains(&n) => {
                             self.command_line.push_error(&if max == 1 {
                                 "Requires 0 or 1 only.".to_string()
                             } else {
-                                crate::tf!("Requires an integer between 0 and {max}.", max = max).into_owned()
+                                crate::tf!("Requires an integer between 0 and {max}.", max = max)
+                                    .into_owned()
                             });
                             ask(self, name);
                         }

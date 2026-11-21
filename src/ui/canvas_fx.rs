@@ -97,7 +97,11 @@ pub fn snap_style(kind: SnapType, user: Option<[u8; 3]>, over_light_canvas: bool
     };
     SnapStyle {
         rgb,
-        width: if kind == SnapType::ObjectPick { 2.0 } else { 1.5 },
+        width: if kind == SnapType::ObjectPick {
+            2.0
+        } else {
+            1.5
+        },
     }
 }
 
@@ -238,7 +242,10 @@ mod tests {
         let mut special = 0;
         for kind in ALL_SNAP {
             let s = snap_style(kind, Some([12, 200, 99]), false);
-            assert!(s.rgb.iter().all(|c| c.is_finite() && (0.0..=1.0).contains(c)));
+            assert!(s
+                .rgb
+                .iter()
+                .all(|c| c.is_finite() && (0.0..=1.0).contains(c)));
             if kind == SnapType::ObjectPick {
                 assert_eq!(s.rgb, [0.95, 0.50, 0.08], "object pick keeps its orange");
                 assert_eq!(s.width, 2.0);
@@ -252,13 +259,22 @@ mod tests {
                 assert_eq!(s.width, 1.5);
             }
         }
-        assert_eq!(special, 1, "only ObjectPick carries the heavy orange marker");
+        assert_eq!(
+            special, 1,
+            "only ObjectPick carries the heavy orange marker"
+        );
     }
 
     #[test]
     fn snap_falls_back_per_canvas_lightness() {
-        assert_eq!(snap_style(SnapType::Endpoint, None, false).rgb, [1.0, 0.9, 0.1]);
-        assert_eq!(snap_style(SnapType::Endpoint, None, true).rgb, [0.80, 0.45, 0.0]);
+        assert_eq!(
+            snap_style(SnapType::Endpoint, None, false).rgb,
+            [1.0, 0.9, 0.1]
+        );
+        assert_eq!(
+            snap_style(SnapType::Endpoint, None, true).rgb,
+            [0.80, 0.45, 0.0]
+        );
         assert_eq!(
             snap_style(SnapType::ObjectPick, Some([1, 2, 3]), true).rgb,
             [0.95, 0.50, 0.08],
@@ -349,7 +365,10 @@ mod tests {
         let blue = [0.30, 0.55, 0.98];
         let base = [0.9, 0.9, 0.9];
         assert_eq!(crosshair_form(true, true, true), CrosshairForm::Hidden);
-        assert_eq!(crosshair_form(false, true, true), CrosshairForm::PendingPick);
+        assert_eq!(
+            crosshair_form(false, true, true),
+            CrosshairForm::PendingPick
+        );
         assert_eq!(crosshair_form(false, false, true), CrosshairForm::Point);
         assert_eq!(crosshair_form(false, false, false), CrosshairForm::Arms);
 
@@ -372,14 +391,21 @@ mod tests {
         assert_eq!(grip_focus(false, false), GripFocus::Idle);
         assert_eq!(grip_focus(false, true), GripFocus::Hovered);
         assert_eq!(grip_focus(true, false), GripFocus::Hot);
-        assert_eq!(grip_focus(true, true), GripFocus::Hot, "hot wins over hover");
+        assert_eq!(
+            grip_focus(true, true),
+            GripFocus::Hot,
+            "hot wins over hover"
+        );
     }
 
     #[test]
     fn grip_culling_matches_the_draw_bounds() {
         let vp = Rectangle::new(Point::new(0.0, 0.0), Size::new(800.0, 600.0));
         assert!(grip_in_view(vp, Point::new(400.0, 300.0), 5.0));
-        assert!(grip_in_view(vp, Point::new(-4.0, 300.0), 5.0), "half on screen");
+        assert!(
+            grip_in_view(vp, Point::new(-4.0, 300.0), 5.0),
+            "half on screen"
+        );
         assert!(!grip_in_view(vp, Point::new(-6.0, 300.0), 5.0));
         assert!(!grip_in_view(vp, Point::new(806.0, 300.0), 5.0));
     }
@@ -387,9 +413,18 @@ mod tests {
     #[test]
     fn marker_is_clamped_inside_the_viewport() {
         let vp = Rectangle::new(Point::new(0.0, 0.0), Size::new(800.0, 600.0));
-        assert_eq!(clamp_marker(Point::new(400.0, 300.0), 6.0, vp), Point::new(400.0, 300.0));
-        assert_eq!(clamp_marker(Point::new(-40.0, 300.0), 6.0, vp), Point::new(7.0, 300.0));
-        assert_eq!(clamp_marker(Point::new(400.0, 900.0), 6.0, vp), Point::new(400.0, 593.0));
+        assert_eq!(
+            clamp_marker(Point::new(400.0, 300.0), 6.0, vp),
+            Point::new(400.0, 300.0)
+        );
+        assert_eq!(
+            clamp_marker(Point::new(-40.0, 300.0), 6.0, vp),
+            Point::new(7.0, 300.0)
+        );
+        assert_eq!(
+            clamp_marker(Point::new(400.0, 900.0), 6.0, vp),
+            Point::new(400.0, 593.0)
+        );
     }
 
     #[test]
@@ -416,7 +451,14 @@ mod tests {
     fn production_half_has_no_clock_motion_or_heap() {
         let src = include_str!("canvas_fx.rs");
         let prod = src.split("#[cfg(test)]").next().unwrap();
-        for banned in ["Instant", "motion::", "format!", "Vec::", "Box::leak", "String"] {
+        for banned in [
+            "Instant",
+            "motion::",
+            "format!",
+            "Vec::",
+            "Box::leak",
+            "String",
+        ] {
             assert!(
                 !prod.contains(banned),
                 "canvas_fx production code must not mention `{banned}`"

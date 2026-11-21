@@ -1,11 +1,11 @@
-use crate::ui::style::tokens;
 use crate::app::Message;
 use crate::t;
-use crate::ui::kit::muted_style as muted;
-use iced::widget::{checkbox, column, container, row, text, Space};
-use crate::ui::kit::plain_button;
-use iced::{Element, Length};
 use crate::ui::kit;
+use crate::ui::kit::muted_style as muted;
+use crate::ui::kit::plain_button;
+use crate::ui::style::tokens;
+use iced::widget::{checkbox, column, container, row, text, Space};
+use iced::{Element, Length};
 
 pub fn view_window<'a>(
     layouts: &'a [(String, bool)],

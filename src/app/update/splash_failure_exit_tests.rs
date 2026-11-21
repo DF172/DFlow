@@ -19,7 +19,9 @@ fn failure_page_has_both_exits_and_no_third_hidden_path() {
         "only the retry and safe-mode arms may restart the editor"
     );
     assert!(update.contains("Message::GpuRetry => self.restart_with_gpu_choice(&[])"));
-    assert!(update.contains("Message::GpuSafeMode => self.restart_with_gpu_choice(&[\"--safe-mode\"])"));
+    assert!(
+        update.contains("Message::GpuSafeMode => self.restart_with_gpu_choice(&[\"--safe-mode\"])")
+    );
     assert_eq!(
         update.matches("\"--safe-mode\"").count(),
         1,

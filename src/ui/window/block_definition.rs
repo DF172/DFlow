@@ -6,8 +6,8 @@ use std::fmt;
 
 use codec::Handle;
 use iced::widget::{
-    checkbox, column, combo_box, container, mouse_area, row, stack, text, text_editor,
-    text_input, Space,
+    checkbox, column, combo_box, container, mouse_area, row, stack, text, text_editor, text_input,
+    Space,
 };
 use iced::{Background, Border, Element, Fill, Length, Theme};
 
@@ -216,9 +216,14 @@ pub fn view_window<'a>(
         None
     };
 
-    let mut name_column = column![text(t!("Name:")).size(tokens::TEXT_LABEL).style(kit::muted_style), name_combo,]
-        .spacing(tokens::GAP_TIGHT)
-        .width(Fill);
+    let mut name_column = column![
+        text(t!("Name:"))
+            .size(tokens::TEXT_LABEL)
+            .style(kit::muted_style),
+        name_combo,
+    ]
+    .spacing(tokens::GAP_TIGHT)
+    .width(Fill);
 
     if let Some(hint) = name_hint {
         name_column = name_column.push(hint);
@@ -444,7 +449,9 @@ pub fn view_window<'a>(
                 text(t!("Match block orientation"))
                     .size(tokens::TEXT_MICRO)
                     .style(kit::muted_style),
-                text(t!("to layout")).size(tokens::TEXT_MICRO).style(kit::muted_style),
+                text(t!("to layout"))
+                    .size(tokens::TEXT_MICRO)
+                    .style(kit::muted_style),
             ]
             .spacing(tokens::GAP_HAIRLINE),
         ]
@@ -490,14 +497,15 @@ pub fn view_window<'a>(
         .find(|choice| choice.code == state.unit)
         .cloned();
 
-    let unit_picker = crate::ui::kit::themed_pick_list(selected_unit, unit_options, |choice| choice.to_string())
-        .on_select(|choice| Message::BlockDefUnit(choice.code))
-        .text_size(tokens::TEXT_LABEL)
-        // Secondary field inside a 152px group, not the dialog's primary entry:
-        // `PAD_FIELD` (2px). `Size::Control`'s 10px lateral inset would take a
-        // fifth of this group's width out of the unit label's budget.
-        .padding(kit::PAD_FIELD)
-        .width(Fill);
+    let unit_picker =
+        crate::ui::kit::themed_pick_list(selected_unit, unit_options, |choice| choice.to_string())
+            .on_select(|choice| Message::BlockDefUnit(choice.code))
+            .text_size(tokens::TEXT_LABEL)
+            // Secondary field inside a 152px group, not the dialog's primary entry:
+            // `PAD_FIELD` (2px). `Size::Control`'s 10px lateral inset would take a
+            // fifth of this group's width out of the unit label's budget.
+            .padding(kit::PAD_FIELD)
+            .width(Fill);
 
     let hyperlink_btn = kit::btn(
         text(if state.hyperlink_url.is_empty() {
@@ -515,7 +523,9 @@ pub fn view_window<'a>(
     let settings_group = kit::group_box(
         t!("Settings").into_owned(),
         column![
-            text(t!("Block unit:")).size(tokens::TEXT_MICRO).style(kit::muted_style),
+            text(t!("Block unit:"))
+                .size(tokens::TEXT_MICRO)
+                .style(kit::muted_style),
             unit_picker,
             Space::new().height(tokens::GAP_CONTROL),
             row![
@@ -559,24 +569,25 @@ pub fn view_window<'a>(
             }
         });
 
-    let description_group = kit::group_box(
-        t!("Description").into_owned(),
-        desc_editor,
-    )
-    .height(Length::Fixed(102.0));
+    let description_group =
+        kit::group_box(t!("Description").into_owned(), desc_editor).height(Length::Fixed(102.0));
 
     // ── Layout Assembly: Left Column & Right Column ───────────────────────────
     let left_column = column![base_point_group, settings_group,]
         .spacing(tokens::GAP_CONTROL)
         .width(Length::FillPortion(1));
 
-    let top_right_row = row![objects_group, behavior_group,].spacing(tokens::GAP_CONTROL).width(Fill);
+    let top_right_row = row![objects_group, behavior_group,]
+        .spacing(tokens::GAP_CONTROL)
+        .width(Fill);
 
     let right_column = column![top_right_row, description_group,]
         .spacing(tokens::GAP_CONTROL)
         .width(Length::FillPortion(2));
 
-    let main_body = row![left_column, right_column].spacing(tokens::GAP_CONTROL).width(Fill);
+    let main_body = row![left_column, right_column]
+        .spacing(tokens::GAP_CONTROL)
+        .width(Fill);
 
     // ── Error Banner ──────────────────────────────────────────────────────────
     // The action row now lives in the shell's full-bleed footer

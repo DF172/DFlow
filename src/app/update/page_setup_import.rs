@@ -2,7 +2,7 @@
 //! "Import…" chooser of the Plot dialog and the command that drives the same
 //! path from the command line.
 
-use crate::app::{Message, DraftFlowCAD};
+use crate::app::{DraftFlowCAD, Message};
 use crate::ui::window::plot::{PageSetupImportDraft, PageSetupImportMsg, PlotDlgMsg};
 use iced::Task;
 use std::path::{Path, PathBuf};
@@ -200,7 +200,7 @@ impl DraftFlowCAD {
 
 #[cfg(test)]
 mod tests {
-    use crate::app::{Message, DraftFlowCAD};
+    use crate::app::{DraftFlowCAD, Message};
     use crate::ui::window::plot::{PageSetupImportMsg as I, PlotDlgMsg};
 
     const FIXTURE: &str = concat!(

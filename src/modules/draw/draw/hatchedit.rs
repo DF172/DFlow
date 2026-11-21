@@ -255,14 +255,19 @@ impl CadCommand for HatcheditCommand {
                     codec::entities::HatchStyleType::Outer => "Outer",
                     codec::entities::HatchStyleType::Ignore => "Ignore",
                 };
-                return crate::tf!("Enter hatching style [Ignore/Outer/Normal] <{current}>:").into_owned();
+                return crate::tf!("Enter hatching style [Ignore/Outer/Normal] <{current}>:")
+                    .into_owned();
             }
             if let Some((color, layer, transparency)) = &self.source_appearance {
                 match input {
                     "color" => {
-                        return crate::tf!("New color [Truecolor/. (for use current)] <{color:?}>:").into_owned()
+                        return crate::tf!("New color [Truecolor/. (for use current)] <{color:?}>:")
+                            .into_owned()
                     }
-                    "layer" => return crate::tf!("Specify layer or [. (for use current)] <{layer}>:").into_owned(),
+                    "layer" => {
+                        return crate::tf!("Specify layer or [. (for use current)] <{layer}>:")
+                            .into_owned()
+                    }
                     "transparency" => {
                         return crate::tf!(
                             "Specify transparency (0-90) or ByLayer/ByBlock <{}>:",
@@ -271,7 +276,8 @@ impl CadCommand for HatcheditCommand {
                                 codec::types::Transparency::ByBlock => "ByBlock".into(),
                                 value => format!("{:.0}", value.as_percent() * 100.0),
                             }
-                        ).into_owned()
+                        )
+                        .into_owned()
                     }
                     _ => {}
                 }
@@ -281,9 +287,17 @@ impl CadCommand for HatcheditCommand {
             } = &self.step
             {
                 match input {
-                    "pattern" => return crate::tf!("Enter a pattern name or [Solid] <{name}>:").into_owned(),
-                    "scale" => return crate::tf!("Specify a scale for the pattern <{scale:.4}>:").into_owned(),
-                    "angle" => return crate::tf!("Specify an angle for the pattern <{angle:.4}>:").into_owned(),
+                    "pattern" => {
+                        return crate::tf!("Enter a pattern name or [Solid] <{name}>:").into_owned()
+                    }
+                    "scale" => {
+                        return crate::tf!("Specify a scale for the pattern <{scale:.4}>:")
+                            .into_owned()
+                    }
+                    "angle" => {
+                        return crate::tf!("Specify an angle for the pattern <{angle:.4}>:")
+                            .into_owned()
+                    }
                     _ => {}
                 }
             }

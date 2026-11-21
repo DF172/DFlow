@@ -10,11 +10,11 @@
 use crate::app::Message;
 use crate::t;
 use crate::ui::kit;
+use crate::ui::kit::plain_button;
 use crate::ui::properties::acad_color_display;
 use crate::ui::style::tokens;
 use codec::types::Color as AcadColor;
 use iced::widget::{column, container, row, text, Space};
-use crate::ui::kit::plain_button;
 use iced::{Element, Length, Padding, Theme};
 
 pub const PANEL_W: f32 = 202.0;

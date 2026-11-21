@@ -277,7 +277,6 @@ pub fn default_printer_name() -> Option<String> {
     crate::io::print_to_printer::windows_default_printer().ok()
 }
 
-
 #[cfg(not(target_os = "windows"))]
 fn query_printer_capabilities(printer: &str) -> Option<PrinterCapabilities> {
     // cupsd answers for the queue itself, so this is quick even when the
@@ -302,7 +301,6 @@ fn query_printer_capabilities(printer: &str) -> Option<PrinterCapabilities> {
     let raw = crate::io::print_to_printer::windows_printer_media(printer)?;
     crate::io::windows_media::printer_media(&raw)
 }
-
 
 /// Read the media a printer reports from `ipptool -tv` output.
 ///

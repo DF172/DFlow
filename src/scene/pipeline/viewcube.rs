@@ -626,10 +626,7 @@ impl ViewCubeText {
         let scale = cube_px as f32 * VIEWCUBE_SCALE;
         let inset = cube_half * NAV_INSET_F;
         let (hw, hh) = (vw * 0.5, vh * 0.5);
-        let (cx, cy) = (
-            hw - inset - VIEWCUBE_PAD,
-            hh - inset - VIEWCUBE_PAD,
-        );
+        let (cx, cy) = (hw - inset - VIEWCUBE_PAD, hh - inset - VIEWCUBE_PAD);
         // Screen-space (origin top-left, y down) centre used by the 2D labels.
         let cx_px = vw - inset - VIEWCUBE_PAD;
         let cy_px = inset + VIEWCUBE_PAD;
@@ -702,13 +699,7 @@ impl ViewCubeText {
                 colors.ink
             };
             let height = FACE_LABEL_PX * (0.80 + 0.20 * facing.min(1.0));
-            push_label(
-                &mut verts,
-                [sx, sy],
-                height,
-                self.tiles[index],
-                label_color,
-            );
+            push_label(&mut verts, [sx, sy], height, self.tiles[index], label_color);
         }
 
         // ── Compass cardinals (N / E / S / W) ──────────────────────────────
@@ -1985,7 +1976,10 @@ mod label_layout_tests {
     #[test]
     fn viewcube_labels_keep_their_legibility_floor() {
         assert!(FACE_LABEL_PX >= 18.0, "face label {FACE_LABEL_PX}");
-        assert!(CARDINAL_LABEL_PX >= 16.0, "cardinal label {CARDINAL_LABEL_PX}");
+        assert!(
+            CARDINAL_LABEL_PX >= 16.0,
+            "cardinal label {CARDINAL_LABEL_PX}"
+        );
     }
 
     /// A cardinal rides the same axis as a nudge triangle. If the letter's

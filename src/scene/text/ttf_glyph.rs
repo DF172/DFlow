@@ -822,8 +822,6 @@ fn installed_family_glyph(
         })
 }
 
-
-
 fn build_shaped(family: &str, text: &str) -> Option<ShapedRun> {
     use cosmic_text::{Attrs, Buffer, Family, Metrics, Shaping};
 

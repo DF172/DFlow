@@ -694,9 +694,7 @@ pub struct GridDensityFade {
 
 impl GridDensityFade {
     fn same(a: (f32, f32, u32), b: (f32, f32, u32)) -> bool {
-        a.0.to_bits() == b.0.to_bits()
-            && a.1.to_bits() == b.1.to_bits()
-            && a.2 == b.2
+        a.0.to_bits() == b.0.to_bits() && a.1.to_bits() == b.1.to_bits() && a.2 == b.2
     }
 
     /// Record this frame's panes; `true` when a spacing changed and a fade
@@ -1393,9 +1391,7 @@ fn draw_grip_marker(
                 &path,
                 canvas::Stroke {
                     width: 1.5,
-                    style: canvas::Style::Solid(
-                        crate::ui::motion::mix(base_color, hover_edge, w),
-                    ),
+                    style: canvas::Style::Solid(crate::ui::motion::mix(base_color, hover_edge, w)),
                     ..Default::default()
                 },
             );
@@ -1458,7 +1454,10 @@ impl canvas::Program<Message> for SelectionCanvas {
                     && pos.x <= vc_x + VIEWCUBE_REGION_PX
                     && pos.y >= vc_y
                     && pos.y <= vc_y + VIEWCUBE_REGION_PX;
-                (cube, glyph_hit_test_entries(&self.constraint_glyphs, pos).is_some())
+                (
+                    cube,
+                    glyph_hit_test_entries(&self.constraint_glyphs, pos).is_some(),
+                )
             }
             None => (false, false),
         };
@@ -1667,8 +1666,18 @@ impl canvas::Program<Message> for SelectionCanvas {
                 if crossing { 1.0 } else { 0.0 },
             );
             let base = crate::ui::motion::mix(
-                resolve_selection_base_color(false, theme, &self.selection_visual, self.crosshair_bg),
-                resolve_selection_base_color(true, theme, &self.selection_visual, self.crosshair_bg),
+                resolve_selection_base_color(
+                    false,
+                    theme,
+                    &self.selection_visual,
+                    self.crosshair_bg,
+                ),
+                resolve_selection_base_color(
+                    true,
+                    theme,
+                    &self.selection_visual,
+                    self.crosshair_bg,
+                ),
                 blend,
             );
             let crossing = blend >= 0.5;
@@ -2235,10 +2244,7 @@ impl canvas::Program<Message> for SelectionCanvas {
                 frame.fill_text(canvas::Text {
                     content: label,
                     position: Point::new(lx, ly),
-                    color: Color {
-                        a: fade,
-                        ..marker
-                    },
+                    color: Color { a: fade, ..marker },
                     size: iced::Pixels(11.0),
                     align_x: iced::alignment::Horizontal::Left.into(),
                     align_y: iced::alignment::Vertical::Top,
@@ -2296,11 +2302,8 @@ impl canvas::Program<Message> for SelectionCanvas {
                     self.crosshair.pick_pending,
                     point_mode,
                 );
-                let [r, g, b] = crate::ui::canvas_fx::crosshair_rgb(
-                    form,
-                    [r, g, b],
-                    [0.30, 0.55, 0.98],
-                );
+                let [r, g, b] =
+                    crate::ui::canvas_fx::crosshair_rgb(form, [r, g, b], [0.30, 0.55, 0.98]);
                 let color = Color {
                     r,
                     g,
@@ -2575,7 +2578,11 @@ impl canvas::Program<Message> for SelectionCanvas {
                     frame.fill(&pill, bg);
                 }
                 if *is_selected {
-                    let ring = if bare_glyph { glyphs.bare_ring } else { badge.ring };
+                    let ring = if bare_glyph {
+                        glyphs.bare_ring
+                    } else {
+                        badge.ring
+                    };
                     frame.stroke(
                         &pill,
                         canvas::Stroke::default()
@@ -2651,8 +2658,9 @@ impl canvas::Program<Message> for SelectionCanvas {
                 // The cross is struck on the drawing itself, at the relation's
                 // picked points — the same danger hue as a conflict, solved for
                 // the canvas rather than for a badge.
-                let stroke =
-                    canvas::Stroke::default().with_color(glyphs.hover).with_width(1.5);
+                let stroke = canvas::Stroke::default()
+                    .with_color(glyphs.hover)
+                    .with_width(1.5);
                 for point in self.constraint_glyphs[index].hover.iter() {
                     let first = canvas::Path::line(
                         Point::new(
@@ -5432,7 +5440,10 @@ mod dyn_angle_layout_tests {
             for step in 0..16 {
                 let a = step as f32 * std::f32::consts::TAU / 16.0;
                 let (dx, dy) = (a.cos(), a.sin());
-                let cursor = Point { x: base.x + dx * radius, y: base.y + dy * radius };
+                let cursor = Point {
+                    x: base.x + dx * radius,
+                    y: base.y + dy * radius,
+                };
                 let mut n = (-dy, dx);
                 if n.1 < 0.0 {
                     n = (-n.0, -n.1);
@@ -5455,8 +5466,14 @@ mod dyn_angle_layout_tests {
     fn angle_readout_is_continuous_across_the_minus_x_axis() {
         let base = Point { x: 800.0, y: 400.0 };
         for radius in [120.0f32, 320.0, 600.0] {
-            let above = Point { x: base.x - radius, y: base.y + 1.0 };
-            let below = Point { x: base.x - radius, y: base.y - 1.0 };
+            let above = Point {
+                x: base.x - radius,
+                y: base.y + 1.0,
+            };
+            let below = Point {
+                x: base.x - radius,
+                y: base.y - 1.0,
+            };
             let c_above = DynInputCanvas::angle_center(
                 base,
                 above,
@@ -5476,7 +5493,10 @@ mod dyn_angle_layout_tests {
                 false,
             );
             let hop = (c_above.x - c_below.x).hypot(c_above.y - c_below.y);
-            assert!(hop <= 4.0, "radius {radius}: read-out hopped {hop:.1}px across -X");
+            assert!(
+                hop <= 4.0,
+                "radius {radius}: read-out hopped {hop:.1}px across -X"
+            );
         }
         // Sanity: the constant above is a real clearance, not zero.
         assert!(DYN_BOX_H > 0.0);
@@ -5529,7 +5549,11 @@ mod p2b2_grid_fade_tests {
             "a spacing change must start a fade"
         );
         let crossing = fade.expand(std::slice::from_ref(&mid_step), 0.5);
-        assert_eq!(crossing.len(), 2, "one crossing must draw exactly two spacings");
+        assert_eq!(
+            crossing.len(),
+            2,
+            "one crossing must draw exactly two spacings"
+        );
         assert_eq!(crossing[0].step_x, 80.0, "the old spacing must fade out");
         assert_eq!(crossing[1].step_x, 400.0, "the new spacing must fade in");
         assert_eq!(crossing[0].ink, 0.5, "old ink is not 1 - t");
@@ -5546,7 +5570,10 @@ mod p2b2_grid_fade_tests {
             "three spacings reached one frame: {:?}",
             doubled.iter().map(|g| g.step_x).collect::<Vec<_>>()
         );
-        assert_eq!(doubled[0].step_x, 400.0, "the retiring spacing must be dropped");
+        assert_eq!(
+            doubled[0].step_x, 400.0,
+            "the retiring spacing must be dropped"
+        );
         assert_eq!(doubled[1].step_x, 2000.0);
 
         let rest = fade.expand(std::slice::from_ref(&far_step), 1.0);
@@ -5563,10 +5590,25 @@ mod p2b2_grid_fade_tests {
 
         // Ink rides an RGB mix toward the page luminance, not alpha, so the
         // fade survives `transparency_enable = off`.
-        assert_eq!(grid_ink(0.2, 0.9, 1.0), 0.2, "full ink must be the nominal value");
-        assert_eq!(grid_ink(0.2, 0.9, 0.0), 0.9, "zero ink must be the page luminance");
+        assert_eq!(
+            grid_ink(0.2, 0.9, 1.0),
+            0.2,
+            "full ink must be the nominal value"
+        );
+        assert_eq!(
+            grid_ink(0.2, 0.9, 0.0),
+            0.9,
+            "zero ink must be the page luminance"
+        );
         let half = grid_ink(0.2, 0.9, 0.5);
-        assert!(half > 0.2 && half < 0.9, "half ink must be a real mix, got {half}");
-        assert_eq!(grid_ink(0.5, 0.5, 0.0), 0.5, "a page already at the line value is inert");
+        assert!(
+            half > 0.2 && half < 0.9,
+            "half ink must be a real mix, got {half}"
+        );
+        assert_eq!(
+            grid_ink(0.5, 0.5, 0.0),
+            0.5,
+            "a page already at the line value is inert"
+        );
     }
 }

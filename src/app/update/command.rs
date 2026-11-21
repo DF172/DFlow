@@ -7,7 +7,7 @@ use crate::app::helpers::{
     parse_coord, polar_constrain_near, ucs_rotate_vec, ucs_to_wcs, ucs_z_axis, CoordKind,
 };
 use crate::app::TextEntryMode;
-use crate::app::{Message, DraftFlowCAD, POLY_START_DELAY_MS};
+use crate::app::{DraftFlowCAD, Message, POLY_START_DELAY_MS};
 use crate::modules::ModuleEvent;
 use crate::scene::model::object::{GripApply, PropValue};
 use crate::scene::pick::grip::{
@@ -1842,7 +1842,8 @@ impl DraftFlowCAD {
                     self.command_line
                         .push_info(crate::t!("Specify point or enter arc length:").as_ref());
                 } else if matches!(item.action, GripMenuAction::RectangleWidth) {
-                    self.command_line.push_info(crate::t!("Specify point or enter width:").as_ref());
+                    self.command_line
+                        .push_info(crate::t!("Specify point or enter width:").as_ref());
                 } else if matches!(item.action, GripMenuAction::RectangleHeight) {
                     self.command_line
                         .push_info(crate::t!("Specify point or enter height:").as_ref());
@@ -2080,7 +2081,6 @@ impl DraftFlowCAD {
     }
 
     pub(in crate::app) fn read_system_clipboard_for_paste(&self) -> Task<Message> {
-
         {
             iced::clipboard::read_text().map(|result| {
                 use crate::app::SystemClipboardText as Text;
@@ -2099,7 +2099,6 @@ impl DraftFlowCAD {
             })
         }
     }
-
 
     pub(super) fn on_qselect_open(&mut self) -> Task<Message> {
         let i = self.active_tab;
@@ -3335,7 +3334,10 @@ impl DraftFlowCAD {
                         } else {
                             self.discard_last_undo_entry(i);
                             self.command_line.push_error(
-                                crate::t!("CETRANSPARENCY: drawing variable dictionary is invalid.").as_ref(),
+                                crate::t!(
+                                    "CETRANSPARENCY: drawing variable dictionary is invalid."
+                                )
+                                .as_ref(),
                             );
                         }
                     }
@@ -4637,7 +4639,7 @@ mod layer_name_target_tests {
     // RED: `Message::LayerToggleVisible` currently carries a panel-row `usize`;
     // these tests pass a layer `String` name and fail to compile until the
     // #22 migration lands.
-    use crate::app::{Message, DraftFlowCAD};
+    use crate::app::{DraftFlowCAD, Message};
     use crate::ui::window::layers::LayerSortCol;
 
     fn rename_layer(app: &mut DraftFlowCAD, old_name: &str, new_name: &str) {
@@ -5173,7 +5175,10 @@ mod grip_numeric_finite_guard_tests {
 
         let out = submit_radius_value(&mut app, handle, "3*4");
 
-        assert!(app.grip_pending.is_none(), "a finite value must be accepted; edit output: {out:?}");
+        assert!(
+            app.grip_pending.is_none(),
+            "a finite value must be accepted; edit output: {out:?}"
+        );
         assert_eq!(
             radius_of(&app, handle),
             12.0,
@@ -5188,7 +5193,7 @@ mod grip_numeric_finite_guard_tests {
 /// open) can carry an index the first removal already invalidated.
 #[cfg(test)]
 mod tab_close_tests {
-    use crate::app::{Message, DraftFlowCAD};
+    use crate::app::{DraftFlowCAD, Message};
 
     /// `[Start, Drawing A, Drawing B]` — three clean tabs.
     fn three_tabs() -> DraftFlowCAD {

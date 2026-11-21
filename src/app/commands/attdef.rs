@@ -1,7 +1,7 @@
 //! ATTDEF (dialog), -ATTDEF (command line), AFLAGS, and the Edit Attribute
 //! Definition dialog opened by double-click / TEXTEDIT / DDEDIT.
 
-use crate::app::{Message, DraftFlowCAD};
+use crate::app::{DraftFlowCAD, Message};
 use crate::command::CadCommand;
 use crate::modules::draw::draw::attdef::{
     self as attdef, AttdefCommand, AttdefPickCommand, AttdefPlaceCommand, AttdefSpec, Justify,
@@ -97,8 +97,10 @@ impl DraftFlowCAD {
         let current = attdef::session().aflags;
         match parts.next().map(str::trim).filter(|v| !v.is_empty()) {
             None => {
-                self.command_line
-                    .push_output(&crate::tf!("Enter new value for AFLAGS <{current}>:", current = current));
+                self.command_line.push_output(&crate::tf!(
+                    "Enter new value for AFLAGS <{current}>:",
+                    current = current
+                ));
                 self.pending_setvar = Some("AFLAGS".to_string());
             }
             Some(v) => match v.parse::<u8>().ok().filter(|v| *v <= 63) {
@@ -106,8 +108,10 @@ impl DraftFlowCAD {
                 None => {
                     self.command_line
                         .push_error(crate::t!("Requires an integer between 0 and 63.").as_ref());
-                    self.command_line
-                        .push_output(&crate::tf!("Enter new value for AFLAGS <{current}>:", current = current));
+                    self.command_line.push_output(&crate::tf!(
+                        "Enter new value for AFLAGS <{current}>:",
+                        current = current
+                    ));
                     self.pending_setvar = Some("AFLAGS".to_string());
                 }
             },

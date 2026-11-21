@@ -22,9 +22,7 @@ use iced::advanced::renderer;
 use iced::advanced::widget::{Tree, Widget};
 use iced::advanced::Renderer as _;
 use iced::widget::canvas::{self, Frame, Path, Stroke};
-use iced::{
-    mouse, Color, Element, Event, Length, Point, Rectangle, Renderer, Size, Theme, Vector,
-};
+use iced::{mouse, Color, Element, Event, Length, Point, Rectangle, Renderer, Size, Theme, Vector};
 
 /// Distance from the control's edge to the stroke's centre line.
 pub const RING_INSET: f32 = 1.0;
@@ -282,9 +280,15 @@ impl<M> Widget<M, Theme, Renderer> for RingWidget<'_, M> {
         let Some(child) = layout.children().next() else {
             return;
         };
-        self.content
-            .as_widget()
-            .draw(&tree.children[0], renderer, theme, style, child, cursor, viewport);
+        self.content.as_widget().draw(
+            &tree.children[0],
+            renderer,
+            theme,
+            style,
+            child,
+            cursor,
+            viewport,
+        );
 
         if !self.ring.visible() {
             return;
@@ -356,10 +360,16 @@ mod ring_tests {
     fn the_perimeter_starts_at_twelve_oclock_and_walks_clockwise() {
         let (w, h, r) = (24.0, 24.0, 4.0);
         let p0 = perimeter_point(0.0, w, h, r);
-        assert!((p0.x - w / 2.0).abs() < 1e-3 && p0.y.abs() < 1e-3, "start {p0:?}");
+        assert!(
+            (p0.x - w / 2.0).abs() < 1e-3 && p0.y.abs() < 1e-3,
+            "start {p0:?}"
+        );
         // A quarter of the way round a square-ish ring is the right edge.
         let q = perimeter_point(perimeter_length(w, h, r) * 0.25, w, h, r);
-        assert!(q.x > w - r - 1e-3, "a quarter lap should reach the right rim: {q:?}");
+        assert!(
+            q.x > w - r - 1e-3,
+            "a quarter lap should reach the right rim: {q:?}"
+        );
     }
 
     #[test]

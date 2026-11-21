@@ -389,11 +389,17 @@ impl State {
 }
 
 fn panel<'a>(title: String, body: Element<'a, Message>) -> Element<'a, Message> {
-    container(column![text(title).size(tokens::TEXT_LABEL).style(kit::muted_style), body].spacing(tokens::GAP_CONTROL))
-        .padding(tokens::GAP_ROW)
-        .width(Fill)
-        .style(kit::fieldset_well_style)
-        .into()
+    container(
+        column![
+            text(title).size(tokens::TEXT_LABEL).style(kit::muted_style),
+            body
+        ]
+        .spacing(tokens::GAP_CONTROL),
+    )
+    .padding(tokens::GAP_ROW)
+    .width(Fill)
+    .style(kit::fieldset_well_style)
+    .into()
 }
 
 fn material_picker<'a>(index: usize, datum: bool, code: &str) -> Element<'a, Message> {
@@ -416,30 +422,25 @@ fn material_picker<'a>(index: usize, datum: bool, code: &str) -> Element<'a, Mes
         .into()
 }
 
-pub fn view_window<'a>(
-    state: &State,
-    sizing: crate::ui::shell::Sizing,
-) -> Element<'a, Message> {
+pub fn view_window<'a>(state: &State, sizing: crate::ui::shell::Sizing) -> Element<'a, Message> {
     let symbol_options = choices(&SYMBOLS);
     let symbol_selected = selected(&SYMBOLS, &state.symbol);
     let symbol = panel(
         t!("Geometric characteristic").into_owned(),
-        crate::ui::kit::themed_pick_list(symbol_selected, symbol_options, |choice| choice.to_string())
-            .on_select(|choice| {
-                Message::ToleranceDialogField(Field::Symbol(choice.code.to_string()))
-            })
-            .text_size(tokens::TEXT_BODY)
-            .padding(kit::PAD_PLATE)
-            .width(Fill)
-            .into(),
+        crate::ui::kit::themed_pick_list(symbol_selected, symbol_options, |choice| {
+            choice.to_string()
+        })
+        .on_select(|choice| Message::ToleranceDialogField(Field::Symbol(choice.code.to_string())))
+        .text_size(tokens::TEXT_BODY)
+        .padding(kit::PAD_PLATE)
+        .width(Fill)
+        .into(),
     );
 
     let tolerance_rows =
-        state
-            .tolerances
-            .iter()
-            .enumerate()
-            .fold(column![].spacing(tokens::GAP_CONTROL), |column, (index, entry)| {
+        state.tolerances.iter().enumerate().fold(
+            column![].spacing(tokens::GAP_CONTROL),
+            |column, (index, entry)| {
                 column.push(
                     row![
                         text(format!("{} {}", t!("Tolerance"), index + 1))
@@ -451,7 +452,9 @@ pub fn view_window<'a>(
                                 Toggle::Diameter(index, value)
                             ))
                             .size(tokens::MARK_SQUARE),
-                        text(t!("Diameter")).size(tokens::TEXT_LABEL).width(Length::Fixed(62.0)),
+                        text(t!("Diameter"))
+                            .size(tokens::TEXT_LABEL)
+                            .width(Length::Fixed(62.0)),
                         text_input(EMPTY, &entry.value)
                             .on_input(move |value| Message::ToleranceDialogField(
                                 Field::ToleranceValue(index, value)
@@ -464,15 +467,14 @@ pub fn view_window<'a>(
                     .spacing(tokens::GAP_CONTROL)
                     .align_y(iced::Center),
                 )
-            });
+            },
+        );
     let tolerances = panel(t!("Tolerance values").into_owned(), tolerance_rows.into());
 
     let datum_rows =
-        state
-            .datums
-            .iter()
-            .enumerate()
-            .fold(column![].spacing(tokens::GAP_CONTROL), |column, (index, entry)| {
+        state.datums.iter().enumerate().fold(
+            column![].spacing(tokens::GAP_CONTROL),
+            |column, (index, entry)| {
                 column.push(
                     row![
                         text(format!("{} {}", t!("Datum"), index + 1))
@@ -491,7 +493,8 @@ pub fn view_window<'a>(
                     .spacing(tokens::GAP_CONTROL)
                     .align_y(iced::Center),
                 )
-            });
+            },
+        );
     let datums = panel(t!("Datum references").into_owned(), datum_rows.into());
 
     let additions = panel(

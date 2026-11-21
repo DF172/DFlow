@@ -228,7 +228,8 @@ impl DraftFlowCAD {
             ) {
                 (Some(x), Some(y), Some(z)) => Some(glam::DVec3::new(x, y, z)),
                 _ => {
-                    self.command_line.push_error(crate::t!("Requires numeric value.").as_ref());
+                    self.command_line
+                        .push_error(crate::t!("Requires numeric value.").as_ref());
                     return Task::none();
                 }
             }
@@ -251,7 +252,8 @@ impl DraftFlowCAD {
             match number(&state.rotation) {
                 Some(v) => Some(v),
                 None => {
-                    self.command_line.push_error(crate::t!("Requires numeric value.").as_ref());
+                    self.command_line
+                        .push_error(crate::t!("Requires numeric value.").as_ref());
                     return Task::none();
                 }
             }
@@ -330,7 +332,8 @@ impl DraftFlowCAD {
             });
         }
         if targets.is_empty() {
-            self.command_line.push_error(crate::t!("No underlays found.").as_ref());
+            self.command_line
+                .push_error(crate::t!("No underlays found.").as_ref());
             return;
         }
         let current = targets
@@ -798,7 +801,8 @@ impl DraftFlowCAD {
             ) {
                 (Some(x), Some(y), Some(z)) => Some(glam::DVec3::new(x, y, z)),
                 _ => {
-                    self.command_line.push_error(crate::t!("Requires numeric value.").as_ref());
+                    self.command_line
+                        .push_error(crate::t!("Requires numeric value.").as_ref());
                     return Task::none();
                 }
             }
@@ -821,7 +825,8 @@ impl DraftFlowCAD {
             match number(&state.rotation) {
                 Some(v) => Some(v),
                 None => {
-                    self.command_line.push_error(crate::t!("Requires numeric value.").as_ref());
+                    self.command_line
+                        .push_error(crate::t!("Requires numeric value.").as_ref());
                     return Task::none();
                 }
             }

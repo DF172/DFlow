@@ -320,7 +320,11 @@ pub fn chip<'a, M: 'a>(
 ) -> Button<'a, M> {
     btn(
         label,
-        if engaged { Role::Engaged } else { Role::Standard },
+        if engaged {
+            Role::Engaged
+        } else {
+            Role::Standard
+        },
         Size::Compact,
         press,
         track,
@@ -367,10 +371,7 @@ pub fn state_pill<'a, M: 'a>(
     .spacing(tokens::GAP_CONTROL)
     .align_y(iced::Center);
     container(body)
-        .padding(iced::Padding::from([
-            tokens::GAP_SEAM,
-            tokens::GAP_CONTROL,
-        ]))
+        .padding(iced::Padding::from([tokens::GAP_SEAM, tokens::GAP_CONTROL]))
         .style(move |theme: &Theme| Tier::Plate.style(theme, ""))
         .into()
 }
@@ -430,7 +431,11 @@ pub fn list_row_at<'a, M: 'a>(
                 // brand wash: the list is chrome, and the single signal
                 // colour belongs to the drawing, the caret and the slider.
                 Some(colors) => {
-                    let plate = if hovered { colors.active } else { colors.selected_row };
+                    let plate = if hovered {
+                        colors.active
+                    } else {
+                        colors.selected_row
+                    };
                     button::Style {
                         background: (engage > 1e-3)
                             .then(|| Background::Color(plate.scale_alpha(engage * p))),
@@ -452,9 +457,7 @@ pub fn list_row_at<'a, M: 'a>(
                         ))
                     } else {
                         hovered.then(|| {
-                            Background::Color(
-                                rest_ink.scale_alpha(tokens::WASH_POINTER * p),
-                            )
+                            Background::Color(rest_ink.scale_alpha(tokens::WASH_POINTER * p))
                         })
                     },
                     text_color: rest_ink.scale_alpha(p),
@@ -631,10 +634,7 @@ pub fn readout_style(theme: &Theme, status: button::Status) -> button::Style {
     let Some(colors) = draftflow_colors(theme) else {
         return subtle_style(theme, status);
     };
-    let hovered = matches!(
-        status,
-        button::Status::Hovered | button::Status::Pressed
-    );
+    let hovered = matches!(status, button::Status::Hovered | button::Status::Pressed);
     button::Style {
         background: hovered.then(|| Background::Color(colors.hover)),
         text_color: if hovered { colors.ink } else { colors.muted },
@@ -664,10 +664,7 @@ pub fn tab_plate_style(
     holds_tool: bool,
 ) -> Option<button::Style> {
     let colors = draftflow_colors(theme)?;
-    let hovered = matches!(
-        status,
-        button::Status::Hovered | button::Status::Pressed
-    );
+    let hovered = matches!(status, button::Status::Hovered | button::Status::Pressed);
     let background = if is_active {
         Some(Background::Color(colors.surface))
     } else if hovered {
@@ -908,8 +905,7 @@ fn style_for_solve(
                     // engaged rung against 7.60:1 from the step the wash actually
                     // corresponds to. A wash is a surface change, so the ink walks
                     // surfaces with it.
-                    text_color: tokens::control_ink(theme, tokens::Control::Strong)
-                        .scale_alpha(p),
+                    text_color: tokens::control_ink(theme, tokens::Control::Strong).scale_alpha(p),
                     border: Border {
                         color: tokens::aurora_edge(theme).scale_alpha(p),
                         width: 1.0,
@@ -960,7 +956,13 @@ fn style_for_solve(
                     },
                     shadow: tokens::elevation(
                         theme,
-                        if pressed { 0.0 } else if hovered { 2.0 } else { 1.0 },
+                        if pressed {
+                            0.0
+                        } else if hovered {
+                            2.0
+                        } else {
+                            1.0
+                        },
                     ),
                     snap: false,
                 }
@@ -980,8 +982,7 @@ fn style_for_solve(
                 button::Style {
                     background: (hovered || pressed).then(|| {
                         Background::Color(
-                            (if pressed { colors.active } else { colors.hover })
-                                .scale_alpha(p),
+                            (if pressed { colors.active } else { colors.hover }).scale_alpha(p),
                         )
                     }),
                     text_color: colors.ink.scale_alpha(p),
@@ -996,7 +997,11 @@ fn style_for_solve(
                 button::Style {
                     background: (hovered || pressed).then(|| {
                         Background::Color(
-                            palette.background.base.text.scale_alpha(tokens::WASH_POINTER * p),
+                            palette
+                                .background
+                                .base
+                                .text
+                                .scale_alpha(tokens::WASH_POINTER * p),
                         )
                     }),
                     text_color: palette.background.base.text.scale_alpha(p),
@@ -1177,11 +1182,8 @@ pub fn field_style_dirty(theme: &Theme, status: text_input::Status, t: f32) -> t
     let mut style = field_style(theme, status);
     let t = t.clamp(0.0, 1.0);
     if t > 0.0 {
-        style.border.color = crate::ui::motion::mix(
-            style.border.color,
-            theme.palette().warning.base.color,
-            t,
-        );
+        style.border.color =
+            crate::ui::motion::mix(style.border.color, theme.palette().warning.base.color, t);
     }
     style
 }
@@ -1392,11 +1394,7 @@ pub fn error_field_style(theme: &Theme, status: text_input::Status) -> text_inpu
     let focused = matches!(status, text_input::Status::Focused { .. });
     let plate = danger.weak.color;
     let ink = tokens::legible_on(danger.weak.text, plate, tokens::AA_INK_CONTRAST);
-    let edge = tokens::legible_on(
-        danger.base.color,
-        plate,
-        tokens::AA_COMPONENT_CONTRAST,
-    );
+    let edge = tokens::legible_on(danger.base.color, plate, tokens::AA_COMPONENT_CONTRAST);
     text_input::Style {
         background: Background::Color(plate),
         border: Border {
@@ -1468,11 +1466,7 @@ pub fn editor_style(theme: &Theme, status: text_editor::Status) -> text_editor::
     let palette = theme.palette();
     let focused = matches!(status, text_editor::Status::Focused { .. });
     let disabled = matches!(status, text_editor::Status::Disabled);
-    let off = if disabled {
-        tokens::INK_DISABLED
-    } else {
-        1.0
-    };
+    let off = if disabled { tokens::INK_DISABLED } else { 1.0 };
     let sunk = tokens::inset(theme).scale_alpha(off);
     let recess = tokens::over(sunk, palette.background.base.color);
     let ink = tokens::over(palette.background.base.text.scale_alpha(off), recess);
@@ -1489,7 +1483,11 @@ pub fn editor_style(theme: &Theme, status: text_editor::Status) -> text_editor::
             radius: tokens::RADIUS_FIELD.into(),
         },
         placeholder: label::resolve_on(
-            palette.background.base.text.scale_alpha(tokens::INK_PLACEHOLDER * off),
+            palette
+                .background
+                .base
+                .text
+                .scale_alpha(tokens::INK_PLACEHOLDER * off),
             &label::grounds(theme, sunk),
             if disabled {
                 tokens::AA_COMPONENT_CONTRAST
@@ -1551,11 +1549,7 @@ pub fn pick_list_style(theme: &Theme, status: pick_list::Status) -> pick_list::S
         ),
         background: Background::Color(plate),
         border: Border {
-            color: if open {
-                ink
-            } else {
-                tokens::field_edge(theme)
-            },
+            color: if open { ink } else { tokens::field_edge(theme) },
             width: if open { 1.5 } else { 1.0 },
             radius: if draftflow_colors(theme).is_some() {
                 tokens::RADIUS_TILE
@@ -1587,7 +1581,11 @@ pub fn scrollable_style(theme: &Theme, status: scrollable::Status) -> scrollable
     };
     let rail = |scroller_alpha: f32| iced::widget::scrollable::Rail {
         background: Some(Background::Color(
-            palette.background.base.text.scale_alpha(tokens::WASH_POINTER),
+            palette
+                .background
+                .base
+                .text
+                .scale_alpha(tokens::WASH_POINTER),
         )),
         border: Border {
             color: Color::TRANSPARENT,
@@ -1699,19 +1697,12 @@ pub fn ghost_style(theme: &Theme, status: button::Status) -> button::Style {
 /// overlay chose, not a rung; `(h)` reads only `aurora_gradient`, so this number is
 /// invisible to every column and is priced on the ledger, not here.
 #[must_use]
-pub fn menu_row_style(
-    theme: &Theme,
-    status: button::Status,
-    highlighted: bool,
-) -> button::Style {
+pub fn menu_row_style(theme: &Theme, status: button::Status, highlighted: bool) -> button::Style {
     let palette = theme.palette();
     let colors = draftflow_colors(theme);
     let (background, text_color) = if highlighted {
         match colors {
-            Some(colors) => (
-                Some(Background::Color(colors.selected_row)),
-                colors.ink,
-            ),
+            Some(colors) => (Some(Background::Color(colors.selected_row)), colors.ink),
             None => (
                 Some(Background::Color(palette.primary.strong.color)),
                 palette.primary.strong.text,
@@ -1855,11 +1846,7 @@ pub fn chip_button_style(active: bool) -> impl Fn(&Theme, button::Status) -> but
     }
 }
 
-fn chip_button_style_solve(
-    active: bool,
-    theme: &Theme,
-    status: button::Status,
-) -> button::Style {
+fn chip_button_style_solve(active: bool, theme: &Theme, status: button::Status) -> button::Style {
     {
         if active {
             style_for(theme, status, Role::Engaged, "")
@@ -2207,7 +2194,11 @@ mod tests {
             let rest = style_for(&theme, button::Status::Active, Role::Standard, "");
             let hover = style_for(&theme, button::Status::Hovered, Role::Standard, "");
             let press = style_for(&theme, button::Status::Pressed, Role::Standard, "");
-            assert_eq!(fill(&rest), colors.surface, "{theme}: idle sits on the sheet");
+            assert_eq!(
+                fill(&rest),
+                colors.surface,
+                "{theme}: idle sits on the sheet"
+            );
             assert_eq!(fill(&hover), colors.hover, "{theme}: hover walks one rung");
             assert_eq!(fill(&press), colors.active, "{theme}: the press walks two");
             assert_eq!(rest.border.width, 1.0, "{theme}");
@@ -2316,7 +2307,11 @@ mod tests {
                 (button::Status::Pressed, 0.18),
             ] {
                 let lit = chip_button_style(true)(&theme, status);
-                assert_eq!(fill(&lit), colors.accent.scale_alpha(wash), "{theme} / {status:?}");
+                assert_eq!(
+                    fill(&lit),
+                    colors.accent.scale_alpha(wash),
+                    "{theme} / {status:?}"
+                );
             }
 
             // The quiet chip is a framed plate with no lift of its own: the
@@ -2332,7 +2327,11 @@ mod tests {
             // a chip wears the text of the surface it sits on — the weak rung's
             // ink on the weak rung's plate at rest, the strong rung's pair once
             // it is hovered. The hovered quiet chip was previously untested.
-            assert_eq!(off.text_color, tokens::control_ink(&theme, tokens::Control::Weak), "{theme}");
+            assert_eq!(
+                off.text_color,
+                tokens::control_ink(&theme, tokens::Control::Weak),
+                "{theme}"
+            );
             let off_hover = chip_button_style(false)(&theme, button::Status::Hovered);
             assert_eq!(
                 fill(&off_hover),

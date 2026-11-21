@@ -1,10 +1,10 @@
 use crate::app::settings::AutoConstrainSettings;
 use crate::app::Message;
 use crate::ui::kit;
-use iced::widget::{checkbox, column, container, row, text, text_input, Space};
 use crate::ui::kit::plain_button;
-use iced::{Border, Element, Fill, Length, Theme};
 use crate::ui::style::tokens;
+use iced::widget::{checkbox, column, container, row, text, text_input, Space};
+use iced::{Border, Element, Fill, Length, Theme};
 
 pub fn view_window<'a>(
     settings: &'a AutoConstrainSettings,

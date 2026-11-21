@@ -757,7 +757,9 @@ impl DraftFlowCAD {
                         );
                         self.open_pdf_import_file(&path);
                     }
-                    Err(_) => self.command_line.push_error(&crate::tf!("{path} not found.", path = path)),
+                    Err(_) => self
+                        .command_line
+                        .push_error(&crate::tf!("{path} not found.", path = path)),
                 }
             }
             "PDFCLIP" | "DWFCLIP" | "DGNCLIP" => {
@@ -2249,7 +2251,8 @@ mod tests {
         // F10: `XREF Attach <file>` threads the file into the XATTACH
         // placement command (same flow as the picker result). A missing file
         // is rejected up front, so the reference has to exist.
-        let dir = std::env::temp_dir().join(format!("draftflow_xref_attach_{}", std::process::id()));
+        let dir =
+            std::env::temp_dir().join(format!("draftflow_xref_attach_{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let file = dir.join("plan.dwg");
         std::fs::write(&file, b"fake").unwrap();

@@ -4,12 +4,12 @@
 //! Import Layout and Rename & Renumber forms. The tree is read from the
 //! sheet set database (`.dst`) itself on every view.
 
-use crate::ui::style::tokens;
 use crate::app::Message;
 use crate::t;
 use crate::ui::dock::PanelId;
 use crate::ui::kit;
 use crate::ui::kit::muted_style;
+use crate::ui::style::tokens;
 
 use codec::sheet_set::{self as ss, ComponentKind, Element as SsElement, SheetSetDatabase};
 use iced::widget::{checkbox, column, container, mouse_area, row, text, text_input, Space};
@@ -727,17 +727,18 @@ fn plain_row<'a>(
     ]
     .spacing(tokens::GAP_TIGHT)
     .align_y(iced::Center);
-    let mut area = mouse_area(container(cells).width(Fill).padding(kit::Size::Compact.padding()));
+    let mut area = mouse_area(
+        container(cells)
+            .width(Fill)
+            .padding(kit::Size::Compact.padding()),
+    );
     if let Some(m) = double {
         area = area.on_double_click(m);
     }
     if menu.is_empty() {
         return area.into();
     }
-    iced_aw::ContextMenu::new(area, move || {
-        menu_panel(&menu, open_sub.as_deref(), theme)
-    })
-    .into()
+    iced_aw::ContextMenu::new(area, move || menu_panel(&menu, open_sub.as_deref(), theme)).into()
 }
 
 fn menu_box<'b>(items: Vec<Element<'b, Message>>, theme: &Theme) -> Element<'b, Message> {
@@ -861,7 +862,10 @@ fn tree_row<'a>(
             .width(Fill)
             .into()
     } else {
-        container(cells).width(Fill).padding(kit::Size::Compact.padding()).into()
+        container(cells)
+            .width(Fill)
+            .padding(kit::Size::Compact.padding())
+            .into()
     };
     let area = mouse_area(plate)
         .on_press(msg(SheetSetMsg::Select(id.clone())))
@@ -892,7 +896,8 @@ fn push_tree<'a>(
                     depth,
                     crate::ui::icons::FOLDER_OPEN,
                     c.prop("Name").unwrap_or("").to_string(),
-                    Some(open), theme
+                    Some(open),
+                    theme,
                 ));
                 if open {
                     push_tree(state, c, depth + 1, out, theme);
@@ -905,7 +910,8 @@ fn push_tree<'a>(
                     depth,
                     crate::ui::icons::DOC,
                     ss::number_and_title(c),
-                    None, theme
+                    None,
+                    theme,
                 ));
             }
             _ => {}
@@ -968,7 +974,8 @@ fn view_row<'a>(
         None,
         act(ViewAction::Display),
         menu,
-        state.submenu.clone(), theme
+        state.submenu.clone(),
+        theme,
     )
 }
 
@@ -986,7 +993,8 @@ fn sheet_views_rows<'a>(
         None,
         None,
         vec![new_category()],
-        None, theme
+        None,
+        theme,
     )];
     let views: Vec<&SsElement> = db
         .sheets()
@@ -1018,7 +1026,8 @@ fn sheet_views_rows<'a>(
                     ),
                     mi("Remove", Some(msg(SheetSetMsg::CategoryRemove(id.clone())))),
                 ],
-                None, theme
+                None,
+                theme,
             ));
             for v in views
                 .iter()
@@ -1040,7 +1049,8 @@ fn sheet_views_rows<'a>(
                 None,
                 None,
                 vec![],
-                None, theme
+                None,
+                theme,
             ));
             for v in views {
                 rows.push(view_row(state, db, v, 2, theme));
@@ -1052,10 +1062,7 @@ fn sheet_views_rows<'a>(
 
 /// The Model Views page: each location folder, its drawings and, for an
 /// opened drawing, its named model views.
-fn model_views_rows<'a>(
-    state: &SheetSetManager,
-    theme: &'a Theme,
-) -> Vec<Element<'a, Message>> {
+fn model_views_rows<'a>(state: &SheetSetManager, theme: &'a Theme) -> Vec<Element<'a, Message>> {
     let mut rows = Vec::new();
     // A location shows relative to the set's folder when it can.
     let base = state
@@ -1080,7 +1087,8 @@ fn model_views_rows<'a>(
                     Some(msg(SheetSetMsg::RemoveLocation(id.clone()))),
                 ),
             ],
-            None, theme
+            None,
+            theme,
         ));
         for file in files {
             let path = std::path::Path::new(folder)
@@ -1107,7 +1115,8 @@ fn model_views_rows<'a>(
                         Some(msg(SheetSetMsg::SeeViews(path.clone()))),
                     ),
                 ],
-                None, theme
+                None,
+                theme,
             ));
             if open {
                 for v in state.model_views.get(&key).cloned().unwrap_or_default() {
@@ -1125,7 +1134,8 @@ fn model_views_rows<'a>(
                                 Some(msg(SheetSetMsg::PlaceOnSheet(path.clone(), Some(v)))),
                             ),
                         ],
-                        None, theme
+                        None,
+                        theme,
                     ));
                 }
             }
@@ -1229,7 +1239,8 @@ pub fn view<'a>(
                 0,
                 SET_ICON,
                 db.name().to_string(),
-                Some(open), theme
+                Some(open),
+                theme,
             )];
             if open {
                 push_tree(state, set, 1, &mut rows, theme);
@@ -1505,7 +1516,10 @@ fn wizard_view<'a>(w: &'a Wizard) -> Element<'a, Message> {
             "Sheet Set",
             column![
                 labeled("Name of new sheet set:", input(&w.name, FieldId::Name)),
-                labeled("Description (optional):", input(&w.description, FieldId::Description)),
+                labeled(
+                    "Description (optional):",
+                    input(&w.description, FieldId::Description)
+                ),
                 labeled(
                     "Store sheet set data file (.dst) here:",
                     row![
@@ -1559,9 +1573,11 @@ fn wizard_view<'a>(w: &'a Wizard) -> Element<'a, Message> {
                 column![
                     row![
                         text(
-                            t!("Select folders containing drawings. Layouts in the drawings \
-                                can be added to the sheet set.")
-                                .into_owned(),
+                            t!(
+                                "Select folders containing drawings. Layouts in the drawings \
+                                can be added to the sheet set."
+                            )
+                            .into_owned(),
                         )
                         .size(tokens::TEXT_LABEL)
                         .style(muted_style)
@@ -1765,7 +1781,9 @@ fn properties_view<'a>(p: &'a Properties) -> Element<'a, Message> {
                     name.clone()
                 };
                 row![
-                    text(label).size(tokens::TEXT_BODY).width(Length::Fixed(170.0)),
+                    text(label)
+                        .size(tokens::TEXT_BODY)
+                        .width(Length::Fixed(170.0)),
                     text_input("", value)
                         .size(tokens::TEXT_BODY)
                         .padding(kit::Size::Control.padding())
@@ -1824,15 +1842,15 @@ fn properties_view<'a>(p: &'a Properties) -> Element<'a, Message> {
                     )
                     .into(),
                 ),
-            None => custom.push(
-                kit::btn(
-                    kit::body(t!("Add Custom Property...").into_owned(), ""),
-                    kit::Role::Standard,
-                    kit::Size::Action,
-                    kit::Press::On(msg(SheetSetMsg::AddCustom)),
-                    "",
-                )
-                .into(),
+                None => custom.push(
+                    kit::btn(
+                        kit::body(t!("Add Custom Property...").into_owned(), ""),
+                        kit::Role::Standard,
+                        kit::Size::Action,
+                        kit::Press::On(msg(SheetSetMsg::AddCustom)),
+                        "",
+                    )
+                    .into(),
                 ),
             }
         }
@@ -1841,12 +1859,10 @@ fn properties_view<'a>(p: &'a Properties) -> Element<'a, Message> {
             iced::widget::Column::with_children(custom).spacing(tokens::GAP_CONTROL),
         ));
     }
-    let mut col = column![
-        kit::themed_scrollable(
-            iced::widget::Column::with_children(groups).spacing(tokens::GAP_FIELD),
-        )
-        .height(Fill)
-    ]
+    let mut col = column![kit::themed_scrollable(
+        iced::widget::Column::with_children(groups).spacing(tokens::GAP_FIELD),
+    )
+    .height(Fill)]
     .spacing(tokens::GAP_FIELD);
     if let Some(e) = error_band(&p.error) {
         col = col.push(e);
@@ -1875,10 +1891,14 @@ fn check<'a>(on: bool, label: &str, field: FieldId, enabled: bool) -> Element<'a
 }
 
 fn read_only<'a>(value: &str) -> Element<'a, Message> {
-    container(text(value.to_string()).size(tokens::TEXT_BODY).style(muted_style))
-        .padding(kit::Size::Control.padding())
-        .width(Fill)
-        .into()
+    container(
+        text(value.to_string())
+            .size(tokens::TEXT_BODY)
+            .style(muted_style),
+    )
+    .padding(kit::Size::Control.padding())
+    .width(Fill)
+    .into()
 }
 
 fn ok_cancel<'a>(ok: &str) -> Element<'a, Message> {
@@ -2059,9 +2079,15 @@ fn form_view<'a>(f: &'a Form) -> Element<'a, Message> {
         FormKind::ImportLayout => {
             let head = row![
                 Space::new().width(tokens::MARK_SQUARE + tokens::GAP_ROW),
-                text(t!("Layout name").into_owned()).size(tokens::TEXT_LABEL).width(Fill),
-                text(t!("Drawing").into_owned()).size(tokens::TEXT_LABEL).width(Fill),
-                text(t!("Status").into_owned()).size(tokens::TEXT_LABEL).width(Fill),
+                text(t!("Layout name").into_owned())
+                    .size(tokens::TEXT_LABEL)
+                    .width(Fill),
+                text(t!("Drawing").into_owned())
+                    .size(tokens::TEXT_LABEL)
+                    .width(Fill),
+                text(t!("Status").into_owned())
+                    .size(tokens::TEXT_LABEL)
+                    .width(Fill),
             ]
             .spacing(tokens::GAP_CONTROL);
             let mut list = vec![head.into()];
@@ -2130,8 +2156,7 @@ fn form_view<'a>(f: &'a Form) -> Element<'a, Message> {
                             .size(tokens::TEXT_BODY)
                             .width(Fill),
                         kit::btn(
-                            text(t!("Browse for Drawings...").into_owned())
-                                .size(tokens::TEXT_BODY),
+                            text(t!("Browse for Drawings...").into_owned()).size(tokens::TEXT_BODY),
                             kit::Role::Standard,
                             kit::Size::Control,
                             kit::Press::On(msg(SheetSetMsg::BrowseDrawings)),
@@ -2140,10 +2165,12 @@ fn form_view<'a>(f: &'a Form) -> Element<'a, Message> {
                     ]
                     .align_y(iced::Center),
                     text(
-                        t!("A layout can belong to only one sheet set. If a layout already \
+                        t!(
+                            "A layout can belong to only one sheet set. If a layout already \
                             belongs to a sheet set, you must create a copy of the layout to \
-                            import it.")
-                            .into_owned(),
+                            import it."
+                        )
+                        .into_owned(),
                     )
                     .size(tokens::TEXT_LABEL)
                     .style(muted_style),
@@ -2211,7 +2238,11 @@ fn template_view<'a>(t: &'a TemplatePick) -> Element<'a, Message> {
                 ))
                 .padding(tokens::GAP_TIGHT)
                 .height(Length::Fixed(130.0))
-                .style(|theme: &Theme| kit::wash_style(kit::Tier::Card, theme, "")),
+                .style(|theme: &Theme| kit::wash_style(
+                    kit::Tier::Card,
+                    theme,
+                    ""
+                )),
             ]
             .spacing(tokens::GAP_ROW)
         ),
@@ -2237,14 +2268,16 @@ fn category_view<'a>(c: &'a Category) -> Element<'a, Message> {
                 iced::widget::Column::with_children(blocks.collect::<Vec<_>>())
                     .spacing(tokens::GAP_TIGHT),
             ))
-                .padding(tokens::GAP_CONTROL)
-                .height(Length::Fixed(90.0))
-                .width(Fill)
-                .style(|theme: &Theme| kit::wash_style(kit::Tier::Card, theme, "")),
+            .padding(tokens::GAP_CONTROL)
+            .height(Length::Fixed(90.0))
+            .width(Fill)
+            .style(|theme: &Theme| kit::wash_style(kit::Tier::Card, theme, "")),
             text(
-                t!("Selected blocks will be available for selection when you insert a \
-                    callout block from the view tab.")
-                    .into_owned(),
+                t!(
+                    "Selected blocks will be available for selection when you insert a \
+                    callout block from the view tab."
+                )
+                .into_owned(),
             )
             .size(tokens::TEXT_LABEL)
             .style(muted_style),
@@ -2322,8 +2355,9 @@ fn block_list_view<'a>(b: &'a BlockList, state: &'a SheetSetManager) -> Element<
             kit::Size::Control,
             // Press::Off is the kit's spelling of "cannot act here", which is
             // what an empty selection is; dim is the rung written for it.
-            b.selected
-                .map_or(kit::Press::Off, |_| kit::Press::On(msg(SheetSetMsg::BlockListDelete))),
+            b.selected.map_or(kit::Press::Off, |_| kit::Press::On(msg(
+                SheetSetMsg::BlockListDelete
+            ))),
             "",
         )
         .width(Fill),
@@ -2361,7 +2395,10 @@ fn block_list_view<'a>(b: &'a BlockList, state: &'a SheetSetManager) -> Element<
 
 fn select_block_view<'a>(b: &'a SelectBlock, state: &'a SheetSetManager) -> Element<'a, Message> {
     let names = b.names.iter().enumerate().map(|(i, (name, _, on))| {
-        let c = checkbox(*on).label(name.clone()).text_size(tokens::TEXT_BODY).size(tokens::MARK_SQUARE);
+        let c = checkbox(*on)
+            .label(name.clone())
+            .text_size(tokens::TEXT_BODY)
+            .size(tokens::MARK_SQUARE);
         if b.whole {
             c.into()
         } else {
@@ -2376,33 +2413,34 @@ fn select_block_view<'a>(b: &'a SelectBlock, state: &'a SheetSetManager) -> Elem
             .size(tokens::MARK_SQUARE)
             .on_toggle(move |_| msg(SheetSetMsg::SelectBlockWhole(whole)))
     };
-    let mut col = column![card(
-        "Drawing",
-        column![
-            text(t!("Enter the drawing file name:").into_owned()).size(tokens::TEXT_BODY),
-            row![read_only(&b.file), browse(SheetSetMsg::SelectBlockBrowse)]
-                .spacing(tokens::GAP_CONTROL)
-                .align_y(iced::Center),
-            radio(b.whole, "Select the drawing file as a block", true),
-            radio(!b.whole, "Choose blocks in the drawing file:", false),
-            row![
-                Space::new().width(tokens::MARK_SQUARE + tokens::GAP_ROW),
-                container(kit::themed_scrollable(
-                    iced::widget::Column::with_children(names.collect::<Vec<_>>())
-                        .spacing(tokens::GAP_TIGHT)
-                ))
-                .padding(tokens::GAP_CONTROL)
-                .height(Length::Fixed(110.0))
-                .width(Fill)
-                .style(|theme: &Theme| kit::wash_style(kit::Tier::Card, theme, "")),
-                container(preview_box(&state.previews, b.preview.as_ref(), 110.0))
-                    .width(Length::Fixed(130.0)),
+    let mut col =
+        column![card(
+            "Drawing",
+            column![
+                text(t!("Enter the drawing file name:").into_owned()).size(tokens::TEXT_BODY),
+                row![read_only(&b.file), browse(SheetSetMsg::SelectBlockBrowse)]
+                    .spacing(tokens::GAP_CONTROL)
+                    .align_y(iced::Center),
+                radio(b.whole, "Select the drawing file as a block", true),
+                radio(!b.whole, "Choose blocks in the drawing file:", false),
+                row![
+                    Space::new().width(tokens::MARK_SQUARE + tokens::GAP_ROW),
+                    container(kit::themed_scrollable(
+                        iced::widget::Column::with_children(names.collect::<Vec<_>>())
+                            .spacing(tokens::GAP_TIGHT)
+                    ))
+                    .padding(tokens::GAP_CONTROL)
+                    .height(Length::Fixed(110.0))
+                    .width(Fill)
+                    .style(|theme: &Theme| kit::wash_style(kit::Tier::Card, theme, "")),
+                    container(preview_box(&state.previews, b.preview.as_ref(), 110.0))
+                        .width(Length::Fixed(130.0)),
+                ]
+                .spacing(tokens::GAP_FIELD),
             ]
-            .spacing(tokens::GAP_FIELD),
-        ]
-        .spacing(tokens::GAP_ROW)
-    )]
-    .spacing(tokens::GAP_FIELD);
+            .spacing(tokens::GAP_ROW)
+        )]
+        .spacing(tokens::GAP_FIELD);
     if let Some(e) = error_band(&b.error) {
         col = col.push(e);
     }
@@ -2412,7 +2450,9 @@ fn select_block_view<'a>(b: &'a SelectBlock, state: &'a SheetSetManager) -> Elem
 fn confirm_view<'a>(question: &'a str) -> Element<'a, Message> {
     column![
         row![
-            text("?").size(tokens::TEXT_TITLE).style(|theme: &Theme| kit::tone_style(theme, kit::Tone::Accent)),
+            text("?")
+                .size(tokens::TEXT_TITLE)
+                .style(|theme: &Theme| kit::tone_style(theme, kit::Tone::Accent)),
             column![
                 text(question.to_string()).size(tokens::TEXT_BODY),
                 text(t!("(The layout and the drawing file will not be deleted.)").into_owned())
@@ -2448,5 +2488,8 @@ pub fn dialog_view<'a>(
         Some(SsDialog::SelectBlock(b)) => select_block_view(b, state),
         None => Space::new().into(),
     };
-    container(body).padding(kit::PAD_CARD).width(sizing.width).into()
+    container(body)
+        .padding(kit::PAD_CARD)
+        .width(sizing.width)
+        .into()
 }

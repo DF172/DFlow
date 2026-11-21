@@ -32,7 +32,6 @@ pub use super::plot::{
 // Rendering is portable; only persistence differs — desktop writes the bytes
 // atomically through a temp file, the web delivers them as a browser download.
 
-
 /// mm to PDF points (1 mm = 2.834645 pt).
 const MM_TO_PT: f32 = 2.834645;
 /// `wire.line_weight_px` is the on-screen pixel weight. Convert the 96-dpi
@@ -66,7 +65,6 @@ pub fn export_pdf_pages(
 fn persist_pdf(path: &Path, bytes: &[u8]) -> Result<(), String> {
     write_pdf_atomically(path, bytes)
 }
-
 
 /// Write a complete PDF beside the destination, then replace it atomically.
 fn write_pdf_atomically(path: &Path, bytes: &[u8]) -> Result<(), String> {
@@ -168,7 +166,8 @@ fn emit_image(
     let mut height = image.height;
     let mut pixels: std::borrow::Cow<[u8]> = std::borrow::Cow::Borrowed(image.pixels.as_slice());
     if let Some(target) = options.quality.target_dpi() {
-        let dist = |a: [f32; 2], b: [f32; 2]| ((b[0] - a[0]).powi(2) + (b[1] - a[1]).powi(2)).sqrt();
+        let dist =
+            |a: [f32; 2], b: [f32; 2]| ((b[0] - a[0]).powi(2) + (b[1] - a[1]).powi(2)).sqrt();
         let width_edge = dist(corners[0], corners[1]);
         let height_edge = dist(corners[0], corners[3]);
         // A degenerate (zero-area) placement keeps the native pixels.
@@ -191,8 +190,12 @@ fn emit_image(
                 if let Some(buffer) =
                     image::RgbaImage::from_raw(width, height, image.pixels.as_ref().clone())
                 {
-                    let resized =
-                        image::imageops::resize(&buffer, w, h, image::imageops::FilterType::Triangle);
+                    let resized = image::imageops::resize(
+                        &buffer,
+                        w,
+                        h,
+                        image::imageops::FilterType::Triangle,
+                    );
                     width = w;
                     height = h;
                     pixels = std::borrow::Cow::Owned(resized.into_raw());
@@ -734,7 +737,16 @@ fn append_pdf_page(
                     continue;
                 }
                 DrawItem::Image(image) => {
-                    emit_image(doc, image_resources, &mut ops, image, ox, oy, scale, options)?;
+                    emit_image(
+                        doc,
+                        image_resources,
+                        &mut ops,
+                        image,
+                        ox,
+                        oy,
+                        scale,
+                        options,
+                    )?;
                     continue;
                 }
                 DrawItem::Wire(wire) => wire,

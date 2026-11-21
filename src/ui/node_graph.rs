@@ -6,17 +6,19 @@
 //! Properties panel's own rows for that entity (built and written back in
 //! `app::node_graph`); operation rows come from the node's spec.
 
+use crate::ui::kit::plain_button;
 use crate::ui::style::tokens;
 use codec::{EntityType, Handle};
 use graph::{Kind, NodeId, Port, Spec};
 use iced::advanced::layout::{self, Layout};
 use iced::advanced::widget::{self, Widget};
 use iced::advanced::{renderer, Renderer as _, Shell};
-use iced::widget::{canvas, checkbox, column, container, mouse_area, opaque, pin, row, slider, stack, text, text_input, Space};
-use crate::ui::kit::plain_button;
+use iced::widget::{
+    canvas, checkbox, column, container, mouse_area, opaque, pin, row, slider, stack, text,
+    text_input, Space,
+};
 use iced::{
-    mouse, Background, Element, Length, Point, Rectangle, Size, Theme, Transformation,
-    Vector,
+    mouse, Background, Element, Length, Point, Rectangle, Size, Theme, Transformation, Vector,
 };
 use rustc_hash::{FxHashMap as HashMap, FxHashSet as HashSet};
 use serde_json::{json, Value};
@@ -861,11 +863,14 @@ impl Graph {
                     if step > 0.0 {
                         bar = bar.step(step);
                     }
-                    row![bar.width(Length::Fill), text(shown).size(tokens::TEXT_LABEL)]
-                        .spacing(tokens::GAP_TIGHT)
-                        .align_y(iced::Center)
-                        .width(Length::Fill)
-                        .into()
+                    row![
+                        bar.width(Length::Fill),
+                        text(shown).size(tokens::TEXT_LABEL)
+                    ]
+                    .spacing(tokens::GAP_TIGHT)
+                    .align_y(iced::Center)
+                    .width(Length::Fill)
+                    .into()
                 }
                 RowWidget::Toggle => {
                     let set = port.clone();
@@ -888,11 +893,16 @@ impl Graph {
                 }
             }
         } else {
-            text(shown).size(tokens::TEXT_LABEL).width(Length::Fill).into()
+            text(shown)
+                .size(tokens::TEXT_LABEL)
+                .width(Length::Fill)
+                .into()
         };
         row![
             in_port,
-            text(crate::t!(&node_row.label)).size(tokens::TEXT_LABEL).width(LABEL_W),
+            text(crate::t!(&node_row.label))
+                .size(tokens::TEXT_LABEL)
+                .width(LABEL_W),
             value,
             out_port
         ]
@@ -1219,10 +1229,21 @@ mod wire_tests {
     fn the_flow_head_rides_the_wire_it_belongs_to() {
         let a = Point::new(10.0, 20.0);
         let b = Point::new(210.0, 120.0);
-        assert_eq!(wire_point(a, b, 0.0), a, "the head starts on the source port");
-        assert_eq!(wire_point(a, b, 1.0), b, "the head lands on the target port");
+        assert_eq!(
+            wire_point(a, b, 0.0),
+            a,
+            "the head starts on the source port"
+        );
+        assert_eq!(
+            wire_point(a, b, 1.0),
+            b,
+            "the head lands on the target port"
+        );
         let mid = wire_point(a, b, 0.5);
-        assert!(mid.x > a.x && mid.x < b.x && mid.y > a.y && mid.y < b.y, "the head leaves the wire: {mid:?}");
+        assert!(
+            mid.x > a.x && mid.x < b.x && mid.y > a.y && mid.y < b.y,
+            "the head leaves the wire: {mid:?}"
+        );
         assert!(
             wire_point(a, b, 0.25).y < wire_point(a, b, 0.75).y,
             "the head must advance, never run backwards"

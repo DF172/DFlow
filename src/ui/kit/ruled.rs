@@ -262,10 +262,7 @@ impl<'a, M: 'a> From<Ruled<'a, M>> for Element<'a, M> {
 }
 
 /// A rule under `content`, painted while `lit`.
-pub fn rule_under<'a, M: 'a>(
-    content: impl Into<Element<'a, M>>,
-    lit: bool,
-) -> Element<'a, M> {
+pub fn rule_under<'a, M: 'a>(content: impl Into<Element<'a, M>>, lit: bool) -> Element<'a, M> {
     Ruled::new(content, Edge::Bottom, lit).into()
 }
 
@@ -289,10 +286,7 @@ pub fn rule_under_inset<'a, M: 'a>(
 }
 
 /// A rule under `content` at a continuous strength.
-pub fn rule_under_at<'a, M: 'a>(
-    content: impl Into<Element<'a, M>>,
-    lit: f32,
-) -> Element<'a, M> {
+pub fn rule_under_at<'a, M: 'a>(content: impl Into<Element<'a, M>>, lit: f32) -> Element<'a, M> {
     Ruled::at(content, Edge::Bottom, lit).into()
 }
 
@@ -302,9 +296,7 @@ pub fn rule_under_inset_at<'a, M: 'a>(
     lit: f32,
     inset: f32,
 ) -> Element<'a, M> {
-    Ruled::at(content, Edge::Bottom, lit)
-        .inset(inset)
-        .into()
+    Ruled::at(content, Edge::Bottom, lit).inset(inset).into()
 }
 
 /// The command field's own edge: a hairline of accent under `content`, always

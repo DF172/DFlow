@@ -2145,8 +2145,7 @@ enum ChamferStep {
 }
 
 /// The refusal a no-trim CHAMFER prints for anything but two independent Lines.
-const NO_TRIM_CHAMFER_LINES_ONLY: &str =
-    "No-trim chamfer supports two independent lines only.";
+const NO_TRIM_CHAMFER_LINES_ONLY: &str = "No-trim chamfer supports two independent lines only.";
 
 pub struct ChamferCommand {
     dist1: f64,
@@ -2513,9 +2512,7 @@ impl CadCommand for ChamferCommand {
                     }
                     Some(EntityType::LwPolyline(p)) => {
                         if !self.trim {
-                            return CmdResult::ReportError(
-                                NO_TRIM_CHAMFER_LINES_ONLY.to_string(),
-                            );
+                            return CmdResult::ReportError(NO_TRIM_CHAMFER_LINES_ONLY.to_string());
                         }
                         self.step = ChamferStep::SecondPoly {
                             h1: handle,
@@ -2533,9 +2530,7 @@ impl CadCommand for ChamferCommand {
                 if !self.trim {
                     self.step = ChamferStep::First;
                     self.resume_pick = None;
-                    return CmdResult::ReportError(
-                        NO_TRIM_CHAMFER_LINES_ONLY.to_string(),
-                    );
+                    return CmdResult::ReportError(NO_TRIM_CHAMFER_LINES_ONLY.to_string());
                 }
                 let h1 = *h1;
                 let poly = poly.clone();
@@ -2768,7 +2763,10 @@ mod tests {
             CmdResult::ReplaceManyContinue(_)
         ));
         assert_eq!(keywords(&command), ["U", "P", "R", "T"]);
-        assert!(matches!(command.on_text_input("U"), Some(CmdResult::UndoDocument)));
+        assert!(matches!(
+            command.on_text_input("U"),
+            Some(CmdResult::UndoDocument)
+        ));
         assert_eq!(keywords(&command), ["P", "R", "T"]);
         // The host hands the restored document back; the cache follows it.
         let mut doc = codec::CadDocument::new();
@@ -2782,10 +2780,7 @@ mod tests {
     fn no_trim_fillet_adds_only_an_arc_and_keeps_source_handles() {
         let first = Handle::new(1);
         let second = Handle::new(2);
-        let original = vec![
-            line(0.0, 0.0, 10.0, 0.0, 1),
-            line(0.0, 0.0, 0.0, 10.0, 2),
-        ];
+        let original = vec![line(0.0, 0.0, 10.0, 0.0, 1), line(0.0, 0.0, 0.0, 10.0, 2)];
         let mut command = FilletCommand::new(1.0, original);
         command.trim = false;
         assert!(matches!(
@@ -2828,8 +2823,14 @@ mod tests {
                 _ => None,
             })
             .collect();
-        assert_eq!(source_lines[0], (Vector3::new(0.0, 0.0, 0.0), Vector3::new(10.0, 0.0, 0.0)));
-        assert_eq!(source_lines[1], (Vector3::new(0.0, 0.0, 0.0), Vector3::new(0.0, 10.0, 0.0)));
+        assert_eq!(
+            source_lines[0],
+            (Vector3::new(0.0, 0.0, 0.0), Vector3::new(10.0, 0.0, 0.0))
+        );
+        assert_eq!(
+            source_lines[1],
+            (Vector3::new(0.0, 0.0, 0.0), Vector3::new(0.0, 10.0, 0.0))
+        );
     }
 
     #[test]
@@ -2844,8 +2845,15 @@ mod tests {
         ));
 
         let mut multi = ChamferCommand::new(1.0, lines());
-        assert!(matches!(multi.on_text_input("M"), Some(CmdResult::NeedPoint)));
-        assert_eq!(keywords(&multi), ["D", "N"], "Multiple is not offered twice");
+        assert!(matches!(
+            multi.on_text_input("M"),
+            Some(CmdResult::NeedPoint)
+        ));
+        assert_eq!(
+            keywords(&multi),
+            ["D", "N"],
+            "Multiple is not offered twice"
+        );
         multi.on_entity_pick(Handle::new(1), DVec3::new(5.0, 0.0, 0.0));
         match multi.on_entity_pick(Handle::new(2), DVec3::new(0.0, 5.0, 0.0)) {
             CmdResult::ReplaceManyContinue(replacements) => {
@@ -2856,17 +2864,17 @@ mod tests {
             _ => panic!("multiple mode should keep the command active"),
         }
         assert_eq!(keywords(&multi), ["U", "D", "N"]);
-        assert!(matches!(multi.on_text_input("U"), Some(CmdResult::UndoDocument)));
+        assert!(matches!(
+            multi.on_text_input("U"),
+            Some(CmdResult::UndoDocument)
+        ));
     }
 
     #[test]
     fn no_trim_chamfer_adds_only_the_cut_line_and_keeps_source_handles() {
         let first = Handle::new(1);
         let second = Handle::new(2);
-        let lines = || vec![
-            line(0.0, 0.0, 10.0, 0.0, 1),
-            line(0.0, 0.0, 0.0, 10.0, 2),
-        ];
+        let lines = || vec![line(0.0, 0.0, 10.0, 0.0, 1), line(0.0, 0.0, 0.0, 10.0, 2)];
 
         let mut single = ChamferCommand::new(1.0, lines());
         single.dist2 = 1.0;
@@ -2899,7 +2907,10 @@ mod tests {
 
         let mut multi = ChamferCommand::new(1.0, lines());
         multi.dist2 = 1.0;
-        assert!(matches!(multi.on_text_input("M"), Some(CmdResult::NeedPoint)));
+        assert!(matches!(
+            multi.on_text_input("M"),
+            Some(CmdResult::NeedPoint)
+        ));
         multi.trim = false;
         assert!(matches!(
             multi.on_entity_pick(first, DVec3::new(5.0, 0.0, 0.0)),
@@ -2923,12 +2934,18 @@ mod tests {
     fn no_trim_chamfer_refuses_polyline_corners() {
         for token in ["N", "NOTRIM", "NO TRIM", "TRIM=FALSE"] {
             let mut command = ChamferCommand::new(1.0, Vec::new());
-            assert!(matches!(command.on_text_input(token), Some(CmdResult::NeedPoint)));
+            assert!(matches!(
+                command.on_text_input(token),
+                Some(CmdResult::NeedPoint)
+            ));
             assert!(!command.trim, "{token}");
         }
         for token in ["T", "TRIM", "TRIM=TRUE"] {
             let mut command = ChamferCommand::new(1.0, Vec::new());
-            assert!(matches!(command.on_text_input(token), Some(CmdResult::NeedPoint)));
+            assert!(matches!(
+                command.on_text_input(token),
+                Some(CmdResult::NeedPoint)
+            ));
             assert!(command.trim, "{token}");
         }
 

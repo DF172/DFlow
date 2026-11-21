@@ -1,16 +1,15 @@
 pub(crate) mod graphics;
 pub(crate) mod spacemouse;
-use crate::ui::style::tokens;
 use crate::app::config::UiThemeConfig;
 use crate::app::settings;
 use crate::app::settings::{CursorType, RightClickMode};
 use crate::app::Message;
 use crate::ui::kit;
-use iced::widget::{column, container, row, slider, text, text_input, Space};
 use crate::ui::kit::plain_button;
+use crate::ui::style::tokens;
+use iced::widget::{column, container, row, slider, text, text_input, Space};
 use iced::{Element, Fill, Theme};
 use std::fmt;
-
 
 /// Width of the vertical tab rail. Wide enough for the longest translated
 /// page name; German and Russian are the ones that set it.
@@ -369,7 +368,9 @@ pub fn view_window<'a>(
         kit::heading(crate::t!("Applications"), ""),
         Space::new().height(10),
         row![
-            text(crate::t!("Keyboard shortcuts")).size(tokens::TEXT_BODY).width(Fill),
+            text(crate::t!("Keyboard shortcuts"))
+                .size(tokens::TEXT_BODY)
+                .width(Fill),
             plain_button(text(crate::t!("Keyboard Shortcuts…")).size(tokens::TEXT_LABEL))
                 .on_press(Message::ShortcutsPanelOpen)
                 .padding(kit::Size::Control.padding())
@@ -379,7 +380,9 @@ pub fn view_window<'a>(
         .align_y(iced::Center),
         Space::new().height(10),
         row![
-            text(crate::t!("Command aliases")).size(tokens::TEXT_BODY).width(Fill),
+            text(crate::t!("Command aliases"))
+                .size(tokens::TEXT_BODY)
+                .width(Fill),
             plain_button(text(crate::t!("Command Aliases…")).size(tokens::TEXT_LABEL))
                 .on_press(Message::AliasEditorOpen)
                 .padding(kit::Size::Control.padding())
@@ -480,7 +483,9 @@ pub fn view_window<'a>(
         kit::heading(crate::t!("File Safety"), ""),
         Space::new().height(10),
         row![
-            text(crate::t!("Automatic save")).size(tokens::TEXT_BODY).width(150),
+            text(crate::t!("Automatic save"))
+                .size(tokens::TEXT_BODY)
+                .width(150),
             slider(
                 0..=120,
                 prefs.savetime_min.clamp(0, 120),
@@ -529,8 +534,7 @@ pub fn view_window<'a>(
         .height(22);
 
     let command_rgb = command_text_color.unwrap_or([220, 220, 220]);
-    let command_colour =
-        iced::Color::from_rgb8(command_rgb[0], command_rgb[1], command_rgb[2]);
+    let command_colour = iced::Color::from_rgb8(command_rgb[0], command_rgb[1], command_rgb[2]);
     let command_swatch = container(Space::new())
         .style(move |theme: &Theme| kit::swatch_style(theme, command_colour, ""))
         .width(28)
@@ -645,9 +649,11 @@ pub fn view_window<'a>(
             text(crate::tr!("options", "theme-label"))
                 .size(tokens::TEXT_BODY)
                 .width(150),
-            crate::ui::kit::themed_pick_list(selected_theme, theme_options, |choice| choice.label.clone(),)
-                .on_select(|choice| Message::OptionsThemeChanged(choice.value))
-                .width(sizing.width),
+            crate::ui::kit::themed_pick_list(selected_theme, theme_options, |choice| choice
+                .label
+                .clone(),)
+            .on_select(|choice| Message::OptionsThemeChanged(choice.value))
+            .width(sizing.width),
         ]
         .spacing(tokens::GAP_SECTION)
         .align_y(iced::Center),
@@ -661,7 +667,9 @@ pub fn view_window<'a>(
         // A list, not a slider: the dialog rescales under the cursor as the
         // value changes, which would drag a slider along with it.
         row![
-            text(crate::t!("Interface scale")).size(tokens::TEXT_BODY).width(150),
+            text(crate::t!("Interface scale"))
+                .size(tokens::TEXT_BODY)
+                .width(150),
             crate::ui::kit::themed_pick_list(
                 Some(format!("{}%", prefs.ui_scale_percent)),
                 [75u16, 100, 125, 150, 175, 200]
@@ -688,10 +696,14 @@ pub fn view_window<'a>(
         .align_y(iced::Center),
         Space::new().height(10),
         row![
-            text(crate::t!("Canvas mode")).size(tokens::TEXT_BODY).width(140),
-            crate::ui::kit::themed_pick_list(selected_mode, mode_options, |choice| choice.label.clone(),)
-                .on_select(|choice| Message::ModelSpaceModeChanged(choice.value))
-                .width(Fill),
+            text(crate::t!("Canvas mode"))
+                .size(tokens::TEXT_BODY)
+                .width(140),
+            crate::ui::kit::themed_pick_list(selected_mode, mode_options, |choice| choice
+                .label
+                .clone(),)
+            .on_select(|choice| Message::ModelSpaceModeChanged(choice.value))
+            .width(Fill),
         ]
         .spacing(tokens::GAP_FIELD)
         .align_y(iced::Center),
@@ -700,7 +712,9 @@ pub fn view_window<'a>(
     if model_space.mode == crate::app::config::ModelSpaceMode::Custom {
         display = display.push(Space::new().height(10)).push(
             row![
-                text(crate::t!("Model background")).size(tokens::TEXT_BODY).width(140),
+                text(crate::t!("Model background"))
+                    .size(tokens::TEXT_BODY)
+                    .width(140),
                 bg_swatch_picker(crate::app::BgTarget::Model, model_bg_rgb, bg_picker),
                 text_input("#RRGGBB", model_bg_input)
                     .on_input(Message::ModelSpaceBgChanged)
@@ -713,7 +727,9 @@ pub fn view_window<'a>(
 
     display = display.push(Space::new().height(10)).push(
         row![
-            text(crate::t!("Paper background")).size(tokens::TEXT_BODY).width(140),
+            text(crate::t!("Paper background"))
+                .size(tokens::TEXT_BODY)
+                .width(140),
             bg_swatch_picker(crate::app::BgTarget::Paper, paper_bg_rgb, bg_picker),
             text_input("#RRGGBB", paper_bg_input)
                 .on_input(Message::PaperSpaceBgChanged)
@@ -725,7 +741,9 @@ pub fn view_window<'a>(
 
     display = display.push(Space::new().height(10)).push(
         row![
-            text(crate::t!("Desk surround")).size(tokens::TEXT_BODY).width(140),
+            text(crate::t!("Desk surround"))
+                .size(tokens::TEXT_BODY)
+                .width(140),
             bg_swatch_picker(crate::app::BgTarget::Desk, desk_bg_rgb, bg_picker),
             text_input("#RRGGBB", desk_bg_input)
                 .on_input(Message::DeskSpaceBgChanged)
@@ -1455,7 +1473,9 @@ pub fn view_window<'a>(
         kit::heading(crate::t!("Drafting"), ""),
         Space::new().height(10),
         row![
-            text(crate::t!("Drafting rotation")).size(tokens::TEXT_BODY).width(150),
+            text(crate::t!("Drafting rotation"))
+                .size(tokens::TEXT_BODY)
+                .width(150),
             text_input("0", snap_angle_input)
                 .on_input(Message::SnapAngleInputChanged)
                 .width(110),
@@ -1578,7 +1598,9 @@ pub fn view_window<'a>(
             .push(Space::new().height(10))
             .push(
                 row![
-                    text(crate::t!("Isolines per surface")).size(tokens::TEXT_BODY).width(150),
+                    text(crate::t!("Isolines per surface"))
+                        .size(tokens::TEXT_BODY)
+                        .width(150),
                     // Retessellate once when dragging ends.
                     slider(
                         0..=64,
@@ -1610,7 +1632,9 @@ pub fn view_window<'a>(
             .push(Space::new().height(10))
             .push(
                 row![
-                    text(crate::t!("Surface density U")).size(tokens::TEXT_BODY).width(150),
+                    text(crate::t!("Surface density U"))
+                        .size(tokens::TEXT_BODY)
+                        .width(150),
                     slider(
                         0..=200,
                         drawing_prefs.surface_u.clamp(0, 200),
@@ -1628,7 +1652,9 @@ pub fn view_window<'a>(
             .push(Space::new().height(10))
             .push(
                 row![
-                    text(crate::t!("Surface density V")).size(tokens::TEXT_BODY).width(150),
+                    text(crate::t!("Surface density V"))
+                        .size(tokens::TEXT_BODY)
+                        .width(150),
                     slider(
                         0..=200,
                         drawing_prefs.surface_v.clamp(0, 200),
@@ -1646,7 +1672,9 @@ pub fn view_window<'a>(
             .push(Space::new().height(10))
             .push(
                 row![
-                    text(crate::t!("Surface type")).size(tokens::TEXT_BODY).width(150),
+                    text(crate::t!("Surface type"))
+                        .size(tokens::TEXT_BODY)
+                        .width(150),
                     crate::ui::kit::themed_pick_list(
                         selected_surface_type,
                         surface_type_options,
@@ -1684,7 +1712,9 @@ pub fn view_window<'a>(
             .push(Space::new().height(10))
             .push(
                 row![
-                    text(crate::t!("Show solid history")).size(tokens::TEXT_BODY).width(150),
+                    text(crate::t!("Show solid history"))
+                        .size(tokens::TEXT_BODY)
+                        .width(150),
                     crate::ui::kit::themed_pick_list(
                         selected_show_history,
                         show_history_options,
@@ -1704,43 +1734,44 @@ pub fn view_window<'a>(
     // pretend to offer one. It shows where each folder actually lives and lets
     // the user move it anywhere — which is the question people are really
     // asking when they go looking for a Files page.
-    let folder_row = |label: std::borrow::Cow<'a, str>,
-                      path: Option<String>,
-                      kind: FolderKind,
-                      custom: bool| {
-        let shown = path
-            .clone()
-            .unwrap_or_else(|| crate::t!("Not available").into_owned());
-        let mut open = plain_button(text(crate::t!("Open folder")).size(tokens::TEXT_LABEL))
-            .padding(kit::Size::Control.padding())
-            .style(kit::secondary_style);
-        if let Some(path) = path {
-            open = open.on_press(Message::OpenFolder(path));
-        }
-        let change = plain_button(text(crate::t!("Change...")).size(tokens::TEXT_LABEL))
-            .padding(kit::Size::Control.padding())
-            .style(kit::secondary_style)
-            .on_press(Message::FolderChange(kind));
-        let mut actions = row![change, open].spacing(tokens::GAP_HAIRLINE);
-        if custom {
-            actions = row![
-                plain_button(text(crate::t!("Restore default")).size(tokens::TEXT_LABEL))
-                    .padding(kit::Size::Control.padding())
-                    .style(kit::text_style)
-                    .on_press(Message::FolderReset(kind)),
-                actions,
-            ]
-            .spacing(tokens::GAP_HAIRLINE);
-        }
-        row![
-            column![text(label).size(tokens::TEXT_BODY), text(shown).size(tokens::TEXT_LABEL),]
+    let folder_row =
+        |label: std::borrow::Cow<'a, str>, path: Option<String>, kind: FolderKind, custom: bool| {
+            let shown = path
+                .clone()
+                .unwrap_or_else(|| crate::t!("Not available").into_owned());
+            let mut open = plain_button(text(crate::t!("Open folder")).size(tokens::TEXT_LABEL))
+                .padding(kit::Size::Control.padding())
+                .style(kit::secondary_style);
+            if let Some(path) = path {
+                open = open.on_press(Message::OpenFolder(path));
+            }
+            let change = plain_button(text(crate::t!("Change...")).size(tokens::TEXT_LABEL))
+                .padding(kit::Size::Control.padding())
+                .style(kit::secondary_style)
+                .on_press(Message::FolderChange(kind));
+            let mut actions = row![change, open].spacing(tokens::GAP_HAIRLINE);
+            if custom {
+                actions = row![
+                    plain_button(text(crate::t!("Restore default")).size(tokens::TEXT_LABEL))
+                        .padding(kit::Size::Control.padding())
+                        .style(kit::text_style)
+                        .on_press(Message::FolderReset(kind)),
+                    actions,
+                ]
+                .spacing(tokens::GAP_HAIRLINE);
+            }
+            row![
+                column![
+                    text(label).size(tokens::TEXT_BODY),
+                    text(shown).size(tokens::TEXT_LABEL),
+                ]
                 .spacing(tokens::GAP_HAIRLINE)
                 .width(Fill),
-            actions,
-        ]
-        .spacing(tokens::GAP_FIELD)
-        .align_y(iced::Center)
-    };
+                actions,
+            ]
+            .spacing(tokens::GAP_FIELD)
+            .align_y(iced::Center)
+        };
 
     let files = column![
         kit::heading(crate::t!("Files"), ""),
@@ -1837,12 +1868,16 @@ pub fn view_window<'a>(
     ];
     let tabs = tabs.push(tab_button(crate::t!("Graphics"), OptionsTab::Graphics));
     let tabs = tabs.push(tab_button(crate::t!("About"), OptionsTab::About));
-    let tabs = tabs.spacing(tokens::GAP_HAIRLINE).width(iced::Length::Fixed(TAB_RAIL_WIDTH));
+    let tabs = tabs
+        .spacing(tokens::GAP_HAIRLINE)
+        .width(iced::Length::Fixed(TAB_RAIL_WIDTH));
 
     let pane = column![
         // Keep the scrollbar in its own lane instead of floating over the
         // controls at the trailing edge of the Options content.
-        crate::ui::kit::themed_scrollable(content).spacing(tokens::GAP_ROW).height(Fill),
+        crate::ui::kit::themed_scrollable(content)
+            .spacing(tokens::GAP_ROW)
+            .height(Fill),
         Space::new().height(12),
         row![Space::new().width(Fill), ok, apply, close].spacing(tokens::GAP_ROW),
     ]

@@ -7,13 +7,13 @@
 //! differs, so each manager builds just that and hands it to [`view`]; the
 //! toolbar, list, inline-rename wiring and chrome live here once.
 
-use crate::ui::kit::muted_style;
-use crate::ui::style::tokens;
 use crate::app::{Message, StyleKind};
 use crate::t;
 use crate::ui::kit;
-use iced::widget::{column, container, row, text, Space};
+use crate::ui::kit::muted_style;
 use crate::ui::kit::plain_button;
+use crate::ui::style::tokens;
+use iced::widget::{column, container, row, text, Space};
 use iced::{Element, Length};
 use std::borrow::Cow;
 
@@ -103,21 +103,23 @@ pub fn view<'a, 'b>(s: Scaffold<'a, 'b>) -> Element<'a, Message> {
     let list_panel = container(
         column![
             row![
-                text(t!("Styles")).size(tokens::TEXT_MICRO).style(muted_style),
+                text(t!("Styles"))
+                    .size(tokens::TEXT_MICRO)
+                    .style(muted_style),
                 Space::new().width(Length::Fill),
                 text(s.styles.len().to_string())
                     .size(tokens::TEXT_MICRO)
                     .style(muted_style),
             ]
             .align_y(iced::Center),
-            container(crate::ui::kit::themed_scrollable(
-                column(rows).spacing(tokens::GAP_SEAM),
+            container(
+                crate::ui::kit::themed_scrollable(column(rows).spacing(tokens::GAP_SEAM),)
+                    .height(height)
             )
-            .height(height))
-                .style(kit::pane_plate_style)
-                .width(width)
-                .height(height)
-                .padding(tokens::GAP_HAIRLINE),
+            .style(kit::pane_plate_style)
+            .width(width)
+            .height(height)
+            .padding(tokens::GAP_HAIRLINE),
         ]
         .spacing(tokens::GAP_TIGHT)
         .height(height),
@@ -178,13 +180,20 @@ pub fn editor_shell<'a>(shell: EditorShell<'a>) -> Element<'a, Message> {
         .collect();
     let comparison: Element<'a, Message> = match shell.comparison {
         Some(comparison) if !comparison.options.is_empty() => row![
-            text(t!("Compare with")).size(tokens::TEXT_MICRO).style(muted_style),
-            crate::ui::kit::themed_pick_list(Some(comparison.selected), comparison.options, |value| value
-                .to_string(),)
+            text(t!("Compare with"))
+                .size(tokens::TEXT_MICRO)
+                .style(muted_style),
+            crate::ui::kit::themed_pick_list(
+                Some(comparison.selected),
+                comparison.options,
+                |value| value.to_string(),
+            )
             .on_select(comparison.on_select)
             .text_size(tokens::TEXT_LABEL)
             .width(150),
-            text(comparison.summary).size(tokens::TEXT_MICRO).style(muted_style),
+            text(comparison.summary)
+                .size(tokens::TEXT_MICRO)
+                .style(muted_style),
         ]
         .spacing(tokens::GAP_ROW)
         .align_y(iced::Center)
@@ -201,7 +210,9 @@ pub fn editor_shell<'a>(shell: EditorShell<'a>) -> Element<'a, Message> {
                     .size(tokens::TEXT_BODY)
                     .style(kit::accent_style),
                 Space::new().width(Length::Fill),
-                text(shell.status).size(tokens::TEXT_MICRO).style(muted_style),
+                text(shell.status)
+                    .size(tokens::TEXT_MICRO)
+                    .style(muted_style),
             ]
             .align_y(iced::Center),
             preview,
@@ -209,7 +220,9 @@ pub fn editor_shell<'a>(shell: EditorShell<'a>) -> Element<'a, Message> {
             row(tabs).spacing(tokens::GAP_HAIRLINE),
             hdivider(Length::Fill),
             crate::ui::kit::themed_scrollable(
-                container(shell.content).padding(kit::PAD_CARD).width(Length::Fill)
+                container(shell.content)
+                    .padding(kit::PAD_CARD)
+                    .width(Length::Fill)
             )
             .width(Length::Fill)
             .height(Length::Fill),

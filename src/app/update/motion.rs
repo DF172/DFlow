@@ -10,7 +10,7 @@
 
 use super::DraftFlowCAD;
 use crate::ui::motion;
-use crate::ui::statusbar::{LIT_PILLS, StatusLights};
+use crate::ui::statusbar::{StatusLights, LIT_PILLS};
 
 impl DraftFlowCAD {
     /// Whether the command line may show its suggestion popup at all: no grip
@@ -116,7 +116,11 @@ impl DraftFlowCAD {
         // started it. The measured fraction is the same `PROGRESS` track the
         // old card's bar read; this track only decides whether the rim is on
         // screen, so a cancelled or failed open fades it instead of cutting.
-        motion::rise(motion::OPEN_RING, self.opening.is_some(), motion::OPEN_RING_TIME);
+        motion::rise(
+            motion::OPEN_RING,
+            self.opening.is_some(),
+            motion::OPEN_RING_TIME,
+        );
 
         // Dimension text is formatted from the style on every frame, so the
         // unit switch's multiplier has to be published here, on the one path
@@ -289,7 +293,10 @@ mod b6_sync_tests {
     fn every_batch_d_track_has_a_trigger_and_a_paint() {
         let sites: &[(&str, &[&str])] = &[
             // 33 — the dock drop preview.
-            ("/src/app/dock/update.rs", &["motion::replay", "motion::DOCK_DROP"]),
+            (
+                "/src/app/dock/update.rs",
+                &["motion::replay", "motion::DOCK_DROP"],
+            ),
             ("/src/app/dock/view.rs", &["motion::DOCK_DROP"]),
             // 34 — the properties accordion.
             (
@@ -321,10 +328,7 @@ mod b6_sync_tests {
             ),
             // 44 — the unit switch's display multiplier.
             ("/src/app/update/style.rs", &["motion::unit_chase("]),
-            (
-                "/src/app/commands/layerprops.rs",
-                &["motion::unit_chase("],
-            ),
+            ("/src/app/commands/layerprops.rs", &["motion::unit_chase("]),
             (
                 "/src/app/update/motion.rs",
                 &["set_display_scale(", "motion::UNIT_CHASE"],

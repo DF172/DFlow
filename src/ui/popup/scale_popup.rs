@@ -1,13 +1,13 @@
 //! Annotation / viewport scale status menu.
 
 use crate::t;
-use iced::widget::{row, text};
 use crate::ui::kit::plain_button;
+use iced::widget::{row, text};
 use iced::{Element, Fill};
 
 use crate::app::Message;
-use crate::ui::statusbar::status_menu::Entry;
 use crate::ui::kit;
+use crate::ui::statusbar::status_menu::Entry;
 use crate::ui::style::tokens;
 
 /// - `is_model`: true = model space (dispatches SetAnnotationScale), false = paper space (SetViewportScale).
@@ -55,7 +55,9 @@ fn scale_row(label: String, active: bool, msg: Message) -> Element<'static, Mess
 
     let lbl = text(label).size(tokens::TEXT_LABEL);
 
-    let content = row![check, lbl].spacing(tokens::GAP_CONTROL).align_y(iced::Center);
+    let content = row![check, lbl]
+        .spacing(tokens::GAP_CONTROL)
+        .align_y(iced::Center);
 
     plain_button(content)
         .on_press(msg)

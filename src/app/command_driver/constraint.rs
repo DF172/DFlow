@@ -65,8 +65,9 @@ impl DraftFlowCAD {
         {
             self.tabs[i].active_cmd = None;
             self.tabs[i].snap_result = None;
-            self.command_line
-                .push_error(crate::t!("The constraint already exists on the selected objects.").as_ref());
+            self.command_line.push_error(
+                crate::t!("The constraint already exists on the selected objects.").as_ref(),
+            );
             return Some(Task::none());
         }
         let constraints_before = self.tabs[i]
@@ -102,7 +103,8 @@ impl DraftFlowCAD {
         self.tabs[i].dirty = true;
         self.tabs[i].active_cmd = None;
         self.tabs[i].snap_result = None;
-        self.command_line.push_output(crate::t!("Constraint applied.").as_ref());
+        self.command_line
+            .push_output(crate::t!("Constraint applied.").as_ref());
         self.refresh_properties();
         if let Some(pd) = pending {
             self.commit_undo_delta(i, pd);
@@ -162,8 +164,9 @@ impl DraftFlowCAD {
                     })
                 });
             if exists {
-                self.command_line
-                    .push_error(crate::t!("The constraint already exists on the selected objects.").as_ref());
+                self.command_line.push_error(
+                    crate::t!("The constraint already exists on the selected objects.").as_ref(),
+                );
                 continue;
             }
             followers.push(other);
@@ -335,8 +338,9 @@ impl DraftFlowCAD {
                 })
             });
         if duplicate {
-            self.command_line
-                .push_output(crate::t!("The constraint already exists on the selected objects.").as_ref());
+            self.command_line.push_output(
+                crate::t!("The constraint already exists on the selected objects.").as_ref(),
+            );
             self.tabs[i].active_cmd = None;
             self.tabs[i].snap_result = None;
             return Some(Task::none());
@@ -364,7 +368,8 @@ impl DraftFlowCAD {
         let name = name.trim().to_string();
         if !is_valid_name(&name) {
             self.command_line.push_error(
-                crate::t!("Only alphanumeric names, starting with alpha characters, are allowed.").as_ref(),
+                crate::t!("Only alphanumeric names, starting with alpha characters, are allowed.")
+                    .as_ref(),
             );
             self.reprompt_active_command(i, &format!("Invalid parameter name: {name}."));
             return Some(Task::none());
@@ -381,7 +386,8 @@ impl DraftFlowCAD {
         let value = match table.resolve(&name) {
             Ok(value) if value.is_finite() => value,
             _ => {
-                self.command_line.push_error(crate::t!("Invalid expression.").as_ref());
+                self.command_line
+                    .push_error(crate::t!("Invalid expression.").as_ref());
                 self.reprompt_active_command(
                     i,
                     "The parameter is used in an expression which results in an invalid value for a dimensional constraint.",
@@ -538,8 +544,9 @@ impl DraftFlowCAD {
                 })
             });
         if duplicate {
-            self.command_line
-                .push_output(crate::t!("The constraint already exists on the selected objects.").as_ref());
+            self.command_line.push_output(
+                crate::t!("The constraint already exists on the selected objects.").as_ref(),
+            );
             self.tabs[i].active_cmd = None;
             self.tabs[i].snap_result = None;
             return Some(Task::none());
@@ -555,7 +562,8 @@ impl DraftFlowCAD {
         let name = name.trim().to_string();
         if !is_valid_name(&name) {
             self.command_line.push_error(
-                crate::t!("Only alphanumeric names, starting with alpha characters, are allowed.").as_ref(),
+                crate::t!("Only alphanumeric names, starting with alpha characters, are allowed.")
+                    .as_ref(),
             );
             self.reprompt_active_command(i, &format!("Invalid parameter name: {name}."));
             return Some(Task::none());
@@ -574,7 +582,8 @@ impl DraftFlowCAD {
         let value = match table.resolve(&name) {
             Ok(value) if value.is_finite() && value > 0.0 => value,
             _ => {
-                self.command_line.push_error(crate::t!("Invalid expression.").as_ref());
+                self.command_line
+                    .push_error(crate::t!("Invalid expression.").as_ref());
                 self.reprompt_active_command(
                     i,
                     "The parameter is used in an expression which results in an invalid value for a dimensional constraint.",
@@ -719,8 +728,9 @@ impl DraftFlowCAD {
                 })
             });
         if duplicate {
-            self.command_line
-                .push_output(crate::t!("The constraint already exists on the selected objects.").as_ref());
+            self.command_line.push_output(
+                crate::t!("The constraint already exists on the selected objects.").as_ref(),
+            );
             self.tabs[i].active_cmd = None;
             self.tabs[i].snap_result = None;
             return Some(Task::none());
@@ -736,7 +746,8 @@ impl DraftFlowCAD {
         let name = name.trim().to_string();
         if !is_valid_name(&name) {
             self.command_line.push_error(
-                crate::t!("Only alphanumeric names, starting with alpha characters, are allowed.").as_ref(),
+                crate::t!("Only alphanumeric names, starting with alpha characters, are allowed.")
+                    .as_ref(),
             );
             self.reprompt_active_command(i, &format!("Invalid parameter name: {name}."));
             return Some(Task::none());
@@ -753,7 +764,8 @@ impl DraftFlowCAD {
         let value = match table.resolve(&name) {
             Ok(value) if value.is_finite() => value,
             _ => {
-                self.command_line.push_error(crate::t!("Invalid expression.").as_ref());
+                self.command_line
+                    .push_error(crate::t!("Invalid expression.").as_ref());
                 self.reprompt_active_command(
                     i,
                     "The parameter is used in an expression which results in an invalid value for a dimensional constraint.",
@@ -1173,8 +1185,9 @@ impl DraftFlowCAD {
         if axis_length <= 1.0e-12 {
             self.command_line.push_error(&crate::tf!(
                 "{axis}: the current UCS {} axis is not supported.",
-                if vertical { "Y" } else { "X" }
-            , axis = axis));
+                if vertical { "Y" } else { "X" },
+                axis = axis
+            ));
             return Some(Task::none());
         }
         let direction =
@@ -1193,8 +1206,9 @@ impl DraftFlowCAD {
         {
             self.tabs[i].active_cmd = None;
             self.tabs[i].snap_result = None;
-            self.command_line
-                .push_error(crate::t!("The constraint already exists on the selected objects.").as_ref());
+            self.command_line.push_error(
+                crate::t!("The constraint already exists on the selected objects.").as_ref(),
+            );
             return Some(Task::none());
         }
         let constraints_before = self.tabs[i]
@@ -1366,8 +1380,10 @@ impl DraftFlowCAD {
             }
         };
         if first == second || axis.entity == first.entity || axis.entity == second.entity {
-            self.command_line
-                .push_error(crate::t!("Symmetric: select two different references and a separate line axis.").as_ref());
+            self.command_line.push_error(
+                crate::t!("Symmetric: select two different references and a separate line axis.")
+                    .as_ref(),
+            );
             return Some(Task::none());
         }
         let refs = vec![first, second, axis];
@@ -1395,8 +1411,9 @@ impl DraftFlowCAD {
         if duplicate {
             self.tabs[i].active_cmd = None;
             self.tabs[i].snap_result = None;
-            self.command_line
-                .push_error(crate::t!("The constraint already exists on the selected objects.").as_ref());
+            self.command_line.push_error(
+                crate::t!("The constraint already exists on the selected objects.").as_ref(),
+            );
             return Some(Task::none());
         }
         let constraints_before = self.tabs[i]
@@ -1514,7 +1531,8 @@ impl DraftFlowCAD {
         self.tabs[i].dirty = true;
         self.tabs[i].active_cmd = None;
         self.tabs[i].snap_result = None;
-        self.command_line.push_output(crate::t!("Constraint applied.").as_ref());
+        self.command_line
+            .push_output(crate::t!("Constraint applied.").as_ref());
         self.refresh_properties();
         if let Some(pd) = pending {
             self.commit_undo_delta(i, pd);
@@ -1579,7 +1597,8 @@ impl DraftFlowCAD {
         self.tabs[i].dirty = true;
         self.tabs[i].active_cmd = None;
         self.tabs[i].snap_result = None;
-        self.command_line.push_output(crate::t!("Constraint applied.").as_ref());
+        self.command_line
+            .push_output(crate::t!("Constraint applied.").as_ref());
         self.refresh_properties();
         if let Some(pd) = pending {
             self.commit_undo_delta(i, pd);
@@ -1663,7 +1682,8 @@ impl DraftFlowCAD {
         self.tabs[i].dirty = true;
         self.tabs[i].active_cmd = None;
         self.tabs[i].snap_result = None;
-        self.command_line.push_output(crate::t!("Constraint applied.").as_ref());
+        self.command_line
+            .push_output(crate::t!("Constraint applied.").as_ref());
         self.refresh_properties();
         if let Some(pd) = pending {
             self.commit_undo_delta(i, pd);
@@ -1718,7 +1738,10 @@ impl DraftFlowCAD {
             resolved_first.and_then(|reference| resolve(second, Some(reference.entity)));
         let (Some(first_ref), Some(second_ref)) = (resolved_first, resolved_second) else {
             self.command_line.push_error(
-                crate::t!("Coincident: select a supported endpoint, center, midpoint, vertex, or curve.").as_ref(),
+                crate::t!(
+                    "Coincident: select a supported endpoint, center, midpoint, vertex, or curve."
+                )
+                .as_ref(),
             );
             return Some(Task::none());
         };
@@ -1736,8 +1759,10 @@ impl DraftFlowCAD {
                 vec![first_ref, second_ref],
             ),
             _ => {
-                self.command_line
-                    .push_error(crate::t!("Coincident: select one point and one curve, or two points.").as_ref());
+                self.command_line.push_error(
+                    crate::t!("Coincident: select one point and one curve, or two points.")
+                        .as_ref(),
+                );
                 return Some(Task::none());
             }
         };

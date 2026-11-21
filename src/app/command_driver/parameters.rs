@@ -130,7 +130,8 @@ impl DraftFlowCAD {
             return;
         }
         if !table.resolve(&target).is_ok_and(|value| value.is_finite()) {
-            self.command_line.push_error(crate::t!("Invalid expression.").as_ref());
+            self.command_line
+                .push_error(crate::t!("Invalid expression.").as_ref());
             return;
         }
         let pending = self.begin_undo(i, "Edit parameter", 0, true);
@@ -257,8 +258,10 @@ impl DraftFlowCAD {
                 matches!(&constraint.driving_param, Some(DrivingValue::Named(used)) if used == name)
             });
         if in_use {
-            self.command_line
-                .push_error(&crate::tf!("Parameter {name} is used by a constraint.", name = name));
+            self.command_line.push_error(&crate::tf!(
+                "Parameter {name} is used by a constraint.",
+                name = name
+            ));
             return;
         }
         let pending = self.begin_undo(i, "Delete parameter", 0, true);

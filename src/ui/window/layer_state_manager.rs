@@ -2,15 +2,15 @@
 
 use crate::app::{LayerStateLayerFlag, LayerStateProperty, Message};
 use crate::t;
+use crate::ui::kit;
+use crate::ui::kit::plain_button;
 use crate::ui::properties::{lw_options, LwItem};
+use crate::ui::style::tokens;
 use codec::{LayerState, LayerStateMask};
 use iced::widget::{checkbox, column, container, row, text, text_input, Space};
-use crate::ui::kit::plain_button;
 use iced::{Element, Fill, Length, Theme};
 use std::borrow::Cow;
 use std::fmt;
-use crate::ui::kit;
-use crate::ui::style::tokens;
 
 #[derive(Clone, PartialEq, Debug)]
 struct TransparencyItem(Option<codec::types::Transparency>);
@@ -94,7 +94,9 @@ pub fn view_window<'a>(
             kit::list_row(
                 column![
                     text(state.name.clone()).size(tokens::TEXT_BODY),
-                    text(subtitle).size(tokens::TEXT_MICRO).style(kit::muted_style),
+                    text(subtitle)
+                        .size(tokens::TEXT_MICRO)
+                        .style(kit::muted_style),
                 ]
                 .spacing(tokens::GAP_HAIRLINE),
                 is_selected,
@@ -197,12 +199,18 @@ pub fn view_window<'a>(
             // rung is for; the rung, not the midpoint between two rungs. (drift 1px)
             text(t!("Saved state details")).size(tokens::TEXT_HEADING),
             row![
-                text(t!("Layers")).size(tokens::TEXT_MICRO).style(kit::muted_style).width(92),
+                text(t!("Layers"))
+                    .size(tokens::TEXT_MICRO)
+                    .style(kit::muted_style)
+                    .width(92),
                 text(state.layers.len().to_string()).size(tokens::TEXT_LABEL),
             ]
             .spacing(tokens::GAP_ROW),
             row![
-                text(t!("Current layer")).size(tokens::TEXT_MICRO).style(kit::muted_style).width(92),
+                text(t!("Current layer"))
+                    .size(tokens::TEXT_MICRO)
+                    .style(kit::muted_style)
+                    .width(92),
                 text(if state.current_layer.is_empty() {
                     "—".to_string()
                 } else {
@@ -211,7 +219,9 @@ pub fn view_window<'a>(
                 .size(tokens::TEXT_LABEL),
             ]
             .spacing(tokens::GAP_ROW),
-            text(t!("Restored properties")).size(tokens::TEXT_MICRO).style(kit::muted_style),
+            text(t!("Restored properties"))
+                .size(tokens::TEXT_MICRO)
+                .style(kit::muted_style),
             text(mask_summary(state.mask)).size(tokens::TEXT_LABEL),
         ]
         // 7px was hand-tuned between `GAP_TIGHT` (4) and `GAP_ROW` (8). The
@@ -517,18 +527,20 @@ fn editor_layer_row<'a>(
                 54.0
             ),
             container(color).width(Length::Fixed(135.0)),
-            crate::ui::kit::themed_pick_list(current_linetype, linetypes, |value| value.to_string(),)
-                .on_select(move |value| Message::LayerStateEditorLayerLinetype(index, value))
-                .text_size(tokens::TEXT_LABEL)
-                .padding(kit::PAD_FIELD)
-                .width(Length::Fixed(150.0)),
-            crate::ui::kit::themed_pick_list(current_lineweight, lw_options(), |value| value.to_string(),)
-                .on_select(move |item: LwItem| {
-                    Message::LayerStateEditorLayerLineweight(index, item.0)
-                })
-                .text_size(tokens::TEXT_LABEL)
-                .padding(kit::PAD_FIELD)
-                .width(Length::Fixed(115.0)),
+            crate::ui::kit::themed_pick_list(current_linetype, linetypes, |value| value
+                .to_string(),)
+            .on_select(move |value| Message::LayerStateEditorLayerLinetype(index, value))
+            .text_size(tokens::TEXT_LABEL)
+            .padding(kit::PAD_FIELD)
+            .width(Length::Fixed(150.0)),
+            crate::ui::kit::themed_pick_list(current_lineweight, lw_options(), |value| value
+                .to_string(),)
+            .on_select(move |item: LwItem| {
+                Message::LayerStateEditorLayerLineweight(index, item.0)
+            })
+            .text_size(tokens::TEXT_LABEL)
+            .padding(kit::PAD_FIELD)
+            .width(Length::Fixed(115.0)),
             text_input(t!("Default").as_ref(), &layer.plot_style)
                 .on_input(move |value| Message::LayerStateEditorLayerPlotStyle(index, value))
                 .size(tokens::TEXT_LABEL)
@@ -593,9 +605,10 @@ pub fn view_editor<'a>(
         // a hand-tuned value one pixel off it. The chips' own inset comes from
         // `Size::Compact` inside `mask_button`, so the two now come from
         // neighbouring rungs instead of two typed numbers. (drift 1px)
-        .fold(row![].spacing(tokens::GAP_TIGHT), |row, (label, property)| {
-            row.push(mask_button(state, label, property))
-        });
+        .fold(
+            row![].spacing(tokens::GAP_TIGHT),
+            |row, (label, property)| row.push(mask_button(state, label, property)),
+        );
 
     let layer_names: Vec<String> = state
         .layers
@@ -614,20 +627,25 @@ pub fn view_editor<'a>(
         .filter(|(_, layer)| {
             query.is_empty() || layer.layer_name.to_lowercase().contains(query.as_ref())
         })
-        .fold(column![].spacing(tokens::GAP_NONE), |rows, (index, layer)| {
-            rows.push(editor_layer_row(
-                index,
-                layer,
-                color_open == Some(index),
-                std::sync::Arc::clone(&linetypes),
-                theme,
-            ))
-        });
+        .fold(
+            column![].spacing(tokens::GAP_NONE),
+            |rows, (index, layer)| {
+                rows.push(editor_layer_row(
+                    index,
+                    layer,
+                    color_open == Some(index),
+                    std::sync::Arc::clone(&linetypes),
+                    theme,
+                ))
+            },
+        );
 
     container(
         column![
             row![
-                text(t!("Name")).size(tokens::TEXT_MICRO).style(kit::muted_style),
+                text(t!("Name"))
+                    .size(tokens::TEXT_MICRO)
+                    .style(kit::muted_style),
                 text_input(t!("Layer state name").as_ref(), &state.name)
                     .on_input(Message::LayerStateEditorName)
                     .size(tokens::TEXT_LABEL)
@@ -636,7 +654,9 @@ pub fn view_editor<'a>(
                     // counted only because the pair was typed instead of named.
                     .padding(kit::PAD_FIELD)
                     .width(Length::Fixed(220.0)),
-                text(t!("Description")).size(tokens::TEXT_MICRO).style(kit::muted_style),
+                text(t!("Description"))
+                    .size(tokens::TEXT_MICRO)
+                    .style(kit::muted_style),
                 text_input(t!("Optional description").as_ref(), &state.description)
                     .on_input(Message::LayerStateEditorDescription)
                     .size(tokens::TEXT_LABEL)
@@ -650,10 +670,14 @@ pub fn view_editor<'a>(
                     .size(tokens::TEXT_MICRO)
                     .style(kit::muted_style),
                 Space::new().width(sizing.width),
-                text(t!("Current layer")).size(tokens::TEXT_MICRO).style(kit::muted_style),
-                crate::ui::kit::themed_pick_list(Some(state.current_layer.clone()), layer_names, |value| {
-                    value.to_string()
-                },)
+                text(t!("Current layer"))
+                    .size(tokens::TEXT_MICRO)
+                    .style(kit::muted_style),
+                crate::ui::kit::themed_pick_list(
+                    Some(state.current_layer.clone()),
+                    layer_names,
+                    |value| { value.to_string() },
+                )
                 .on_select(Message::LayerStateEditorCurrentLayer)
                 .text_size(tokens::TEXT_LABEL)
                 .padding(kit::PAD_FIELD)
@@ -681,9 +705,12 @@ pub fn view_editor<'a>(
             ]
             .align_y(iced::Center),
             container(
-                column![editor_header(), crate::ui::kit::themed_scrollable(rows).height(sizing.height)]
-                    .spacing(tokens::GAP_NONE)
-                    .height(sizing.height),
+                column![
+                    editor_header(),
+                    crate::ui::kit::themed_scrollable(rows).height(sizing.height)
+                ]
+                .spacing(tokens::GAP_NONE)
+                .height(sizing.height),
             )
             .height(sizing.height)
             // The table sits in a shallow recess: `Tier::Well` keeps the hairline
@@ -711,11 +738,7 @@ pub fn view_editor<'a>(
                 // all come from L1 instead of three numbers typed here.
                 // (drift 7px inset + 1px label size, each)
                 kit::dialog_button(t!("Cancel"), Message::LayerStateEditorCancel, false),
-                kit::dialog_button(
-                    t!("Save Changes"),
-                    Message::LayerStateEditorSave,
-                    true,
-                ),
+                kit::dialog_button(t!("Save Changes"), Message::LayerStateEditorSave, true,),
             ]
             .spacing(tokens::GAP_ROW)
             .align_y(iced::Center),

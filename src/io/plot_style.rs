@@ -367,8 +367,7 @@ impl PlotStyleTable {
                 }),
             };
         }
-
-}
+    }
 
     /// Write this table to disk as a CTB/STB file.
     #[allow(dead_code)]

@@ -416,7 +416,6 @@ impl DraftFlowCAD {
         Ok(Task::none())
     }
 
-
     /// `new` with `"template"` — start an untitled drawing from a DWG/DXF/DWT
     /// file. Tables and styles come from the template; the document keeps no
     /// source path.

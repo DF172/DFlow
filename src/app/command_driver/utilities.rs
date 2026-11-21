@@ -129,12 +129,10 @@ impl DraftFlowCAD {
             .map_or(true, |(cached_touched, _, _)| *cached_touched != touched);
         if rebuild {
             let scope = self.tabs[i].current_parametric_scope();
-            let connected = self
-                .tabs[i]
+            let connected = self.tabs[i]
                 .scene
                 .parametric_connected_handles(scope, &touched, true);
-            let prepared = self
-                .tabs[i]
+            let prepared = self.tabs[i]
                 .scene
                 .prepare_parametric_constraints_preview(&touched);
             self.grip_solve_cache = Some((touched, connected, prepared));

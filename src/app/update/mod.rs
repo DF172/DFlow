@@ -1,4 +1,4 @@
-use super::{ArrowKey, Message, DraftFlowCAD, TextEntryMode};
+use super::{ArrowKey, DraftFlowCAD, Message, TextEntryMode};
 use crate::command::CadCommand;
 use crate::scene::VIEWCUBE_DRAW_PX;
 use crate::ui::PropertiesPanel;
@@ -95,8 +95,6 @@ fn reorder_insertion_index(from: usize, to: usize, after: bool, len: usize) -> O
 
 #[cfg(test)]
 mod block_ops_tests;
-#[cfg(test)]
-mod splash_failure_exit_tests;
 mod blocks_palette;
 mod command;
 mod context_menu;
@@ -105,6 +103,8 @@ mod dynamic;
 mod file;
 mod graphic_attributes;
 mod motion;
+#[cfg(test)]
+mod splash_failure_exit_tests;
 pub(in crate::app) use file::background_task;
 pub(in crate::app) use file::native_paths_match;
 mod page_setup_import;
@@ -202,11 +202,7 @@ impl DraftFlowCAD {
             return;
         }
         self.modal_exit = true;
-        crate::ui::motion::set(
-            crate::ui::motion::MODAL_FADE,
-            0.0,
-            crate::ui::motion::EXIT,
-        );
+        crate::ui::motion::set(crate::ui::motion::MODAL_FADE, 0.0, crate::ui::motion::EXIT);
     }
 
     /// Runs the teardown once the exit has landed, or the moment something
@@ -519,7 +515,11 @@ impl DraftFlowCAD {
         if box_marquee != self.last_box_marquee {
             motion::set(motion::SELECT_CROSS_BOX, box_target, 0);
         } else if box_marquee && box_crossing != self.last_box_crossing {
-            motion::set(motion::SELECT_CROSS_BOX, box_target, motion::SELECT_CROSSFADE);
+            motion::set(
+                motion::SELECT_CROSS_BOX,
+                box_target,
+                motion::SELECT_CROSSFADE,
+            );
         }
         self.last_box_marquee = box_marquee;
         self.last_box_crossing = box_crossing;
@@ -527,7 +527,11 @@ impl DraftFlowCAD {
         if poly_marquee != self.last_poly_marquee {
             motion::set(motion::SELECT_CROSS_POLY, poly_target, 0);
         } else if poly_marquee && poly_crossing != self.last_poly_crossing {
-            motion::set(motion::SELECT_CROSS_POLY, poly_target, motion::SELECT_CROSSFADE);
+            motion::set(
+                motion::SELECT_CROSS_POLY,
+                poly_target,
+                motion::SELECT_CROSSFADE,
+            );
         }
         self.last_poly_marquee = poly_marquee;
         self.last_poly_crossing = poly_crossing;
@@ -830,12 +834,15 @@ impl DraftFlowCAD {
             .as_ref()
             .map(|c| c.options())
             .or_else(|| {
-                self.graphic_attributes.pending_fill_close.as_ref().map(|_| {
-                    vec![
-                        crate::command::CmdOption::new("Yes", "Y"),
-                        crate::command::CmdOption::new("No", "N"),
-                    ]
-                })
+                self.graphic_attributes
+                    .pending_fill_close
+                    .as_ref()
+                    .map(|_| {
+                        vec![
+                            crate::command::CmdOption::new("Yes", "Y"),
+                            crate::command::CmdOption::new("No", "N"),
+                        ]
+                    })
             })
             .unwrap_or_default();
         self.command_line.set_step_options(opts);
@@ -968,8 +975,12 @@ impl DraftFlowCAD {
                     if response["ok"] == false {
                         let code = response["code"].as_str().unwrap_or("failed");
                         let detail = response["error"].as_str().unwrap_or("");
-                        self.command_line
-                            .push_error(&crate::tf!("automation {op}: {code} — {detail}", op = op, code = code, detail = detail));
+                        self.command_line.push_error(&crate::tf!(
+                            "automation {op}: {code} — {detail}",
+                            op = op,
+                            code = code,
+                            detail = detail
+                        ));
                     } else if matches!(
                         response["status"].as_str(),
                         Some("completed" | "cancelled" | "waiting_input")
@@ -1037,8 +1048,7 @@ impl DraftFlowCAD {
                 // draw time, so the eased factor has to be written back while
                 // the track is still settling (item 17).
                 if crate::ui::motion::running(crate::ui::motion::GHOST_FADE) {
-                    let shown =
-                        crate::ui::motion::value_or(crate::ui::motion::GHOST_FADE, 1.0);
+                    let shown = crate::ui::motion::value_or(crate::ui::motion::GHOST_FADE, 1.0);
                     for tab in &mut self.tabs {
                         tab.scene.set_preview_ghost_fade(shown);
                     }
@@ -1083,8 +1093,7 @@ impl DraftFlowCAD {
             Message::OpenPathPicked(crate::io::OpenPick::Unreadable { path, reason }) => {
                 let path_text = path.display().to_string();
                 self.command_line.push_error(
-                    crate::tf!("Could not read the selected file: {reason} ({path_text})")
-                        .as_ref(),
+                    crate::tf!("Could not read the selected file: {reason} ({path_text})").as_ref(),
                 );
                 Task::none()
             }
@@ -1134,10 +1143,12 @@ impl DraftFlowCAD {
                     // stale. Skip silently if the file no longer exists; the
                     // entry stays in the list so the user can clean it up.
                     return match std::fs::metadata(&path) {
-                        Ok(m) => self.update(Message::OpenPathPicked(crate::io::OpenPick::Picked {
-                            path,
-                            size_bytes: m.len(),
-                        })),
+                        Ok(m) => {
+                            self.update(Message::OpenPathPicked(crate::io::OpenPick::Picked {
+                                path,
+                                size_bytes: m.len(),
+                            }))
+                        }
                         Err(_) => {
                             self.command_line.push_error(
                                 crate::tf!("Recent file no longer exists: {}", path.display())
@@ -1147,7 +1158,6 @@ impl DraftFlowCAD {
                         }
                     };
                 }
-
             }
 
             Message::OpenExternal(path) => {
@@ -1381,9 +1391,6 @@ impl DraftFlowCAD {
                 self.drain_pending_open()
             }
 
-
-
-
             Message::FileOpened(open_id, Ok((name, path, doc, caches))) => {
                 if self.opening.as_ref().map(|opening| opening.id) != Some(open_id) {
                     return Task::none();
@@ -1448,12 +1455,9 @@ impl DraftFlowCAD {
                 self.drain_pending_open()
             }
 
-
             // The `?file=` boot deep link settled. Queued bytes are drained by
             // the control poll's drop queue like any drop — nothing to say
             // until that open starts (or its parse error surfaces there).
-
-
             Message::ImagePick => {
                 Task::perform(crate::io::pick_image_file(), Message::ImagePickResult)
             }
@@ -1604,10 +1608,7 @@ impl DraftFlowCAD {
                                 )
                                 .add_filter(crate::t!("DWG Files").as_ref(), &["dwg", "DWG"])
                                 .add_filter(crate::t!("DXF Files").as_ref(), &["dxf", "DXF"])
-                                .add_filter(
-                                    crate::t!("Backup Files").as_ref(),
-                                    &["bak", "BAK"],
-                                )
+                                .add_filter(crate::t!("Backup Files").as_ref(), &["bak", "BAK"])
                                 .pick_file()
                                 .await;
                             match handle {
@@ -1679,7 +1680,6 @@ impl DraftFlowCAD {
             // the save — fire it even if the source tab was closed while
             // serialization ran — then reuse the WblockWriteFinished
             // bookkeeping for the command-line report.
-
             Message::TableInsertStyle(value) => self.on_table_insert_style(value),
             Message::TableInsertField(field) => self.on_table_insert_field(field),
             Message::TableInsertApply => self.on_table_insert_apply(),
@@ -1883,7 +1883,6 @@ impl DraftFlowCAD {
             // read directly — the name-only `PathBuf` it maps to cannot be
             // opened — so pick, read, and parse in one step and feed the
             // shared finished handler. A cancelled picker stays silent.
-
             Message::ObjImportPath(Some(path)) => self.on_obj_import_path_some(path),
 
             Message::ObjImportPath(None) => Task::none(),
@@ -1958,7 +1957,6 @@ impl DraftFlowCAD {
             Message::SaveDialogCancel => self.close_save_dialog_window(),
 
             Message::SaveDialogPathPicked(picked) => self.on_save_dialog_path_picked(picked),
-
 
             Message::ClearScene => {
                 let i = self.active_tab;
@@ -2102,9 +2100,7 @@ impl DraftFlowCAD {
                 // Start is the startup page, not a document: opening it while
                 // drawings are still open would hide the work in progress, so
                 // the entry stays shut until every drawing is closed.
-                if idx != self.active_tab
-                    && self.tabs.get(idx).map_or(false, |tab| tab.is_start)
-                {
+                if idx != self.active_tab && self.tabs.get(idx).map_or(false, |tab| tab.is_start) {
                     self.command_line.push_info(
                         crate::t!("Close all drawings before switching to Start.").as_ref(),
                     );
@@ -2241,50 +2237,42 @@ impl DraftFlowCAD {
             }
 
             Message::DocTabCopyFullPath(idx) => {
-                {
-                    let Some(path) = self.tabs.get(idx).and_then(|tab| tab.current_path.clone())
-                    else {
-                        self.command_line.push_error(
-                            crate::t!("Save the drawing before copying its file path.").as_ref(),
-                        );
-                        return Task::none();
-                    };
-                    let full_path = path.canonicalize().unwrap_or_else(|_| {
-                        if path.is_absolute() {
-                            path
-                        } else {
-                            std::env::current_dir()
-                                .map(|dir| dir.join(&path))
-                                .unwrap_or(path)
-                        }
-                    });
-                    self.command_line
-                        .push_output(crate::tf!("Copied path: {}", full_path.display()).as_ref());
-                    return iced::clipboard::write(full_path.to_string_lossy().into_owned())
-                        .discard();
-                }
+                let Some(path) = self.tabs.get(idx).and_then(|tab| tab.current_path.clone()) else {
+                    self.command_line.push_error(
+                        crate::t!("Save the drawing before copying its file path.").as_ref(),
+                    );
+                    return Task::none();
+                };
+                let full_path = path.canonicalize().unwrap_or_else(|_| {
+                    if path.is_absolute() {
+                        path
+                    } else {
+                        std::env::current_dir()
+                            .map(|dir| dir.join(&path))
+                            .unwrap_or(path)
+                    }
+                });
+                self.command_line
+                    .push_output(crate::tf!("Copied path: {}", full_path.display()).as_ref());
+                return iced::clipboard::write(full_path.to_string_lossy().into_owned()).discard();
             }
 
             Message::DocTabOpenFileLocation(idx) => {
-                {
-                    let Some(path) = self.tabs.get(idx).and_then(|tab| tab.current_path.clone())
-                    else {
-                        self.command_line.push_error(
-                            crate::t!("Save the drawing before opening its file location.")
-                                .as_ref(),
-                        );
-                        return Task::none();
-                    };
-                    match crate::sys::reveal_in_file_manager(&path) {
-                        Ok(()) => self.command_line.push_output(
-                            crate::tf!("Opened file location: {}", path.display()).as_ref(),
-                        ),
-                        Err(error) => self.command_line.push_error(
-                            crate::tf!("Could not open file location: {error}").as_ref(),
-                        ),
-                    }
-                    Task::none()
+                let Some(path) = self.tabs.get(idx).and_then(|tab| tab.current_path.clone()) else {
+                    self.command_line.push_error(
+                        crate::t!("Save the drawing before opening its file location.").as_ref(),
+                    );
+                    return Task::none();
+                };
+                match crate::sys::reveal_in_file_manager(&path) {
+                    Ok(()) => self.command_line.push_output(
+                        crate::tf!("Opened file location: {}", path.display()).as_ref(),
+                    ),
+                    Err(error) => self
+                        .command_line
+                        .push_error(crate::tf!("Could not open file location: {error}").as_ref()),
                 }
+                Task::none()
             }
 
             Message::CommandInput(s) => {
@@ -2639,7 +2627,6 @@ impl DraftFlowCAD {
                 iced::clipboard::write(text).discard()
             }
 
-
             Message::CommandHistoryClear => {
                 self.command_line.clear_history();
                 self.history_content = iced::widget::text_editor::Content::new();
@@ -2789,7 +2776,6 @@ impl DraftFlowCAD {
             // load its linetypes, then record the setting under the file's
             // name (the native command reads the typed path inside
             // `set_centerline_setting` instead).
-
             Message::ToggleLayers => {
                 if self.show_layers {
                     return self.on_dock(crate::ui::dock::DockMsg::Close(
@@ -6647,7 +6633,6 @@ impl DraftFlowCAD {
             // Web: the clipboard-image fallback of a text-less paste either
             // attaches the image or falls back to the same error the text
             // path reports when nothing readable was on the clipboard.
-
             Message::SelectAllShortcut => {
                 let i = self.active_tab;
                 if self.mtext_editor.as_ref().is_some_and(|e| e.show_preview) {
@@ -7451,7 +7436,8 @@ impl DraftFlowCAD {
                     crate::ui::window::graphic_attributes::LINETYPE_SCALE_FIELD,
                 );
                 if focused.as_ref() == Some(&scale_field) {
-                    if !std::mem::replace(&mut self.graphic_attributes.linetype_scale_focused, true) {
+                    if !std::mem::replace(&mut self.graphic_attributes.linetype_scale_focused, true)
+                    {
                         return iced::widget::operation::select_all(scale_field);
                     }
                     return Task::none();
@@ -8027,7 +8013,10 @@ impl DraftFlowCAD {
                 // the drawing for 200 ms only to reveal the same colour.
                 if old_canvas != new_canvas {
                     self.theme_canvas_from = iced::Color::from_rgba(
-                        old_canvas[0], old_canvas[1], old_canvas[2], old_canvas[3],
+                        old_canvas[0],
+                        old_canvas[1],
+                        old_canvas[2],
+                        old_canvas[3],
                     );
                     crate::ui::motion::pulse(
                         crate::ui::motion::THEME_VEIL,
@@ -9035,9 +9024,8 @@ impl DraftFlowCAD {
                         self.persist_settings_if_changed();
                     }
                     FolderKind::Fonts => {
-                        let old = crate::config::fonts_dir_override().or_else(|| {
-                            crate::config::config_dir().map(|dir| dir.join("fonts"))
-                        });
+                        let old = crate::config::fonts_dir_override()
+                            .or_else(|| crate::config::config_dir().map(|dir| dir.join("fonts")));
                         if let Some(old) = old {
                             if let Err(error) = crate::config::move_dir_contents(&old, &path) {
                                 self.command_line.push_error(&error);
@@ -9094,9 +9082,10 @@ impl DraftFlowCAD {
                     }
                     FolderKind::Fonts => {
                         let old = crate::config::fonts_dir_override();
-                        if let (Some(old), Some(default)) =
-                            (old, crate::config::config_dir().map(|dir| dir.join("fonts")))
-                        {
+                        if let (Some(old), Some(default)) = (
+                            old,
+                            crate::config::config_dir().map(|dir| dir.join("fonts")),
+                        ) {
                             if let Err(error) = crate::config::move_dir_contents(&old, &default) {
                                 self.command_line.push_error(&error);
                                 return Task::none();
@@ -9108,9 +9097,10 @@ impl DraftFlowCAD {
                     }
                     FolderKind::PlotStyles => {
                         let old = crate::config::plot_styles_dir_override();
-                        if let (Some(old), Some(default)) =
-                            (old, crate::config::config_dir().map(|dir| dir.join("plotstyles")))
-                        {
+                        if let (Some(old), Some(default)) = (
+                            old,
+                            crate::config::config_dir().map(|dir| dir.join("plotstyles")),
+                        ) {
                             if let Err(error) = crate::config::move_dir_contents(&old, &default) {
                                 self.command_line.push_error(&error);
                                 return Task::none();
@@ -9136,7 +9126,6 @@ impl DraftFlowCAD {
                 }
                 Task::none()
             }
-
 
             Message::PickDragRectToggled(rectangle) => {
                 self.pick_drag_rect = rectangle;
@@ -9790,8 +9779,7 @@ impl DraftFlowCAD {
                                         ));
                                     },
                                 );
-                                let _ =
-                                    out.try_send(Message::UpdateCheckInstalled(outcome));
+                                let _ = out.try_send(Message::UpdateCheckInstalled(outcome));
                             });
                         },
                     ))
@@ -10113,12 +10101,6 @@ impl DraftFlowCAD {
             }
 
             Message::SaveFinished(outcome) => self.on_save_finished(outcome),
-
-
-
-
-
-
 
             Message::SaveFileInUseRetry => self.on_save_file_in_use_retry(),
 
@@ -10525,7 +10507,6 @@ impl DraftFlowCAD {
 
                     Task::none()
                 }
-
             }
 
             Message::PlotStylePanelSave => self.on_plot_style_panel_save(),
@@ -11554,7 +11535,10 @@ mod start_tab_guard_tests {
         assert_ne!(first, second);
 
         let _ = app.update(Message::TabSwitch(first));
-        assert_eq!(app.active_tab, first, "document-to-document switching stays open");
+        assert_eq!(
+            app.active_tab, first,
+            "document-to-document switching stays open"
+        );
     }
 }
 
@@ -12140,7 +12124,10 @@ mod overlay_motion_tests {
         );
         assert!(motion::any_active(), "the chase must request frames");
         let mid = at(motion::SNAP_CANDIDATE_X, 0.0);
-        assert!(mid > 35.0 && mid < 220.0, "no jump to the new point, got {mid}");
+        assert!(
+            mid > 35.0 && mid < 220.0,
+            "no jump to the new point, got {mid}"
+        );
         std::thread::sleep(std::time::Duration::from_millis(120));
         assert!((at(motion::SNAP_CANDIDATE_X, 0.0) - 240.0).abs() < 0.5);
         assert!((at(motion::SNAP_CANDIDATE_Y, 0.0) - 140.0).abs() < 0.5);
@@ -12197,7 +12184,12 @@ mod overlay_motion_tests {
             "starting a drag lands its own colour at once"
         );
 
-        app.tabs[0].scene.selection.borrow_mut().gesture.box_crossing = true;
+        app.tabs[0]
+            .scene
+            .selection
+            .borrow_mut()
+            .gesture
+            .box_crossing = true;
         app.sync_overlay_motion();
         assert!(motion::running(motion::SELECT_CROSS_BOX));
         assert!(motion::any_active(), "the cross-fade must request frames");
@@ -12383,7 +12375,10 @@ mod batch_c_motion_tests {
             !motion::running(motion::UCS_ROT),
             "a settled UCS does not turn"
         );
-        assert!(app.ucs_icon_axes().is_none(), "the icon uses the document axes");
+        assert!(
+            app.ucs_icon_axes().is_none(),
+            "the icon uses the document axes"
+        );
 
         app.automation_op(r#"{"op":"run","cmd":"UCS Z 90"}"#);
         app.sync_ucs_motion();
@@ -12394,7 +12389,10 @@ mod batch_c_motion_tests {
         assert!(motion::any_active(), "the turn must request frames");
         // Let the blend leave the identity before sampling the arms.
         std::thread::sleep(std::time::Duration::from_millis(70));
-        assert!(motion::running(motion::UCS_ROT), "the turn is still in flight");
+        assert!(
+            motion::running(motion::UCS_ROT),
+            "the turn is still in flight"
+        );
         let axes = app
             .ucs_icon_axes()
             .expect("mid-turn the icon is drawn from the blend");
@@ -12468,4 +12466,3 @@ mod batch_c_motion_tests {
         motion::set_enabled(was);
     }
 }
-

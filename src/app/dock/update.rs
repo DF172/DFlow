@@ -1,7 +1,7 @@
 //! Dock state changes: drags, hover, open / close, and the queries the view
 //! and drop targeting share.
 
-use crate::app::{Message, DraftFlowCAD};
+use crate::app::{DraftFlowCAD, Message};
 
 /// Pointer travel (px) before pressing a title bar or icon becomes a drag,
 /// so a plain click never moves anything.

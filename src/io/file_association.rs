@@ -240,10 +240,10 @@ mod windows_impl {
     }
 
     use windows_sys::Win32::System::Registry::{
-        RegCloseKey, RegCreateKeyExW, RegDeleteTreeW, RegDeleteValueW, RegOpenKeyExW, RegSetValueExW,
-        HKEY, HKEY_CURRENT_USER, KEY_WRITE, REG_OPTION_NON_VOLATILE, REG_SZ,
+        RegCloseKey, RegCreateKeyExW, RegDeleteTreeW, RegDeleteValueW, RegOpenKeyExW,
+        RegSetValueExW, HKEY, HKEY_CURRENT_USER, KEY_WRITE, REG_OPTION_NON_VOLATILE, REG_SZ,
     };
-    use windows_sys::Win32::UI::Shell::{SHCNF_IDLIST, SHCNE_ASSOCCHANGED, SHChangeNotify};
+    use windows_sys::Win32::UI::Shell::{SHChangeNotify, SHCNE_ASSOCCHANGED, SHCNF_IDLIST};
 
     /// The two file-type icons this app owns (#141 / 批 042). They are separate
     /// assets from `AppIcon.ico` on purpose: a drawing must not wear the
@@ -523,29 +523,14 @@ mod windows_impl {
         // ── ProgIDs (per-user mirror of the MSI's) ──────────────────────────
         // The Capabilities entries below point at these, and they must resolve
         // to a real open command for "set as default" to apply them.
-        register_progid(
-            &exe,
-            "DraftFlowCAD.DWG",
-            "DWG Drawing",
-            dwg_ico.as_deref(),
-        )?;
-        register_progid(
-            &exe,
-            "DraftFlowCAD.DXF",
-            "DXF Drawing",
-            dxf_ico.as_deref(),
-        )?;
+        register_progid(&exe, "DraftFlowCAD.DWG", "DWG Drawing", dwg_ico.as_deref())?;
+        register_progid(&exe, "DraftFlowCAD.DXF", "DXF Drawing", dxf_ico.as_deref())?;
         // A `.bak` this app produced holds a verbatim DWG *or* DXF copy, and
         // 批 042 authorized exactly two assets — no third one. It wears the DWG
         // plate: the claim Explorer needs to make on a backup is "this is one of
         // your drawings", which that plate carries; the format badge on it is
         // then the wrong half, and the lesser of the two errors.
-        register_progid(
-            &exe,
-            "DraftFlowCAD.BAK",
-            "CAD Backup",
-            dwg_ico.as_deref(),
-        )?;
+        register_progid(&exe, "DraftFlowCAD.BAK", "CAD Backup", dwg_ico.as_deref())?;
         // Also offer the ProgIDs in each extension's Open-with list.
         set_string(
             r"Software\Classes\.dwg\OpenWithProgids",

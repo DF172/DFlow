@@ -11,8 +11,8 @@ use crate::modules::draw::draw::attdef::{
     AFLAG_VERIFY,
 };
 use crate::t;
-use crate::ui::kit::muted_style;
 use crate::ui::kit;
+use crate::ui::kit::muted_style;
 use crate::ui::style::tokens;
 
 /// One edit in either attribute definition dialog.
@@ -105,9 +105,7 @@ fn msg(m: AttdefDialogMsg) -> Message {
 fn card<'a>(title: String, content: impl Into<Element<'a, Message>>) -> Element<'a, Message> {
     container(
         column![
-            text(title)
-                .size(tokens::TEXT_MICRO)
-                .style(muted_style),
+            text(title).size(tokens::TEXT_MICRO).style(muted_style),
             content.into()
         ]
         .spacing(tokens::GAP_ROW),
@@ -122,13 +120,18 @@ fn card<'a>(title: String, content: impl Into<Element<'a, Message>>) -> Element<
 }
 
 fn labelled<'a>(label: String, field: Element<'a, Message>, enabled: bool) -> Element<'a, Message> {
-    let label = text(label).size(tokens::TEXT_BODY).width(Length::Fixed(118.0));
+    let label = text(label)
+        .size(tokens::TEXT_BODY)
+        .width(Length::Fixed(118.0));
     let label = if enabled {
         label
     } else {
         label.style(muted_style)
     };
-    row![label, field].spacing(tokens::GAP_ROW).align_y(iced::Center).into()
+    row![label, field]
+        .spacing(tokens::GAP_ROW)
+        .align_y(iced::Center)
+        .into()
 }
 
 fn input<'a>(
@@ -280,13 +283,18 @@ pub fn view<'a>(
         if coords_on {
             field = field.on_input(move |v| msg(AttdefDialogMsg::Coord(i, v)));
         }
-        let label = text(axis).size(tokens::TEXT_BODY).width(Length::Fixed(14.0));
+        let label = text(axis)
+            .size(tokens::TEXT_BODY)
+            .width(Length::Fixed(14.0));
         let label = if coords_on {
             label
         } else {
             label.style(muted_style)
         };
-        row![label, field].spacing(tokens::GAP_ROW).align_y(iced::Center).into()
+        row![label, field]
+            .spacing(tokens::GAP_ROW)
+            .align_y(iced::Center)
+            .into()
     };
     let mut on_screen = checkbox(state.on_screen)
         .label(t!("Specify on-screen").into_owned())
@@ -315,8 +323,8 @@ pub fn view<'a>(
             labelled(
                 if constant { t!("Value") } else { t!("Default") }.into_owned(),
                 {
-                    let mut value =
-                        row![input(&state.default, true, AttdefDialogMsg::Default)].spacing(tokens::GAP_CONTROL);
+                    let mut value = row![input(&state.default, true, AttdefDialogMsg::Default)]
+                        .spacing(tokens::GAP_CONTROL);
                     if multiline {
                         value = value.push(pick(
                             text("...").size(tokens::TEXT_BODY).into(),
@@ -371,10 +379,14 @@ pub fn view<'a>(
         .width(Fill)
         .into()
     } else {
-        container(text(state.style.clone()).size(tokens::TEXT_BODY).style(muted_style))
-            .padding(kit::PAD_FIELD)
-            .width(Fill)
-            .into()
+        container(
+            text(state.style.clone())
+                .size(tokens::TEXT_BODY)
+                .style(muted_style),
+        )
+        .padding(kit::PAD_FIELD)
+        .width(Fill)
+        .into()
     };
     let mut annotative = checkbox(state.annotative)
         .label(t!("Annotative").into_owned())
@@ -451,7 +463,9 @@ pub fn view<'a>(
         column![modes, insertion]
             .spacing(tokens::GAP_FIELD)
             .width(Length::Fixed(200.0)),
-        column![attribute, settings].spacing(tokens::GAP_FIELD).width(Fill),
+        column![attribute, settings]
+            .spacing(tokens::GAP_FIELD)
+            .width(Fill),
     ]
     .spacing(tokens::GAP_FIELD);
     let mut content = column![body, align];
@@ -483,13 +497,17 @@ pub fn view_edit<'a>(
             if enabled {
                 input = input.on_input(move |v| msg(on(v)));
             }
-            let label = text(label).size(tokens::TEXT_BODY).width(Length::Fixed(80.0));
+            let label = text(label)
+                .size(tokens::TEXT_BODY)
+                .width(Length::Fixed(80.0));
             let label = if enabled {
                 label
             } else {
                 label.style(muted_style)
             };
-            row![label, input].spacing(tokens::GAP_ROW).align_y(iced::Center)
+            row![label, input]
+                .spacing(tokens::GAP_ROW)
+                .align_y(iced::Center)
         };
     let content = card(
         t!("Attribute Definition").into_owned(),

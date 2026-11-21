@@ -192,8 +192,10 @@ impl DraftFlowCAD {
                     .ok()
                     .filter(|v| (0..=10).contains(v))
                 else {
-                    self.command_line
-                        .push_error(crate::t!("Colinear angle tolerance only accepts integer from 0 to 10.").as_ref());
+                    self.command_line.push_error(
+                        crate::t!("Colinear angle tolerance only accepts integer from 0 to 10.")
+                            .as_ref(),
+                    );
                     return Task::none();
                 };
                 let Some(max_points) = state

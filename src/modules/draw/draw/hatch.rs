@@ -258,7 +258,9 @@ impl HatchCommand {
         self
     }
 
-    pub fn finish_selected(mut self) -> CmdResult { self.on_enter() }
+    pub fn finish_selected(mut self) -> CmdResult {
+        self.on_enter()
+    }
 
     fn set_object_selection(&mut self, handles: Vec<Handle>) {
         let mut segments = Vec::new();
@@ -1354,7 +1356,8 @@ impl CadCommand for BoundaryCommand {
         };
         match self.mode {
             BoundaryMode::PickInside => {
-                crate::tf!("BOUNDARY  Specify internal point or [Advanced options]:{miss}").into_owned()
+                crate::tf!("BOUNDARY  Specify internal point or [Advanced options]:{miss}")
+                    .into_owned()
             }
             BoundaryMode::Advanced => "BOUNDARY  Enter an option [Object type]:".into(),
             BoundaryMode::ObjectType => crate::tf!(
@@ -1364,7 +1367,8 @@ impl CadCommand for BoundaryCommand {
                 } else {
                     "Polyline"
                 }
-            ).into_owned(),
+            )
+            .into_owned(),
             BoundaryMode::SelectObjects => {
                 t!("%{cmd}  Select objects:", cmd = self.name()).into_owned()
             }

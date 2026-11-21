@@ -5,13 +5,13 @@
 //! report lines. Session state (unloaded set, stat cache) lives per-tab on
 //! `DocumentTab`; this panel only caches display rows plus text inputs.
 
-use crate::ui::kit;
-use crate::ui::style::tokens;
 use crate::app::Message;
 use crate::io::xref::collect_entries_with_prev;
 use crate::io::xref_model::{
     normalize_lexical, Pathtype, RefKind, RefStatus, RefType, ReferenceEntry,
 };
+use crate::ui::kit;
+use crate::ui::style::tokens;
 use crate::ui::ROW_H;
 use codec::CadDocument;
 use iced::widget::{column, container, mouse_area, row, text, tooltip};
@@ -628,7 +628,8 @@ impl XrefManagerPanel {
                     Some(Message::PdfAttachPick),
                     None,
                 ),
-            ], theme
+            ],
+            theme,
         );
         let refresh = split_button(
             crate::t!("Refresh").into_owned(),
@@ -639,7 +640,8 @@ impl XrefManagerPanel {
                 crate::t!("Reload All References").into_owned(),
                 Some(Message::XrefManagerReloadAll),
                 None,
-            )], theme
+            )],
+            theme,
         );
         // List / Tree view buttons with active-state coloring: the current
         // mode is the engaged plate and cannot be pressed because it already
@@ -741,7 +743,8 @@ impl XrefManagerPanel {
                             Some(Message::XrefFindReplacePrompt),
                             None,
                         ),
-                    ], theme
+                    ],
+                    theme,
                 )
             }
         };
@@ -924,14 +927,10 @@ impl XrefManagerPanel {
         // Thin external padding + the deep recess around the table, like the
         // properties panel content. `Sink` is the same rung the toolbar above
         // uses, so the two chrome holes in this panel read as one field.
-        let table_rows: Element<'_, Message> = kit::wash(
-            table_rows,
-            kit::Tier::Sink,
-            tokens::GAP_TIGHT.into(),
-            "",
-        )
-        .width(Fill)
-        .into();
+        let table_rows: Element<'_, Message> =
+            kit::wash(table_rows, kit::Tier::Sink, tokens::GAP_TIGHT.into(), "")
+                .width(Fill)
+                .into();
 
         // ── Missing-on-open notice + details pane ─────────────────────────
         let notice: Option<Element<'_, Message>> = if missing > 0 {
@@ -1278,7 +1277,12 @@ fn toolbar_tip(label: String, tip: String, fill: bool) -> Element<'static, Messa
         "",
     );
     let b = if fill { b.width(Fill) } else { b };
-    tooltip(b, text(tip).size(tokens::TEXT_LABEL), tooltip::Position::Bottom).into()
+    tooltip(
+        b,
+        text(tip).size(tokens::TEXT_LABEL),
+        tooltip::Position::Bottom,
+    )
+    .into()
 }
 
 /// Split button: a default action plus a triangle that opens the rest in an
@@ -1966,7 +1970,9 @@ fn details_pane<'a>(
     };
     container(
         column![
-            text(crate::t!("Details")).size(tokens::TEXT_MICRO).style(kit::muted_style),
+            text(crate::t!("Details"))
+                .size(tokens::TEXT_MICRO)
+                .style(kit::muted_style),
             inner,
         ]
         .spacing(tokens::GAP_HAIRLINE),
@@ -2571,10 +2577,9 @@ mod tests {
         // buttons again.
         use iced_core::Widget;
 
-        let mut menu =
-            iced_aw::ContextMenu::new(text("anchor"), || {
-                row_menu_for(XrefRowId::of(0, ""), false, &TEST_THEME)
-            });
+        let mut menu = iced_aw::ContextMenu::new(text("anchor"), || {
+            row_menu_for(XrefRowId::of(0, ""), false, &TEST_THEME)
+        });
         let mut tree = iced_core::widget::Tree::new(
             &menu as &dyn Widget<Message, iced::Theme, iced::Renderer>,
         );

@@ -2,13 +2,13 @@
 
 use crate::app::{Message, StyleKind};
 use crate::t;
+use crate::ui::kit;
 use crate::ui::kit::muted_style;
-use iced::widget::{canvas, checkbox, column, container, row, text, text_input, Space};
 use crate::ui::kit::plain_button;
+use crate::ui::style::tokens;
+use iced::widget::{canvas, checkbox, column, container, row, text, text_input, Space};
 use iced::{mouse, Element, Length, Point, Rectangle, Theme};
 use std::borrow::Cow;
-use crate::ui::style::tokens;
-use crate::ui::kit;
 
 pub struct TextStyleView<'a> {
     pub styles: Vec<String>,
@@ -183,10 +183,16 @@ fn input_row<'a>(
             .width(180)
             .into()
     };
-    row![text(label).size(tokens::TEXT_LABEL).style(muted_style).width(150), control]
-        .spacing(tokens::GAP_ROW)
-        .align_y(iced::Center)
-        .into()
+    row![
+        text(label)
+            .size(tokens::TEXT_LABEL)
+            .style(muted_style)
+            .width(150),
+        control
+    ]
+    .spacing(tokens::GAP_ROW)
+    .align_y(iced::Center)
+    .into()
 }
 
 fn toggle<'a>(
@@ -195,7 +201,10 @@ fn toggle<'a>(
     field: &'static str,
     read_only: bool,
 ) -> Element<'a, Message> {
-    let checkbox = checkbox(value).label(label).size(tokens::MARK_SQUARE).text_size(tokens::TEXT_LABEL);
+    let checkbox = checkbox(value)
+        .label(label)
+        .size(tokens::MARK_SQUARE)
+        .text_size(tokens::TEXT_LABEL);
     if read_only {
         checkbox.into()
     } else {
@@ -405,7 +414,9 @@ pub fn view_window<'a>(
             .into()
         }
         _ => column![
-            text(t!("Size")).size(tokens::TEXT_LABEL).style(|theme: &Theme| kit::color_style(theme.palette().primary.base.color)),
+            text(t!("Size"))
+                .size(tokens::TEXT_LABEL)
+                .style(|theme: &Theme| kit::color_style(theme.palette().primary.base.color)),
             input_row(
                 if v.annotative {
                     t!("Paper text height")
@@ -417,7 +428,9 @@ pub fn view_window<'a>(
                 "height",
                 v.read_only,
             ),
-            text(t!("Effects")).size(tokens::TEXT_LABEL).style(|theme: &Theme| kit::color_style(theme.palette().primary.base.color)),
+            text(t!("Effects"))
+                .size(tokens::TEXT_LABEL)
+                .style(|theme: &Theme| kit::color_style(theme.palette().primary.base.color)),
             input_row(
                 t!("Width factor"),
                 "1.0".into(),

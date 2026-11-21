@@ -1,11 +1,11 @@
-use crate::ui::kit;
 use super::status_menu::{self, Entry};
 use crate::app::Message;
 use crate::input::spacemouse::{NavigationMode, Preferences, Status};
-use iced::widget::{row, text};
+use crate::ui::kit;
 use crate::ui::kit::plain_button;
-use iced::{Element, Fill};
 use crate::ui::style::tokens;
+use iced::widget::{row, text};
+use iced::{Element, Fill};
 
 pub(crate) fn view(
     preferences: Preferences,

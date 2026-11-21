@@ -53,7 +53,9 @@ pub fn form_row<'a, M: 'a>(
 ) -> Row<'a, M> {
     Row::with_children(vec![
         label.into(),
-        Space::new().width(Length::Fixed(LABEL_WIDTH - tokens::GAP_ROW)).into(),
+        Space::new()
+            .width(Length::Fixed(LABEL_WIDTH - tokens::GAP_ROW))
+            .into(),
         control.into(),
     ])
     .align_y(iced::Center)

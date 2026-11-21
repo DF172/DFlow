@@ -507,7 +507,11 @@ thread_local! {
 /// it. Called before the splash is built so the plate and the chrome behind
 /// it agree on the first frame.
 pub fn init_from_system() {
-    let on = match std::env::var("DRAFTFLOW_MOTION").ok().as_deref().map(str::trim) {
+    let on = match std::env::var("DRAFTFLOW_MOTION")
+        .ok()
+        .as_deref()
+        .map(str::trim)
+    {
         Some("off") | Some("0") | Some("false") => false,
         Some("on") | Some("1") | Some("true") => true,
         _ => system_animations_enabled(),
@@ -643,10 +647,9 @@ pub fn site_key(file: &str, line: u32) -> &'static str {
 /// with zero allocation. Anything beyond it falls back to an interned string.
 const DEC: [&str; 64] = [
     "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16",
-    "17", "18", "19", "20", "21", "22", "23", "24", "25", "26", "27", "28", "29", "30", "31",
-    "32", "33", "34", "35", "36", "37", "38", "39", "40", "41", "42", "43", "44", "45", "46",
-    "47", "48", "49", "50", "51", "52", "53", "54", "55", "56", "57", "58", "59", "60", "61",
-    "62", "63",
+    "17", "18", "19", "20", "21", "22", "23", "24", "25", "26", "27", "28", "29", "30", "31", "32",
+    "33", "34", "35", "36", "37", "38", "39", "40", "41", "42", "43", "44", "45", "46", "47", "48",
+    "49", "50", "51", "52", "53", "54", "55", "56", "57", "58", "59", "60", "61", "62", "63",
 ];
 
 /// Registry key for an index-driven track (ribbon tabs, status capsules).
@@ -961,8 +964,12 @@ pub fn value(key: &'static str) -> f32 {
 /// boot) read "not animated yet" as "fully open" instead of "zero".
 pub fn value_or(key: &'static str, default: f32) -> f32 {
     let now = Instant::now();
-    TRACKS
-        .with(|t| t.borrow().get(key).map(|tr| tr.value(now)).unwrap_or(default))
+    TRACKS.with(|t| {
+        t.borrow()
+            .get(key)
+            .map(|tr| tr.value(now))
+            .unwrap_or(default)
+    })
 }
 
 /// Whether `key` has a track at all — running or settled.
@@ -990,11 +997,7 @@ pub fn running(key: &'static str) -> bool {
         return false;
     }
     let now = Instant::now();
-    TRACKS.with(|t| {
-        t.borrow()
-            .get(key)
-            .is_some_and(|tr| !tr.finished(now))
-    })
+    TRACKS.with(|t| t.borrow().get(key).is_some_and(|tr| !tr.finished(now)))
 }
 
 /// Test-only snapshot of a track's firing parameters and start instant:
@@ -1012,12 +1015,7 @@ pub fn track_snapshot(key: &'static str) -> Option<(f32, f32, f32, u64, u64, Ins
     TRACKS.with(|t| {
         t.borrow().get(key).map(|tr| {
             (
-                tr.from,
-                tr.peak,
-                tr.settle,
-                tr.rise_ms,
-                tr.fall_ms,
-                tr.started,
+                tr.from, tr.peak, tr.settle, tr.rise_ms, tr.fall_ms, tr.started,
             )
         })
     })
@@ -1285,7 +1283,14 @@ pub fn spring_to(key: &'static str, target: f32, stiffness: f32, damping: f32) {
 
 /// Starts (or re-seats) `key` with an explicit position and velocity.
 /// This is the entry point that injects the release velocity `v0`.
-pub fn spring_kick(key: &'static str, pos: f32, vel: f32, target: f32, stiffness: f32, damping: f32) {
+pub fn spring_kick(
+    key: &'static str,
+    pos: f32,
+    vel: f32,
+    target: f32,
+    stiffness: f32,
+    damping: f32,
+) {
     let on = enabled();
     SPRINGS.with(|s| {
         s.borrow_mut().insert(
@@ -1473,13 +1478,23 @@ mod spring_tests {
     fn underdamped_spring_overshoots_then_settles() {
         let _g = GATE_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         set_enabled(true);
-        spring_kick("spring:bouncy", 0.0, 0.0, 100.0, SPRING_K, 0.45 * critical_damping(SPRING_K));
+        spring_kick(
+            "spring:bouncy",
+            0.0,
+            0.0,
+            100.0,
+            SPRING_K,
+            0.45 * critical_damping(SPRING_K),
+        );
         let mut peak: f32 = 0.0;
         for _ in 0..240 {
             tick_ms(16.0);
             peak = peak.max(spring_value("spring:bouncy", 0.0));
         }
-        assert!(peak > 100.5, "underdamped spring must overshoot, peak={peak}");
+        assert!(
+            peak > 100.5,
+            "underdamped spring must overshoot, peak={peak}"
+        );
         assert_eq!(spring_value("spring:bouncy", -1.0), 100.0);
     }
 
@@ -1487,10 +1502,20 @@ mod spring_tests {
     fn injected_velocity_carries_through_a_retarget() {
         let _g = GATE_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         set_enabled(true);
-        spring_kick("spring:kick", 0.0, 500.0, 100.0, SPRING_K, critical_damping(SPRING_K));
+        spring_kick(
+            "spring:kick",
+            0.0,
+            500.0,
+            100.0,
+            SPRING_K,
+            critical_damping(SPRING_K),
+        );
         tick_ms(16.0);
         let after_one = spring_value("spring:kick", 0.0);
-        assert!(after_one > 5.0, "a 500 px/s kick must move on the first frame");
+        assert!(
+            after_one > 5.0,
+            "a 500 px/s kick must move on the first frame"
+        );
         spring_to("spring:kick", 200.0, SPRING_K, critical_damping(SPRING_K));
         assert!(
             spring_velocity("spring:kick") > 0.0,
@@ -1506,7 +1531,14 @@ mod spring_tests {
     fn gate_off_lands_springs_in_the_same_frame() {
         let _g = GATE_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         set_enabled(true);
-        spring_kick("spring:gate", 0.0, 30.0, 50.0, SPRING_K, critical_damping(SPRING_K));
+        spring_kick(
+            "spring:gate",
+            0.0,
+            30.0,
+            50.0,
+            SPRING_K,
+            critical_damping(SPRING_K),
+        );
         set_enabled(false);
         assert_eq!(spring_value("spring:gate", -1.0), 50.0);
         assert!(spring_velocity("spring:gate").abs() < f32::EPSILON);
@@ -1521,7 +1553,14 @@ mod spring_tests {
     fn dock_land_spring_overshoots_once_and_lands_at_zero() {
         let _g = GATE_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         set_enabled(true);
-        spring_kick(DOCK_LAND, DOCK_LAND_AMP, 0.0, 0.0, DOCK_LAND_K, DOCK_LAND_DAMP);
+        spring_kick(
+            DOCK_LAND,
+            DOCK_LAND_AMP,
+            0.0,
+            0.0,
+            DOCK_LAND_K,
+            DOCK_LAND_DAMP,
+        );
         assert_eq!(spring_value(DOCK_LAND, -1.0), DOCK_LAND_AMP);
         assert!(any_active(), "a kicked landing spring must ask for frames");
         let mut min = f32::MAX;
@@ -1549,7 +1588,10 @@ mod spring_tests {
             "rest must snap exactly to zero, no residual offset"
         );
         assert!(!spring_active(DOCK_LAND));
-        assert!(!any_active(), "a settled landing spring must stop asking for frames");
+        assert!(
+            !any_active(),
+            "a settled landing spring must stop asking for frames"
+        );
     }
 
     /// Item 36: with motion disabled the landing kick lands at the target
@@ -1558,7 +1600,14 @@ mod spring_tests {
     fn dock_land_gate_off_lands_in_the_same_frame() {
         let _g = GATE_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         set_enabled(false);
-        spring_kick(DOCK_LAND, DOCK_LAND_AMP, 0.0, 0.0, DOCK_LAND_K, DOCK_LAND_DAMP);
+        spring_kick(
+            DOCK_LAND,
+            DOCK_LAND_AMP,
+            0.0,
+            0.0,
+            DOCK_LAND_K,
+            DOCK_LAND_DAMP,
+        );
         assert_eq!(spring_value(DOCK_LAND, -1.0), 0.0);
         assert!(!spring_active(DOCK_LAND));
         assert!(!any_active());
@@ -1583,11 +1632,10 @@ mod spring_tests {
     }
 }
 
-
 #[cfg(test)]
 mod gate_tests {
-    use super::*;
     use super::GATE_LOCK;
+    use super::*;
 
     #[test]
     fn gate_off_lands_on_the_terminal_value_in_the_same_frame() {
@@ -1640,7 +1688,11 @@ mod gate_tests {
             std::thread::sleep(Duration::from_millis(30));
             press(key, true);
         }
-        assert_eq!(value(key), 1.0, "repeated reports must not restart the sink");
+        assert_eq!(
+            value(key),
+            1.0,
+            "repeated reports must not restart the sink"
+        );
         press(key, false);
         std::thread::sleep(Duration::from_millis(30));
         assert!(value(key) < 1.0, "release must start the rebound");
@@ -1774,8 +1826,11 @@ mod gate_tests {
     fn entrance_wave_leads_with_the_first_slot() {
         let _g = GATE_LOCK.lock().unwrap();
         set_enabled(true);
-        let keys: &'static [&'static str] =
-            &["gate:entrance:wave:0", "gate:entrance:wave:1", "gate:entrance:wave:2"];
+        let keys: &'static [&'static str] = &[
+            "gate:entrance:wave:0",
+            "gate:entrance:wave:1",
+            "gate:entrance:wave:2",
+        ];
         replay_entrance(keys);
         let now = Instant::now();
         for t in (0..PANEL).step_by(10) {
@@ -1798,12 +1853,15 @@ mod gate_tests {
 /// described.
 #[cfg(test)]
 mod b4_tests {
-    use super::*;
     use super::GATE_LOCK;
+    use super::*;
 
     #[test]
     fn the_exit_is_faster_than_the_entrance() {
-        assert_eq!(MODAL, 160, "the entrance budget is part of the batch contract");
+        assert_eq!(
+            MODAL, 160,
+            "the entrance budget is part of the batch contract"
+        );
         assert_eq!(EXIT, 120, "the exit budget is part of the batch contract");
         assert!(EXIT < MODAL, "a dialog must leave faster than it arrives");
     }
@@ -1828,7 +1886,10 @@ mod b4_tests {
         set(MODAL_FADE, 1.0, MODAL);
         set(MODAL_FADE, 0.0, EXIT);
         assert_eq!(value(MODAL_FADE), 0.0);
-        assert!(!running(MODAL_FADE), "nothing may wait for frames that never come");
+        assert!(
+            !running(MODAL_FADE),
+            "nothing may wait for frames that never come"
+        );
         set_enabled(true);
     }
 
@@ -1836,7 +1897,10 @@ mod b4_tests {
     fn a_dialog_enters_from_the_pointer_side() {
         let centre = iced::Point::new(640.0, 400.0);
         let low_right = entrance_shift(iced::Point::new(1200.0, 780.0), centre, ENTRANCE_REACH);
-        assert!(low_right.x > 0.0 && low_right.y > 0.0, "starts toward the click");
+        assert!(
+            low_right.x > 0.0 && low_right.y > 0.0,
+            "starts toward the click"
+        );
         let len = low_right.x.hypot(low_right.y);
         assert!(
             (len - ENTRANCE_REACH).abs() < 1e-3,
@@ -1851,7 +1915,10 @@ mod b4_tests {
         let centre = iced::Point::new(640.0, 400.0);
         let shift = entrance_shift(centre, centre, ENTRANCE_REACH);
         assert_eq!(shift, iced::Vector::ZERO, "no direction to come from");
-        assert!(shift.x.is_finite() && shift.y.is_finite(), "must not be NaN");
+        assert!(
+            shift.x.is_finite() && shift.y.is_finite(),
+            "must not be NaN"
+        );
     }
 
     #[test]
@@ -1864,11 +1931,18 @@ mod b4_tests {
 
     #[test]
     fn a_menu_slides_out_of_its_anchor() {
-        assert_eq!(menu_slide(1.0), iced::Vector::ZERO, "a landed menu is on its anchor");
+        assert_eq!(
+            menu_slide(1.0),
+            iced::Vector::ZERO,
+            "a landed menu is on its anchor"
+        );
         let start = menu_slide(0.0);
         assert_eq!(start, iced::Vector::new(-MENU_REACH, -MENU_REACH));
         let mid = menu_slide(0.5);
-        assert!(mid.x > start.x && mid.x < 0.0, "the slide closes monotonically");
+        assert!(
+            mid.x > start.x && mid.x < 0.0,
+            "the slide closes monotonically"
+        );
         assert_eq!(menu_slide(-1.0), start, "out-of-range progress clamps");
     }
 
@@ -1958,7 +2032,11 @@ mod b5b6_tests {
         assert_eq!(tri_wave(LOOP_MS, LOOP_MS), 0.0);
         assert!((tri_wave(LOOP_MS / 2, LOOP_MS) - 1.0).abs() < 1e-6);
         assert!((tri_wave(LOOP_MS / 4, LOOP_MS) - 0.5).abs() < 1e-6);
-        assert_eq!(tri_wave(123, 0), 0.0, "a zero period must not divide by zero");
+        assert_eq!(
+            tri_wave(123, 0),
+            0.0,
+            "a zero period must not divide by zero"
+        );
     }
 
     #[test]
@@ -2141,12 +2219,19 @@ mod batch_d_tests {
             "the chase must start near the old/new ratio (1/25.4), got {start}"
         );
         settle_wait(CHASE_MS as u64 + 40);
-        assert!((value(UNIT_CHASE) - 1.0).abs() < 1e-4, "the chase must land on 1.0");
+        assert!(
+            (value(UNIT_CHASE) - 1.0).abs() < 1e-4,
+            "the chase must land on 1.0"
+        );
         assert!(!running(UNIT_CHASE));
 
         let before = track_count();
         unit_chase(25.4, 25.4);
-        assert_eq!(track_count(), before, "a no-op switch must not restart the chase");
+        assert_eq!(
+            track_count(),
+            before,
+            "a no-op switch must not restart the chase"
+        );
     }
 }
 
@@ -2158,10 +2243,7 @@ mod p2b2_motion_tests {
 
     /// Sample a snapshot's track at `at_ms` after its start instant, so a
     /// budget can be checked without waiting on the wall clock.
-    fn ramp_at(
-        snapshot: (f32, f32, f32, u64, u64, Instant),
-        at_ms: u64,
-    ) -> f32 {
+    fn ramp_at(snapshot: (f32, f32, f32, u64, u64, Instant), at_ms: u64) -> f32 {
         let (from, peak, settle, rise_ms, fall_ms, started) = snapshot;
         Track {
             from,
@@ -2264,7 +2346,10 @@ mod p2b2_motion_tests {
     fn grip_hover_scan_keeps_one_track() {
         let _g = test_gate_lock();
         set_enabled(true);
-        assert_eq!(GRIP_HOVER, HOVER, "grip hover must share the 120 ms hover budget");
+        assert_eq!(
+            GRIP_HOVER, HOVER,
+            "grip hover must share the 120 ms hover budget"
+        );
         let key = grip_hover_key("p2b2:grip:scan");
 
         let before = track_count();
@@ -2323,4 +2408,3 @@ mod p2b2_motion_tests {
         assert!(!running(GRID_DENSITY), "a still grid is asking for frames");
     }
 }
-

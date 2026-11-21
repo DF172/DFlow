@@ -5,13 +5,13 @@
 //! point glyphs (see `entities::point`). Command entry (`PDMODE` / `PDSIZE`)
 //! does the same without the dialog.
 
-use crate::ui::style::tokens;
 use crate::app::Message;
 use crate::t;
-use crate::ui::kit::muted_style;
 use crate::ui::kit;
-use iced::widget::{canvas, column, container, row, text, text_input, Space};
+use crate::ui::kit::muted_style;
 use crate::ui::kit::plain_button;
+use crate::ui::style::tokens;
+use iced::widget::{canvas, column, container, row, text, text_input, Space};
 use iced::{mouse, Element, Length, Point, Rectangle, Size, Theme};
 use std::borrow::Cow;
 
@@ -99,7 +99,12 @@ fn cell<'a>(value: i16, selected: bool) -> Element<'a, Message> {
         .padding(tokens::GAP_NONE)
         .on_press(Message::PointStyleSetMode(value))
         .style(move |theme: &Theme, status| {
-            kit::glyph_cell_style(theme, status, selected, tokens::aurora_gradient(theme, 0.14))
+            kit::glyph_cell_style(
+                theme,
+                status,
+                selected,
+                tokens::aurora_gradient(theme, 0.14),
+            )
         })
         .into()
 }
@@ -179,7 +184,9 @@ pub fn view_window<'a>(
 
     container(
         column![
-            container(body).width(width).align_x(iced::alignment::Horizontal::Center),
+            container(body)
+                .width(width)
+                .align_x(iced::alignment::Horizontal::Center),
             Space::new().height(tokens::GAP_SECTION),
             row![Space::new().width(width), ok].width(width),
         ]

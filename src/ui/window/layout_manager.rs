@@ -2,12 +2,12 @@
 
 use crate::app::Message;
 use crate::t;
-use crate::ui::kit::muted_style;
 use crate::ui::kit;
-use iced::widget::{column, container, row, text, text_input, Space};
+use crate::ui::kit::muted_style;
 use crate::ui::kit::plain_button;
-use iced::{Background, Element, Fill, Length, Theme};
 use crate::ui::style::tokens;
+use iced::widget::{column, container, row, text, text_input, Space};
+use iced::{Background, Element, Fill, Length, Theme};
 
 pub fn view_window<'a>(
     layouts: Vec<String>,
@@ -93,13 +93,16 @@ pub fn view_window<'a>(
             .spacing(tokens::GAP_TIGHT)
             .align_y(iced::Center);
         if is_cur {
-            item_row = item_row.push(Space::new().width(Fill)).push(
-                crate::ui::icons::themed_arrow_left(8.0),
-            ).push(
-                text(t!("Current"))
-                    .size(tokens::TEXT_MICRO)
-                    .style(|theme: &Theme| kit::color_style(theme.palette().primary.base.color)),
-            );
+            item_row = item_row
+                .push(Space::new().width(Fill))
+                .push(crate::ui::icons::themed_arrow_left(8.0))
+                .push(
+                    text(t!("Current"))
+                        .size(tokens::TEXT_MICRO)
+                        .style(|theme: &Theme| {
+                            kit::color_style(theme.palette().primary.base.color)
+                        }),
+                );
         }
         list_items = list_items.push(kit::list_row(
             item_row,
@@ -111,7 +114,9 @@ pub fn view_window<'a>(
 
     let layout_list = container(
         column![
-            text(t!("Layouts")).size(tokens::TEXT_MICRO).style(muted_style),
+            text(t!("Layouts"))
+                .size(tokens::TEXT_MICRO)
+                .style(muted_style),
             crate::ui::kit::themed_scrollable(list_items).height(sizing.height),
         ]
         .spacing(tokens::GAP_TIGHT)
@@ -137,13 +142,19 @@ pub fn view_window<'a>(
             .size(tokens::TEXT_HEADING),
             Space::new().height(tokens::GAP_ROW),
             row![
-                text(t!("Name:")).size(tokens::TEXT_LABEL).style(muted_style).width(110),
+                text(t!("Name:"))
+                    .size(tokens::TEXT_LABEL)
+                    .style(muted_style)
+                    .width(110),
                 text(selected).size(tokens::TEXT_LABEL),
             ]
             .spacing(tokens::GAP_ROW)
             .align_y(iced::Center),
             row![
-                text(t!("Status:")).size(tokens::TEXT_LABEL).style(muted_style).width(110),
+                text(t!("Status:"))
+                    .size(tokens::TEXT_LABEL)
+                    .style(muted_style)
+                    .width(110),
                 text(if selected == current.as_str() {
                     t!("Active")
                 } else {
@@ -161,7 +172,9 @@ pub fn view_window<'a>(
             .spacing(tokens::GAP_ROW)
             .align_y(iced::Center),
             Space::new().height(tokens::GAP_GUTTER),
-            text(t!("Rename")).size(tokens::TEXT_MICRO).style(muted_style),
+            text(t!("Rename"))
+                .size(tokens::TEXT_MICRO)
+                .style(muted_style),
             row![
                 text_input(t!("New name…").as_ref(), rename_buf)
                     .on_input(Message::LayoutManagerRenameBuf)

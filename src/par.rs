@@ -8,6 +8,4 @@ pub mod prelude {
     pub use rayon::prelude::*;
 }
 
-
 pub use rayon::join;
-

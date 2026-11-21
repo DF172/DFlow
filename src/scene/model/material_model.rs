@@ -555,7 +555,6 @@ fn load_map_image(map: &MaterialMap, base_dir: Option<&Path>) -> Option<Arc<Mate
     loaded
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;

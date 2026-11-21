@@ -14,10 +14,10 @@
 //! what lets a panel dissolve in on boot without each call site re-inventing
 //! the alpha math.
 
+use super::label::Tone;
 use crate::ui::motion;
 use crate::ui::style::draftflow_theme::draftflow_colors;
 use crate::ui::style::tokens;
-use super::label::Tone;
 use iced::widget::{button, column, container, text, Column, Container, Row, Space};
 use iced::{Background, Border, Color, Element, Fill, Length, Theme};
 
@@ -373,15 +373,17 @@ fn tint_style_solve(tint: Tint, theme: &Theme, track: &'static str) -> container
         // DraftFlow spends `active` here; the strength constants stay the
         // vendor ladder's answer so other themes do not move.
         Tint::Dropped => container::Style {
-            background: Some(Background::Color({
-                let fill = tokens::selection_press_fill(theme);
-                if crate::ui::style::draftflow_theme::draftflow_colors(theme).is_some() {
-                    fill
-                } else {
-                    palette.primary.weak.color.scale_alpha(TINT_DROPPED)
+            background: Some(Background::Color(
+                {
+                    let fill = tokens::selection_press_fill(theme);
+                    if crate::ui::style::draftflow_theme::draftflow_colors(theme).is_some() {
+                        fill
+                    } else {
+                        palette.primary.weak.color.scale_alpha(TINT_DROPPED)
+                    }
                 }
-            }
-            .scale_alpha(p))),
+                .scale_alpha(p),
+            )),
             border: flush,
             shadow: iced::Shadow::default(),
             text_color: None,
@@ -392,14 +394,13 @@ fn tint_style_solve(tint: Tint, theme: &Theme, track: &'static str) -> container
         // sheet lifts it as paper on paper: a surface fill and a strong line,
         // never a coloured glow.
         Tint::Ghost => {
-            let (fill, ring) =
-                match crate::ui::style::draftflow_theme::draftflow_colors(theme) {
-                    Some(colors) => (colors.surface, colors.line_strong),
-                    None => (
-                        palette.primary.base.color.scale_alpha(TINT_GHOST),
-                        palette.primary.base.color,
-                    ),
-                };
+            let (fill, ring) = match crate::ui::style::draftflow_theme::draftflow_colors(theme) {
+                Some(colors) => (colors.surface, colors.line_strong),
+                None => (
+                    palette.primary.base.color.scale_alpha(TINT_GHOST),
+                    palette.primary.base.color,
+                ),
+            };
             container::Style {
                 background: Some(Background::Color(fill.scale_alpha(p))),
                 border: Border {
@@ -424,10 +425,12 @@ fn tint_style_solve(tint: Tint, theme: &Theme, track: &'static str) -> container
             snap: true,
         },
         Tint::Hero => container::Style {
-            background: Some(match crate::ui::style::draftflow_theme::draftflow_colors(theme) {
-                Some(colors) => Background::Color(colors.panel2.scale_alpha(p)),
-                None => tokens::aurora_gradient(theme, TINT_HERO * p),
-            }),
+            background: Some(
+                match crate::ui::style::draftflow_theme::draftflow_colors(theme) {
+                    Some(colors) => Background::Color(colors.panel2.scale_alpha(p)),
+                    None => tokens::aurora_gradient(theme, TINT_HERO * p),
+                },
+            ),
             border: Border {
                 color: tokens::edge(theme).scale_alpha(p),
                 width: 1.0,
@@ -761,12 +764,9 @@ pub fn swatch_edit_style(fill: Color) -> impl Fn(&Theme, button::Status) -> butt
 /// open state, and it answers with the brand hairline at the width the page edge
 /// already uses — the same fact a focused panel border carries below.
 #[must_use]
-pub fn picker_trigger_style(
-    engaged: bool,
-) -> impl Fn(&Theme, button::Status) -> button::Style {
+pub fn picker_trigger_style(engaged: bool) -> impl Fn(&Theme, button::Status) -> button::Style {
     move |theme: &Theme, status| {
-        let lifted = engaged
-            || matches!(status, button::Status::Hovered | button::Status::Pressed);
+        let lifted = engaged || matches!(status, button::Status::Hovered | button::Status::Pressed);
         button::Style {
             background: Some(Background::Color(theme.palette().background.base.color)),
             text_color: theme.palette().background.base.text,
@@ -808,11 +808,7 @@ pub fn picker_trigger_style(
 /// theme. Deleting the arm would be deleting tested behaviour to make a fold look
 /// cheaper.
 #[must_use]
-pub fn picker_tile_colors(
-    theme: &Theme,
-    engaged: bool,
-    status: button::Status,
-) -> (Color, Color) {
+pub fn picker_tile_colors(theme: &Theme, engaged: bool, status: button::Status) -> (Color, Color) {
     let palette = theme.palette();
     if engaged {
         (palette.primary.base.color, palette.primary.base.text)
@@ -844,11 +840,7 @@ pub fn picker_tile_border(theme: &Theme, engaged: bool) -> Color {
 /// that is what the screen was doing; a tile that grew an elevation would be a
 /// plate decision, and plate decisions are [#48]'s, not a refactor leg's.
 #[must_use]
-pub fn picker_tile_style(
-    theme: &Theme,
-    engaged: bool,
-    status: button::Status,
-) -> container::Style {
+pub fn picker_tile_style(theme: &Theme, engaged: bool, status: button::Status) -> container::Style {
     let (fill, ink) = picker_tile_colors(theme, engaged, status);
     container::Style {
         background: Some(Background::Color(fill)),
@@ -1306,7 +1298,11 @@ pub fn accent_plate_style(theme: &Theme) -> container::Style {
 #[must_use]
 pub fn drop_ghost_head_style(theme: &Theme, alpha: f32) -> container::Style {
     let plate = accent_plate_style(theme);
-    let alpha = if alpha.is_finite() { alpha.clamp(0.0, 1.0) } else { 0.0 };
+    let alpha = if alpha.is_finite() {
+        alpha.clamp(0.0, 1.0)
+    } else {
+        0.0
+    };
     container::Style {
         background: plate.background.map(|background| match background {
             Background::Color(color) => Background::Color(color.scale_alpha(alpha)),
@@ -1829,8 +1825,8 @@ pub fn seam_style(theme: &Theme, track: &'static str) -> container::Style {
 /// above it.
 #[must_use]
 pub fn brand_rule<'a, M: 'a>(track: &'static str) -> Container<'a, M> {
-    container(Space::new().width(Length::Fill).height(tokens::RULE_BRAND))
-        .style(move |theme: &Theme| container::Style {
+    container(Space::new().width(Length::Fill).height(tokens::RULE_BRAND)).style(
+        move |theme: &Theme| container::Style {
             background: Some(match draftflow_colors(theme) {
                 // The sheet signs a floating panel with its rule, not with a
                 // brand hue: the highest surface on screen still gets one line.
@@ -1838,7 +1834,8 @@ pub fn brand_rule<'a, M: 'a>(track: &'static str) -> Container<'a, M> {
                 None => tokens::aurora_gradient(theme, tokens::AURORA_RULE * fade(track)),
             }),
             ..Default::default()
-        })
+        },
+    )
 }
 
 /// Stacked chrome: the tab bar, the status bar, the command line.
@@ -2220,18 +2217,17 @@ pub fn pill<'a, M: 'a>(
 /// Under the sheet the slat is ink, not a hue: it reads as the nib touching
 /// paper, which is the whole mark. Vendor themes keep the aurora.
 pub fn tick<'a, M: 'a>(track: &'static str) -> Container<'a, M> {
-    container(Space::new().width(2).height(10))
-        .style(move |theme: &Theme| container::Style {
-            background: Some(Background::Color(match draftflow_colors(theme) {
-                Some(colors) => colors.ink.scale_alpha(fade(track)),
-                None => tokens::aurora_edge(theme).scale_alpha(0.85 * fade(track)),
-            })),
-            border: Border {
-                radius: 1.0.into(),
-                ..Default::default()
-            },
+    container(Space::new().width(2).height(10)).style(move |theme: &Theme| container::Style {
+        background: Some(Background::Color(match draftflow_colors(theme) {
+            Some(colors) => colors.ink.scale_alpha(fade(track)),
+            None => tokens::aurora_edge(theme).scale_alpha(0.85 * fade(track)),
+        })),
+        border: Border {
+            radius: 1.0.into(),
             ..Default::default()
-        })
+        },
+        ..Default::default()
+    })
 }
 
 /// A 1px hairline across the available width.
@@ -2272,13 +2268,12 @@ pub fn sheet_rule_v<'a, M: 'a>() -> Element<'a, M> {
 
 /// A 1px hairline tall enough to separate two groups in a row.
 pub fn rule_v<'a, M: 'a>(height: f32, track: &'static str) -> Container<'a, M> {
-    container(Space::new().width(1.0).height(height))
-        .style(move |theme: &Theme| container::Style {
-            background: Some(Background::Color(
-                tokens::edge(theme).scale_alpha(fade(track)),
-            )),
-            ..Default::default()
-        })
+    container(Space::new().width(1.0).height(height)).style(move |theme: &Theme| container::Style {
+        background: Some(Background::Color(
+            tokens::edge(theme).scale_alpha(fade(track)),
+        )),
+        ..Default::default()
+    })
 }
 
 // ── The two dividers `form` shipped ───────────────────────────────────────
@@ -2314,8 +2309,11 @@ pub fn section_head<'a, M: 'a>(
     trailing: Vec<Element<'a, M>>,
     track: &'static str,
 ) -> Column<'a, M> {
-    let mut children: Vec<Element<'a, M>> =
-        vec![tick(track).into(), title.into(), Space::new().width(Fill).into()];
+    let mut children: Vec<Element<'a, M>> = vec![
+        tick(track).into(),
+        title.into(),
+        Space::new().width(Fill).into(),
+    ];
     children.extend(trailing);
     let head: Row<'a, M> = Row::with_children(children)
         .spacing(tokens::GAP_ROW)

@@ -230,7 +230,8 @@ impl CadCommand for ExtrudeCommand {
                         crate::tf!(
                             "{base} <{}>:",
                             crate::entities::common::format_length(height)
-                        ).into_owned()
+                        )
+                        .into_owned()
                     },
                 )
             }

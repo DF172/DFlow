@@ -2024,7 +2024,8 @@ fn read_resource(
                     }
                 }
             } else if subpath == "viewport.png" {
-                let path = std::env::temp_dir().join(format!("draftflow-resource-{}.png", random_id()?));
+                let path =
+                    std::env::temp_dir().join(format!("draftflow-resource-{}.png", random_id()?));
                 let req = json!({
                     "op": "capture",
                     "path": path.to_string_lossy(),
@@ -2992,7 +2993,14 @@ fn handle_message(
             };
             // Unknown tools are Protocol Errors (-32602), never isError
             // results; the valid names ride along so the model can recover.
-            if !["draftflow_sessions", "draftflow_read", "draftflow_execute", "draftflow_capture"].contains(&name) {
+            if ![
+                "draftflow_sessions",
+                "draftflow_read",
+                "draftflow_execute",
+                "draftflow_capture",
+            ]
+            .contains(&name)
+            {
                 return Some(rpc_error(
                     id,
                     -32602,
@@ -3255,7 +3263,12 @@ mod tests {
             .collect();
         assert_eq!(
             names,
-            ["draftflow_sessions", "draftflow_read", "draftflow_execute", "draftflow_capture"]
+            [
+                "draftflow_sessions",
+                "draftflow_read",
+                "draftflow_execute",
+                "draftflow_capture"
+            ]
         );
         // The build announcement must live in the entry-point tool
         // description: global instructions don't reliably reach agents.
@@ -3567,7 +3580,12 @@ mod tests {
         .unwrap();
         assert_eq!(unknown["error"]["code"], -32602);
         let message = unknown["error"]["message"].as_str().unwrap();
-        for name in ["draftflow_sessions", "draftflow_read", "draftflow_execute", "draftflow_capture"] {
+        for name in [
+            "draftflow_sessions",
+            "draftflow_read",
+            "draftflow_execute",
+            "draftflow_capture",
+        ] {
             assert!(message.contains(name), "{message}");
         }
     }
@@ -3837,7 +3855,10 @@ mod tests {
         )
         .unwrap();
         assert_eq!(guided["ok"], false);
-        assert!(guided["error"].as_str().unwrap().contains("draftflow_capture"));
+        assert!(guided["error"]
+            .as_str()
+            .unwrap()
+            .contains("draftflow_capture"));
     }
 
     #[test]

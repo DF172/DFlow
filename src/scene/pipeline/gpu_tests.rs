@@ -1100,14 +1100,30 @@ fn x1_cycle_fade_highlight_frame_cost() {
 
     // Warm-up: the first upload allocates arenas/buffers; exclude it.
     pipeline.upload_selected_wires(
-        &device, &queue, &wires, &selected, &hover_steady, &[], &depth, None, None,
+        &device,
+        &queue,
+        &wires,
+        &selected,
+        &hover_steady,
+        &[],
+        &depth,
+        None,
+        None,
     );
 
     let mut steady_ms = Vec::new();
     for _ in 0..4 {
         let t0 = std::time::Instant::now();
         pipeline.upload_selected_wires(
-            &device, &queue, &wires, &selected, &hover_steady, &[], &depth, None, None,
+            &device,
+            &queue,
+            &wires,
+            &selected,
+            &hover_steady,
+            &[],
+            &depth,
+            None,
+            None,
         );
         steady_ms.push(t0.elapsed().as_secs_f64() * 1000.0);
     }
@@ -1116,7 +1132,15 @@ fn x1_cycle_fade_highlight_frame_cost() {
         let fade = (old_set.clone(), new_set.clone(), t);
         let t0 = std::time::Instant::now();
         pipeline.upload_selected_wires(
-            &device, &queue, &wires, &selected, &hover_fade, &[], &depth, None, Some(&fade),
+            &device,
+            &queue,
+            &wires,
+            &selected,
+            &hover_fade,
+            &[],
+            &depth,
+            None,
+            Some(&fade),
         );
         fade_ms.push(t0.elapsed().as_secs_f64() * 1000.0);
     }
@@ -1154,7 +1178,11 @@ fn x1_cycle_fade_highlight_frame_cost() {
     let mut cache = wire_gpu::BlockGeometryCache::default();
     let first = pipeline.upload_block_wires(&device, &queue, &refs, &depth, &mut cache);
     let second = pipeline.upload_block_wires(&device, &queue, &refs, &depth, &mut cache);
-    assert_eq!(first.len(), 1, "256 条同 source 同 mesh_edge 同色的 wire 必须合并为 1 个批次");
+    assert_eq!(
+        first.len(),
+        1,
+        "256 条同 source 同 mesh_edge 同色的 wire 必须合并为 1 个批次"
+    );
     assert_eq!(first.len(), second.len());
     for (a, b) in first.iter().zip(second.iter()) {
         assert_eq!(

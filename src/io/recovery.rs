@@ -251,11 +251,26 @@ impl RecoveryReport {
         lines.push("DraftFlow CAD drawing recovery report".to_string());
         lines.push(format!("Report schema: {}", REPORT_SCHEMA_VERSION));
         lines.push(format!("Report ID: {}", self.report_id));
-        lines.push(format!("Application version: {}", env!("DRAFTFLOW_APP_VERSION")));
-        lines.push(format!("Application build: {}", env!("DRAFTFLOW_FULL_VERSION")));
-        lines.push(format!("Application revision: {}", env!("DRAFTFLOW_GIT_REV")));
-        lines.push(format!("Build profile: {}", env!("DRAFTFLOW_BUILD_PROFILE")));
-        lines.push(format!("Build features: {}", env!("DRAFTFLOW_BUILD_FEATURES")));
+        lines.push(format!(
+            "Application version: {}",
+            env!("DRAFTFLOW_APP_VERSION")
+        ));
+        lines.push(format!(
+            "Application build: {}",
+            env!("DRAFTFLOW_FULL_VERSION")
+        ));
+        lines.push(format!(
+            "Application revision: {}",
+            env!("DRAFTFLOW_GIT_REV")
+        ));
+        lines.push(format!(
+            "Build profile: {}",
+            env!("DRAFTFLOW_BUILD_PROFILE")
+        ));
+        lines.push(format!(
+            "Build features: {}",
+            env!("DRAFTFLOW_BUILD_FEATURES")
+        ));
         lines.push(format!("Reader version: {}", codec::VERSION));
         lines.push(format!("Reader revision: {}", reader_revision()));
         lines.push(format!("Platform: {}", diagnostic_platform()));
@@ -439,7 +454,6 @@ impl RecoveryReport {
             Err(error) => self.log_error = Some(error),
         }
     }
-
 }
 
 fn display_name(path: &Path) -> String {
@@ -463,7 +477,6 @@ pub fn sha256_file(path: &Path) -> Result<String, String> {
     }
     Ok(hex_digest(hasher.finalize()))
 }
-
 
 fn hex_digest(bytes: impl AsRef<[u8]>) -> String {
     let bytes = bytes.as_ref();
@@ -588,7 +601,6 @@ fn unix_seconds() -> u64 {
         .map(|duration| duration.as_secs())
         .unwrap_or(0)
 }
-
 
 fn safe_stem(value: &str) -> String {
     let filtered: String = value

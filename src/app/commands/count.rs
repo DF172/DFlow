@@ -2,7 +2,7 @@
 //! Count palette (COUNTLIST, COUNTLISTCLOSE), count fields (COUNTFIELD,
 //! UPDATEFIELD), count tables (COUNTTABLE) and the COUNT* variables.
 
-use crate::app::{Message, DraftFlowCAD};
+use crate::app::{DraftFlowCAD, Message};
 use crate::command::CadCommand;
 use crate::modules::annotate::count_cmd::{CountCommand, CountTableCommand, UpdateFieldCommand};
 use crate::modules::annotate::field_cmd::FieldPlaceCommand;

@@ -510,9 +510,15 @@ impl Scene {
 /// index is content-addressed (XOR folding keeps the value stable across
 /// HashMap iteration order) instead of trusting every invalidation site.
 fn mesh_set_signature(meshes: &HashMap<Handle, MeshLodSet>) -> u64 {
-    meshes.iter().fold(meshes.len() as u64, |signature, (handle, _)| {
-        signature ^ handle.value().wrapping_mul(0x9E37_79B9_7F4A_7C15).rotate_left(17)
-    })
+    meshes
+        .iter()
+        .fold(meshes.len() as u64, |signature, (handle, _)| {
+            signature
+                ^ handle
+                    .value()
+                    .wrapping_mul(0x9E37_79B9_7F4A_7C15)
+                    .rotate_left(17)
+        })
 }
 
 /// World-space triangle entries over every mesh's LOD 0, for `solid_face_snaps`.
@@ -1218,7 +1224,6 @@ pub struct OpenTimings {
     /// it indistinguishable from parse time in an open that appeared to stall.
     pub finalize_ms: u32,
 }
-
 
 /// Build open-time caches while reporting monotonic progress in 0..=10000.
 ///
@@ -2341,7 +2346,8 @@ pub struct Scene {
     point_cloud_cache: RefCell<
         HashMap<(Handle, u64), (u64, Arc<crate::scene::model::point_cloud::PointCloudSet>)>,
     >,
-    frozen_mesh_cache: RefCell<HashMap<(Handle, u64), HashMap<String, (u64, Arc<Vec<MeshLodSet>>)>>>,
+    frozen_mesh_cache:
+        RefCell<HashMap<(Handle, u64), HashMap<String, (u64, Arc<Vec<MeshLodSet>>)>>>,
     /// Viewports that carry layer color/alpha/linetype/lineweight overrides.
     /// Cached per geometry epoch so ordinary viewports can share render data.
     viewport_style_override_cache: RefCell<Option<(u64, HashSet<Handle>)>>,
@@ -12038,7 +12044,10 @@ vis_index={:.1} visible_probe={:.1}",
                     continue;
                 }
                 if owner.is_null() || layout_blocks.contains(&owner) {
-                    roots.entry(dependency.block).or_default().insert(common.handle);
+                    roots
+                        .entry(dependency.block)
+                        .or_default()
+                        .insert(common.handle);
                 } else {
                     parents.entry(dependency.block).or_default().insert(owner);
                 }

@@ -1,9 +1,9 @@
 //! Application policy for device navigation. All scene writes run on the UI
 //! thread, preserving active commands and the scene's viewport locks.
-use crate::ui::kit;
-use super::{Message, ModalKind, DraftFlowCAD};
+use super::{DraftFlowCAD, Message, ModalKind};
 use crate::input::spacemouse::{Action, NavigationMode, Target, View};
 use crate::scene::view::camera::Projection;
+use crate::ui::kit;
 use iced::Task;
 
 #[derive(Default)]
@@ -262,7 +262,9 @@ impl DraftFlowCAD {
             // The ring and nothing inside it: a `Space` has no ink to decide. The
             // site typed its border width as a bare `2.`; the rung the kit reads is
             // `EDGE_FRAME`, which is 2.0, so the number reaching iced is unchanged.
-            .style(|theme: &iced::Theme| kit::marker_ring_style(theme.palette().primary.base.color));
+            .style(|theme: &iced::Theme| {
+                kit::marker_ring_style(theme.palette().primary.base.color)
+            });
         Some(
             iced::widget::pin(marker)
                 .position(iced::Point::new(rect.x + p.x - 5., rect.y + p.y - 5.))

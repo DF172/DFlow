@@ -14,9 +14,9 @@ use std::sync::Arc;
 
 use rustc_hash::FxHashMap as HashMap;
 
+use crate::ui::kit::plain_button;
 use codec::types::{Color as AcadColor, LineWeight};
 use iced::widget::{column, container, mouse_area, row, text, Space};
-use crate::ui::kit::plain_button;
 use iced::{Background, Color, Element, Fill, Length, Padding, Theme};
 
 use crate::app::Message;
@@ -629,10 +629,22 @@ impl Ribbon {
             quick_access_btn(crate::ui::icons::SAVE, "Save", "SAVE", theme).into(),
             quick_access_btn(crate::ui::icons::FILE_EXPORT, "Save As", "SAVEAS", theme).into(),
             quick_access_btn(crate::ui::icons::PRINT, "Print", "PRINT", theme).into(),
-            render_history_control("Undo", UNDO_HISTORY_ID, undo_count, &self.open_dropdown, theme)
-                .into(),
-            render_history_control("Redo", REDO_HISTORY_ID, redo_count, &self.open_dropdown, theme)
-                .into(),
+            render_history_control(
+                "Undo",
+                UNDO_HISTORY_ID,
+                undo_count,
+                &self.open_dropdown,
+                theme,
+            )
+            .into(),
+            render_history_control(
+                "Redo",
+                REDO_HISTORY_ID,
+                redo_count,
+                &self.open_dropdown,
+                theme,
+            )
+            .into(),
             quick_access_btn(
                 crate::ui::icons::THEME_TOGGLE,
                 "Theme",
@@ -674,9 +686,12 @@ impl Ribbon {
                 // a Fill child reports an infinite tab, which pushes the wrap
                 // bar to give every tab a row of its own.
                 let face = container(
-                    text(crate::i18n::ribbon_module_title(module.id(), module.title()))
-                        .size(tokens::TEXT_BODY)
-                        .font(tokens::UI_FONT_MEDIUM),
+                    text(crate::i18n::ribbon_module_title(
+                        module.id(),
+                        module.title(),
+                    ))
+                    .size(tokens::TEXT_BODY)
+                    .font(tokens::UI_FONT_MEDIUM),
                 )
                 .padding(kit::PAD_TAB);
                 // The current tab is a pill card (see `kit::tab_plate_style`),
@@ -702,12 +717,8 @@ impl Ribbon {
                         } else {
                             Role::Ghost
                         };
-                        let mut style = style_for(
-                            theme,
-                            status,
-                            role,
-                            if is_active { tab_key } else { "" },
-                        );
+                        let mut style =
+                            style_for(theme, status, role, if is_active { tab_key } else { "" });
                         if is_active {
                             style.border.width = TAB_RING_W;
                             // A faint brand halo lifts the selected tab off the
@@ -718,7 +729,8 @@ impl Ribbon {
                                 ..tokens::elevation(theme, tokens::LIFT_HOVER)
                             };
                         } else if holds_tool {
-                            style.background = Some(tokens::aurora_gradient(theme, HOLDS_TOOL_WASH));
+                            style.background =
+                                Some(tokens::aurora_gradient(theme, HOLDS_TOOL_WASH));
                         }
                         style
                     })
@@ -742,18 +754,13 @@ impl Ribbon {
                 let start_btn = plain_button(kit::rule_under(face, false))
                     .on_press(Message::TabSwitch(start))
                     .style(move |theme: &Theme, status| {
-                        if let Some(style) = kit::tab_plate_style(theme, status, is_start, false)
-                        {
+                        if let Some(style) = kit::tab_plate_style(theme, status, is_start, false) {
                             return style;
                         }
                         style_for(
                             theme,
                             status,
-                            if is_start {
-                                Role::Engaged
-                            } else {
-                                Role::Ghost
-                            },
+                            if is_start { Role::Engaged } else { Role::Ghost },
                             "",
                         )
                     })
@@ -945,12 +952,11 @@ impl Ribbon {
         let tool_bar: Element<'_, Message> = container(tool_area)
             .width(Length::Fill)
             .style(|theme: &Theme| {
-                let tier =
-                    if crate::ui::style::draftflow_theme::draftflow_colors(theme).is_some() {
-                        kit::Tier::Flush
-                    } else {
-                        kit::Tier::Sink
-                    };
+                let tier = if crate::ui::style::draftflow_theme::draftflow_colors(theme).is_some() {
+                    kit::Tier::Flush
+                } else {
+                    kit::Tier::Sink
+                };
                 tier.style(theme, "")
             })
             .into();
@@ -973,7 +979,12 @@ impl Ribbon {
                         // tool band and invert the tier the band exists to create.
                         let mut plane = kit::Tier::Flush.style(theme, "");
                         plane.background = Some(Background::Color(
-                            theme.palette().background.base.color.scale_alpha(RIBBON_SCRIM_A),
+                            theme
+                                .palette()
+                                .background
+                                .base
+                                .color
+                                .scale_alpha(RIBBON_SCRIM_A),
                         ));
                         plane
                     }),
@@ -1094,7 +1105,7 @@ impl Ribbon {
                 .style(|theme: &Theme| kit::Tier::Flush.style(theme, ""))
                 .width(Length::Fixed(170.0));
             // The host keeps its inset and width; the menu's paper is painted by
-        // `popup_plate` — the `Float` rung wearing the field's edge.
+            // `popup_plate` — the `Float` rung wearing the field's edge.
             let panel = kit::popup_plate(panel.into(), "");
 
             let (left, top) = self.dd_anchor(open_id, 170.0, win.0);
@@ -1129,7 +1140,7 @@ impl Ribbon {
                 .style(|theme: &Theme| kit::Tier::Flush.style(theme, ""))
                 .width(Length::Fixed(W));
             // The host keeps its inset and width; the menu's paper is painted by
-        // `popup_plate` — the `Float` rung wearing the field's edge.
+            // `popup_plate` — the `Float` rung wearing the field's edge.
             let panel = kit::popup_plate(panel.into(), "");
 
             let (left, top) = self.dd_anchor(open_id, W, win.0);
@@ -1307,7 +1318,9 @@ impl Ribbon {
                 // icon buttons above handle their own toggles. The active
                 // layer's row is the engaged one.
                 let select = kit::list_row(
-                    row![swatch, label].spacing(tokens::GAP_TIGHT).align_y(iced::Center),
+                    row![swatch, label]
+                        .spacing(tokens::GAP_TIGHT)
+                        .align_y(iced::Center),
                     is_active,
                     kit::Press::On(Message::RibbonLayerChanged(name)),
                     "",
@@ -1376,11 +1389,7 @@ impl Ribbon {
     /// style combo. Built as an overlay — like the layer combo and the
     /// Draw-tab dropdowns — so the list grows to fit its entries instead of
     /// being clipped to the ribbon-row height. (#153)
-    fn style_combo_overlay(
-        &self,
-        open_id: &str,
-        win: (f32, f32),
-    ) -> Option<Element<'_, Message>> {
+    fn style_combo_overlay(&self, open_id: &str, win: (f32, f32)) -> Option<Element<'_, Message>> {
         let groups = self.modules.get(self.active)?.ribbon_groups();
 
         // Locate the open style combo; capture its style key + manager command.
@@ -1470,19 +1479,13 @@ impl Ribbon {
     ) -> Option<Element<'_, Message>> {
         let panel = color_dropdown::color_dropdown_panel(self.active_color, recent_colors);
 
-        let (left, top) =
-            self.dd_anchor(PROP_COLOR_ID, color_dropdown::PANEL_W, win.0);
+        let (left, top) = self.dd_anchor(PROP_COLOR_ID, color_dropdown::PANEL_W, win.0);
         Some(dropdown_backdrop(position_ribbon_dropdown(
-            panel,
-            left,
-            top,
+            panel, left, top,
         )))
     }
 
-    fn prop_linetype_overlay(
-        &self,
-        win: (f32, f32),
-    ) -> Option<Element<'_, Message>> {
+    fn prop_linetype_overlay(&self, win: (f32, f32)) -> Option<Element<'_, Message>> {
         let active_lt = &self.active_linetype;
 
         let mut items: Vec<LinetypeItem> = vec![
@@ -1602,9 +1605,7 @@ fn group_divider<'a>() -> Element<'a, Message> {
 /// own id and for the command its face currently runs.
 fn strip_matches(item: &RibbonItem, want: &str) -> bool {
     match item {
-        RibbonItem::Tool(t) | RibbonItem::LabeledTool(t) | RibbonItem::LargeTool(t) => {
-            t.id == want
-        }
+        RibbonItem::Tool(t) | RibbonItem::LabeledTool(t) | RibbonItem::LargeTool(t) => t.id == want,
         RibbonItem::Dropdown { id, default, .. }
         | RibbonItem::LargeDropdown { id, default, .. }
         | RibbonItem::LabeledDropdown { id, default, .. } => *id == want || *default == want,
@@ -1662,8 +1663,7 @@ fn sheet_strip_items<'a>(
             return None;
         }
         let ids: Vec<&'static str> = group.tools.iter().filter_map(item_id).collect();
-        draw_panel::group_panel_id(title, &ids)
-            .map(|panel| widgets::render_strip_more(panel, ctx))
+        draw_panel::group_panel_id(title, &ids).map(|panel| widgets::render_strip_more(panel, ctx))
     };
 
     let mut out: Vec<Element<'a, Message>> = Vec::new();
@@ -1783,7 +1783,14 @@ fn render_group<'a>(
             flush_small_col(&mut small_buf, &mut items_row);
             items_row.push(render_large(item, &ctx));
         } else {
-            small_buf.push(render_small(item, active_tool, open_dd, last_cmd, state, theme));
+            small_buf.push(render_small(
+                item,
+                active_tool,
+                open_dd,
+                last_cmd,
+                state,
+                theme,
+            ));
             if small_buf.len() == 3 {
                 flush_small_col(&mut small_buf, &mut items_row);
             }
@@ -1791,11 +1798,13 @@ fn render_group<'a>(
     }
     flush_small_col(&mut small_buf, &mut items_row);
 
-    let tools_el = items_row
-        .into_iter()
-        .fold(row![].spacing(tokens::GAP_HAIRLINE).height(Fill).align_y(iced::Top), |r, e| {
-            r.push(e)
-        });
+    let tools_el = items_row.into_iter().fold(
+        row![]
+            .spacing(tokens::GAP_HAIRLINE)
+            .height(Fill)
+            .align_y(iced::Top),
+        |r, e| r.push(e),
+    );
 
     // Panels are separated by one hairline the way the sheet separates its
     // columns: no card, no second plane, no corner. The rule belongs to the
@@ -2073,7 +2082,10 @@ mod tests {
         // pixels inside the window.
         for centre in [0.0, 120.0, 600.0, 1080.0, 1200.0] {
             let left = dropdown_left(centre, 240.0, 1200.0);
-            assert!(left >= 4.0 && left + 240.0 <= 1198.0, "centre {centre}: left {left}");
+            assert!(
+                left >= 4.0 && left + 240.0 <= 1198.0,
+                "centre {centre}: left {left}"
+            );
         }
     }
 
@@ -2183,7 +2195,9 @@ mod tests {
         }
         for want in shown {
             assert!(
-                renderable.iter().any(|item| super::strip_matches(item, want)),
+                renderable
+                    .iter()
+                    .any(|item| super::strip_matches(item, want)),
                 "the row names {want}, which the Draw group does not own"
             );
         }
@@ -2198,11 +2212,9 @@ mod tests {
 
     #[test]
     fn the_open_ring_reads_a_track_the_update_side_owns() {
-        let view = std::fs::read_to_string(concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/src/app/view/mod.rs"
-        ))
-        .expect("the main view must be readable");
+        let view =
+            std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/src/app/view/mod.rs"))
+                .expect("the main view must be readable");
         let view = paint_side(&view);
         assert!(
             view.contains("motion::value_or(crate::ui::motion::PROGRESS"),
@@ -2217,11 +2229,9 @@ mod tests {
             "the view no longer builds the ring it hands the ribbon"
         );
 
-        let ribbon = std::fs::read_to_string(concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/src/ui/ribbon/mod.rs"
-        ))
-        .expect("the ribbon must be readable");
+        let ribbon =
+            std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/src/ui/ribbon/mod.rs"))
+                .expect("the ribbon must be readable");
         let ribbon = paint_side(&ribbon);
         assert!(
             ribbon.contains("kit::progress_ring("),

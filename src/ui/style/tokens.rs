@@ -308,7 +308,7 @@ pub const UI_FONT_BOLD: iced::Font = UI_FONT.weight(iced::font::Weight::Bold);
 /// than roles read from the active theme. The design record with the
 /// contrast measurements lives in `D:\tmp\splash-b284\06-tokens.md`.
 pub mod splash {
-    use iced::{Color, font, Font};
+    use iced::{font, Color, Font};
 
     /// The dark sheet's shell — the same value the start page sits on.
     pub const GROUND: Color = Color::from_rgb8(0x14, 0x16, 0x19);
@@ -724,7 +724,11 @@ pub fn selection_fill(theme: &Theme) -> Color {
     if let Some(colors) = super::draftflow_theme::draftflow_colors(theme) {
         return colors.selected_row;
     }
-    palette_of(theme).primary.weak.color.scale_alpha(TINT_SELECTED)
+    palette_of(theme)
+        .primary
+        .weak
+        .color
+        .scale_alpha(TINT_SELECTED)
 }
 
 /// The fill of a selected row while the pointer is down on it.
@@ -733,7 +737,11 @@ pub fn selection_press_fill(theme: &Theme) -> Color {
     if let Some(colors) = super::draftflow_theme::draftflow_colors(theme) {
         return colors.active;
     }
-    palette_of(theme).primary.weak.color.scale_alpha(TINT_ENGAGED)
+    palette_of(theme)
+        .primary
+        .weak
+        .color
+        .scale_alpha(TINT_ENGAGED)
 }
 
 /// The edge of an editable field. The sheet gives fields `line-strong`, one
@@ -976,7 +984,11 @@ pub fn surface(theme: &Theme, rank: Rank) -> Color {
 /// place that turns a perceptual distance into a mix ratio.
 fn plane(theme: &Theme, l: f32) -> Color {
     let base = theme.palette().background.base.color;
-    let dir = if l >= 0.0 { Direction::Up } else { Direction::Down };
+    let dir = if l >= 0.0 {
+        Direction::Up
+    } else {
+        Direction::Down
+    };
     let target = (common::lstar(base) + l).clamp(0.0, 100.0);
     let y_base = common::wcag_luminance(base);
     let y_target = common::lstar_to_luminance(target);
@@ -1023,7 +1035,9 @@ pub fn aurora_gradient(theme: &Theme, alpha: f32) -> Background {
     let linear = iced::gradient::Linear::new(iced::Radians(std::f32::consts::FRAC_PI_4))
         .add_stop(0.0, aurora_hi(theme))
         .add_stop(1.0, aurora_lo(theme));
-    Background::Gradient(iced::Gradient::Linear(linear.scale_alpha(alpha.clamp(0.0, 1.0))))
+    Background::Gradient(iced::Gradient::Linear(
+        linear.scale_alpha(alpha.clamp(0.0, 1.0)),
+    ))
 }
 
 /// The single-colour stand-in for the aurora on 1px accents (borders, ticks,
@@ -1336,8 +1350,7 @@ pub fn legible_on(ink: Color, plate: Color, min: f32) -> Color {
     // this file has already met (see [`hero`]). Hand back the stronger extreme so
     // the caller's guard names the plate instead of shipping a colour that
     // quietly cannot work.
-    if common::wcag_contrast(PLATE_INK_LIGHT, plate)
-        >= common::wcag_contrast(PLATE_INK_DARK, plate)
+    if common::wcag_contrast(PLATE_INK_LIGHT, plate) >= common::wcag_contrast(PLATE_INK_DARK, plate)
     {
         PLATE_INK_LIGHT
     } else {
@@ -1861,14 +1874,20 @@ mod tests {
         assert!(hover.blur_radius > rest.blur_radius);
         assert!(hover.color.a > rest.color.a);
         // An out-of-range step saturates rather than inverting the ladder.
-        assert_eq!(elevation(&theme, 9.0).blur_radius, elevation(&theme, 3.0).blur_radius);
+        assert_eq!(
+            elevation(&theme, 9.0).blur_radius,
+            elevation(&theme, 3.0).blur_radius
+        );
         assert_eq!(elevation(&theme, -2.0).color.a, 0.0);
         // Every reachable step has to stay inside `a <= 1.0`. `scale_alpha`
         // does not clamp, so an out-of-range alpha would draw a solid slab
         // behind the panel rather than a soft shadow.
         for lift in [0.0f32, 1.0, 2.0, 3.0, 9.0] {
             let a = elevation(&theme, lift).color.a;
-            assert!(a >= 0.0 && a <= 1.0, "{theme} at lift {lift}: alpha {a} escapes gamut");
+            assert!(
+                a >= 0.0 && a <= 1.0,
+                "{theme} at lift {lift}: alpha {a} escapes gamut"
+            );
         }
     }
 
@@ -1889,7 +1908,12 @@ mod tests {
             for step in 0..20 {
                 let y = 0.02 + step as f32 * 0.05;
                 let plate = pull_to_luminance(hue, y);
-                for rung in [0.0f32, HERO_DIP_REST, SIGNAL_DIP_REST, PLATE_LADDER_DEEPEST_DIP] {
+                for rung in [
+                    0.0f32,
+                    HERO_DIP_REST,
+                    SIGNAL_DIP_REST,
+                    PLATE_LADDER_DEEPEST_DIP,
+                ] {
                     let (p, ink) = painted(plate, rung);
                     let c = common::wcag_contrast(p, ink);
                     assert!(
@@ -1927,12 +1951,12 @@ mod tests {
         use crate::ui::style::common;
         let plates = [
             Color::from_rgb(0.98, 0.98, 0.99), // near-white recess
-            Color::from_rgb(0.75, 0.55, 0.55),  // a light danger tint
-            Color::from_rgb(0.30, 0.16, 0.17),  // a dark one
-            Color::from_rgb(0.06, 0.06, 0.08),  // near-black page
-            Color::from_rgb(0.47, 0.47, 0.47),  // Y 0.187: inside the headroom
-            // aim's dead band, the shape Moonfly's danger recess has — the plate
-            // that made the fallback land exactly on the bar.
+            Color::from_rgb(0.75, 0.55, 0.55), // a light danger tint
+            Color::from_rgb(0.30, 0.16, 0.17), // a dark one
+            Color::from_rgb(0.06, 0.06, 0.08), // near-black page
+            Color::from_rgb(0.47, 0.47, 0.47), // Y 0.187: inside the headroom
+                                               // aim's dead band, the shape Moonfly's danger recess has — the plate
+                                               // that made the fallback land exactly on the bar.
         ];
         for plate in plates {
             for hue in [
@@ -1980,7 +2004,8 @@ mod tests {
                     // unless the candidate was already the answer.
                     if out != ink {
                         let was = (0..3).max_by_key(|i| (before_lin(ink)[*i] * 1e6) as i32);
-                        let now = (0..3).max_by_key(|i| (before_lin(Color { a: 1.0, ..out })[*i] * 1e6) as i32);
+                        let now = (0..3)
+                            .max_by_key(|i| (before_lin(Color { a: 1.0, ..out })[*i] * 1e6) as i32);
                         assert_eq!(
                             was, now,
                             "pulling {ink:?} to clear 3.0 on {plate:?} moved its leading \
@@ -2005,7 +2030,8 @@ mod tests {
             AA_INK_CONTRAST,
         );
         assert_eq!(
-            kept.a, INK_PLACEHOLDER,
+            kept.a,
+            INK_PLACEHOLDER,
             "a rung painting at {:.2}:1 on a near-white recess got pulled anyway",
             common::wcag_contrast(over(kept, light), light)
         );
@@ -2016,7 +2042,10 @@ mod tests {
             mid_tint,
             AA_INK_CONTRAST,
         );
-        assert_eq!(failed.a, 1.0, "an ink that cannot reach AA stayed translucent");
+        assert_eq!(
+            failed.a, 1.0,
+            "an ink that cannot reach AA stayed translucent"
+        );
         assert!(
             common::wcag_contrast(failed, mid_tint) >= AA_INK_CONTRAST,
             "the pull on a mid pink tint landed at {:.2}:1",

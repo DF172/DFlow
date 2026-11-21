@@ -45,14 +45,10 @@ use codec::{CadDocument, DxfReader, DxfWriter, EntityType};
 use glam::{DVec3, Mat4, Vec3};
 use iced::{Color, Point, Rectangle};
 
-use DraftFlowCAD::scene::parametric_constraints::{
-    ConstraintKind, ParametricRef, ParametricScope,
-};
+use DraftFlowCAD::scene::parametric_constraints::{ConstraintKind, ParametricRef, ParametricScope};
 use DraftFlowCAD::scene::pick::hit_test::{box_hit, click_hit};
 use DraftFlowCAD::scene::pick::interaction_index::InteractionIndex;
-use DraftFlowCAD::scene::pick::selection_state::{
-    SelectionGesture, SelectionState, SelectionView,
-};
+use DraftFlowCAD::scene::pick::selection_state::{SelectionGesture, SelectionState, SelectionView};
 use DraftFlowCAD::scene::pipeline::wire_arena::partition_wires;
 use DraftFlowCAD::scene::view::camera::Camera;
 use DraftFlowCAD::scene::{ChangeKind, Scene};

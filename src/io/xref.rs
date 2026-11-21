@@ -187,9 +187,6 @@ fn take_parsed(key: &str) -> Option<codec::ReadOutcome> {
         .remove(key)
 }
 
-
-
-
 /// Scan `doc` for XREF block-records, resolve their paths relative to
 /// `base_dir`, and populate each xref block with entities from the
 /// referenced file.
@@ -551,7 +548,6 @@ pub fn layer_overrides(doc: &CadDocument, name: &str, raw_path: &str, base_dir: 
         here != *original
     })
 }
-
 
 /// Try to build an absolute path from a raw xref path string.
 /// Handles absolute paths, relative paths, and Windows-style separators.

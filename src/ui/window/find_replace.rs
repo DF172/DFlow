@@ -1,9 +1,9 @@
 use crate::app::Message;
 use crate::t;
 use crate::ui::kit;
+use crate::ui::style::tokens;
 use iced::widget::{column, row, text, text_input, Space};
 use iced::{Element, Fill, Length, Shrink};
-use crate::ui::style::tokens;
 
 pub const FIND_INPUT_ID: &str = "find-replace-search";
 

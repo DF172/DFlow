@@ -5385,10 +5385,18 @@ fn append_linear_dimension(
     let beyond_d2 = chase_text.then_some(text_beyond_d2).flatten();
     if (arrows_outside && !params.dimsoxd) || beyond_d1.is_some() || beyond_d2.is_some() {
         if !suppress.dim1 && (arrows_outside || beyond_d1.is_some()) {
-            add_segment(&mut g.dim_lines, d1 - dir_d1_to_d2 * reach(stub, beyond_d1), d1);
+            add_segment(
+                &mut g.dim_lines,
+                d1 - dir_d1_to_d2 * reach(stub, beyond_d1),
+                d1,
+            );
         }
         if !suppress.dim2 && (arrows_outside || beyond_d2.is_some()) {
-            add_segment(&mut g.dim_lines, d2, d2 + dir_d1_to_d2 * reach(stub, beyond_d2));
+            add_segment(
+                &mut g.dim_lines,
+                d2,
+                d2 + dir_d1_to_d2 * reach(stub, beyond_d2),
+            );
         }
     }
 
@@ -7139,7 +7147,8 @@ fn apply_dimpost(value: &str, style: Option<&DimStyle>) -> String {
 /// inches has nothing in the model to interpolate — the app eases a ratio
 /// (`old DIMLFAC / new DIMLFAC` → 1) in its motion layer and parks the current
 /// sample here. `1.0` is both the boot value and the settled value.
-static DISPLAY_SCALE_BITS: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0x3F80_0000);
+static DISPLAY_SCALE_BITS: std::sync::atomic::AtomicU32 =
+    std::sync::atomic::AtomicU32::new(0x3F80_0000);
 
 /// Publishes the current unit-switch multiplier (see [`DISPLAY_SCALE_BITS`]).
 /// Non-finite or non-positive values are dropped: a bad sample must never
@@ -9594,12 +9603,18 @@ mod f3_display_scale_scope {
             before_b, base_b,
             "the ungated global publish scaled doc B (the reproduced defect)"
         );
-        assert_eq!(before_a, before_b, "one global multiplier hit both documents");
+        assert_eq!(
+            before_a, before_b,
+            "one global multiplier hit both documents"
+        );
 
         // (2) AFTER fix (b), A active: the owner's chase value is published, so
         // the active document A still animates its own unit switch.
         let after_a = dimension_text_value(&dim, Some(&style_a)).expect("after a");
-        assert_ne!(after_a, base_a, "the active document A animates its own switch");
+        assert_ne!(
+            after_a, base_a,
+            "the active document A animates its own switch"
+        );
 
         // (3) Tab switch to B: the publish point lands the chase at 1.0 instantly
         // (item 22's contract). B reads its true value, effective_dimlfac is 1.0,
@@ -9608,7 +9623,10 @@ mod f3_display_scale_scope {
         let switch_b = dimension_text_value(&dim, Some(&style_b)).expect("switch b");
         let eff_b = effective_dimlfac(Some(&style_b));
         let scale_at_switch = display_scale();
-        assert_eq!(switch_b, base_b, "doc B is independent: its text never changed");
+        assert_eq!(
+            switch_b, base_b,
+            "doc B is independent: its text never changed"
+        );
         assert!(
             (eff_b - 1.0).abs() < 1e-9,
             "doc B effective_dimlfac stays 1.0 under the publish rule"
@@ -9620,7 +9638,10 @@ mod f3_display_scale_scope {
 
         // (4) Switch back to A: still 1.0 — the old chase left no residual.
         let back_a = dimension_text_value(&dim, Some(&style_a)).expect("back a");
-        assert_eq!(back_a, base_a, "switching back reads no residual multiplier");
+        assert_eq!(
+            back_a, base_a,
+            "switching back reads no residual multiplier"
+        );
 
         eprintln!(
             "[F3] base_a={base_a} base_b={base_b} | before_ungated a={before_a} b={before_b} | \

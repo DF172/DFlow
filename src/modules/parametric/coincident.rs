@@ -110,7 +110,8 @@ impl CadCommand for CoincidentConstraintCommand {
             Step::AutoConstrain { handles } => crate::tf!(
                 "COINCIDENT  Select objects ({} selected, Enter = apply):",
                 handles.len()
-            ).into_owned(),
+            )
+            .into_owned(),
         }
     }
 

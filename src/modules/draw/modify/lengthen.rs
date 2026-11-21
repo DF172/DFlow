@@ -98,30 +98,27 @@ impl CadCommand for LengthenCommand {
                     |length| crate::tf!("Length: {length:.4}  {prompt}").into_owned(),
                 )
             }
-            LenState::Value(ValueMode::Delta) => crate::tf!(
-                "LENGTHEN  Enter delta length <{}>:",
-                defaults().delta
-            ).into_owned(),
-            LenState::Value(ValueMode::Total) => crate::tf!(
-                "LENGTHEN  Enter total length <{}>:",
-                defaults().total
-            ).into_owned(),
+            LenState::Value(ValueMode::Delta) => {
+                crate::tf!("LENGTHEN  Enter delta length <{}>:", defaults().delta).into_owned()
+            }
+            LenState::Value(ValueMode::Total) => {
+                crate::tf!("LENGTHEN  Enter total length <{}>:", defaults().total).into_owned()
+            }
             LenState::Value(ValueMode::Percent) => crate::tf!(
                 "LENGTHEN  Enter percentage length <{}>:",
                 defaults().percent
-            ).into_owned(),
+            )
+            .into_owned(),
             LenState::Value(ValueMode::DeltaAngle) => crate::tf!(
                 "LENGTHEN  Enter delta angle <{}>:",
-                crate::entities::common::format_angle(
-                    defaults().delta_angle.to_radians(),
-                )
-            ).into_owned(),
+                crate::entities::common::format_angle(defaults().delta_angle.to_radians(),)
+            )
+            .into_owned(),
             LenState::Value(ValueMode::TotalAngle) => crate::tf!(
                 "LENGTHEN  Enter total angle <{}>:",
-                crate::entities::common::format_angle(
-                    defaults().total_angle.to_radians(),
-                )
-            ).into_owned(),
+                crate::entities::common::format_angle(defaults().total_angle.to_radians(),)
+            )
+            .into_owned(),
             LenState::DynamicPoint { .. } => "LENGTHEN  Specify new end point:".into(),
             LenState::Apply(_) | LenState::DynamicPick | LenState::Value(ValueMode::Dynamic) => {
                 t!("LENGTHEN  Select an object to change or [Undo]:").into_owned()

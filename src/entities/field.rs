@@ -33,7 +33,7 @@ impl FieldContext for CadFieldContext<'_> {
                 julian(meta.modified().ok()?)?,
             ));
         }
-}
+    }
 
     fn login(&self) -> Option<String> {
         // The account's display name, as the reference shows it.
@@ -61,7 +61,7 @@ impl FieldContext for CadFieldContext<'_> {
             let path = self.0?.source_path.as_deref()?;
             return std::fs::metadata(path).ok().map(|m| m.len());
         }
-}
+    }
 
     fn date_locale(&self) -> codec::fields::DateLocale {
         os_date_locale()

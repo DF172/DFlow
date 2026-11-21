@@ -1251,9 +1251,7 @@ pub fn validate_request_deferred(
     for (k, _) in obj {
         if !allowed.contains(&k.as_str()) {
             if k == "data_base64" {
-                warnings.push(
-                    "data_base64 is not supported; supply a path".into(),
-                );
+                warnings.push("data_base64 is not supported; supply a path".into());
             } else {
                 warnings.push(format!(
                     "unknown parameter '{k}' ignored for op '{op_name}'"

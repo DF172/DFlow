@@ -39,11 +39,7 @@ fn point_field(req: &Value, key: &str) -> Parsed<codec::types::Vector3> {
     point_value(req.get(key), key, "invalid_point")
 }
 
-fn point_list_field(
-    spec: &Value,
-    key: &str,
-    minimum: usize,
-) -> Parsed<Vec<codec::types::Vector3>> {
+fn point_list_field(spec: &Value, key: &str, minimum: usize) -> Parsed<Vec<codec::types::Vector3>> {
     let points = spec[key]
         .as_array()
         .filter(|points| points.len() >= minimum)
@@ -70,7 +66,12 @@ fn finite_number_list_field(spec: &Value, key: &str) -> Parsed<Vec<f64>> {
     let values = spec[key]
         .as_array()
         .filter(|values| !values.is_empty())
-        .ok_or_else(|| failure("invalid_spline_values", format!("{key} needs a non-empty array")))?;
+        .ok_or_else(|| {
+            failure(
+                "invalid_spline_values",
+                format!("{key} needs a non-empty array"),
+            )
+        })?;
     values
         .iter()
         .enumerate()
@@ -103,15 +104,35 @@ fn validate_entity_fields(spec: &Value, kind: &str) -> Parsed<()> {
                 field.as_str(),
                 "type" | "start" | "end" | "thickness" | "layer" | "color"
             ),
-            "CIRCLE" => matches!(field.as_str(), "type" | "center" | "radius" | "layer" | "color"),
+            "CIRCLE" => matches!(
+                field.as_str(),
+                "type" | "center" | "radius" | "layer" | "color"
+            ),
             "ARC" => matches!(
                 field.as_str(),
-                "type" | "center" | "radius" | "start_angle_deg" | "end_angle_deg" | "layer" | "color"
+                "type"
+                    | "center"
+                    | "radius"
+                    | "start_angle_deg"
+                    | "end_angle_deg"
+                    | "layer"
+                    | "color"
             ),
             "SPLINE" => matches!(
                 field.as_str(),
-                "type" | "degree" | "knots" | "control_points" | "fit_points" | "weights"
-                    | "closed" | "periodic" | "rational" | "planar" | "linear" | "layer" | "color"
+                "type"
+                    | "degree"
+                    | "knots"
+                    | "control_points"
+                    | "fit_points"
+                    | "weights"
+                    | "closed"
+                    | "periodic"
+                    | "rational"
+                    | "planar"
+                    | "linear"
+                    | "layer"
+                    | "color"
             ),
             "LWPOLYLINE" | "POLYLINE" => matches!(
                 field.as_str(),
@@ -120,11 +141,26 @@ fn validate_entity_fields(spec: &Value, kind: &str) -> Parsed<()> {
             "POINT" => matches!(field.as_str(), "type" | "location" | "layer" | "color"),
             "TEXT" => matches!(
                 field.as_str(),
-                "type" | "value" | "position" | "height" | "rotation_deg" | "style" | "layer" | "color"
+                "type"
+                    | "value"
+                    | "position"
+                    | "height"
+                    | "rotation_deg"
+                    | "style"
+                    | "layer"
+                    | "color"
             ),
             "MTEXT" => matches!(
                 field.as_str(),
-                "type" | "value" | "position" | "height" | "width" | "rotation_deg" | "style" | "layer" | "color"
+                "type"
+                    | "value"
+                    | "position"
+                    | "height"
+                    | "width"
+                    | "rotation_deg"
+                    | "style"
+                    | "layer"
+                    | "color"
             ),
             "INSERT" => matches!(
                 field.as_str(),
@@ -133,7 +169,14 @@ fn validate_entity_fields(spec: &Value, kind: &str) -> Parsed<()> {
             "SOLID" => matches!(field.as_str(), "type" | "corners" | "layer" | "color"),
             "HATCH" => matches!(
                 field.as_str(),
-                "type" | "boundary" | "solid" | "pattern" | "pattern_scale" | "pattern_angle_deg" | "layer" | "color"
+                "type"
+                    | "boundary"
+                    | "solid"
+                    | "pattern"
+                    | "pattern_scale"
+                    | "pattern_angle_deg"
+                    | "layer"
+                    | "color"
             ),
             _ => true,
         };

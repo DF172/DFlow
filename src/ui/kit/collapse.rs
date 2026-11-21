@@ -25,10 +25,7 @@ use iced::{mouse, Element, Event, Length, Rectangle, Renderer, Size, Theme, Vect
 ///
 /// `progress` is read by the caller every frame (usually from a
 /// [`crate::ui::motion`] track), so the widget itself holds no clock.
-pub fn collapse<'a, M: 'a>(
-    progress: f32,
-    content: Element<'a, M>,
-) -> Element<'a, M> {
+pub fn collapse<'a, M: 'a>(progress: f32, content: Element<'a, M>) -> Element<'a, M> {
     Element::new(Collapse {
         content,
         progress: progress.clamp(0.0, 1.0),
@@ -155,9 +152,15 @@ impl<M> Widget<M, Theme, Renderer> for Collapse<'_, M> {
         let bounds = layout.bounds();
         let visible = bounds.intersection(viewport).unwrap_or(bounds);
         renderer.with_layer(visible, |renderer| {
-            self.content
-                .as_widget()
-                .draw(&tree.children[0], renderer, theme, style, child, cursor, viewport);
+            self.content.as_widget().draw(
+                &tree.children[0],
+                renderer,
+                theme,
+                style,
+                child,
+                cursor,
+                viewport,
+            );
         });
     }
 

@@ -170,73 +170,70 @@ impl DraftFlowCAD {
             // collected from the session's bytes registries and delivered as a
             // "<name>_transmit.zip" download (`archive_web` below).
             "ARCHIVE" | "ETRANSMIT" => {
-                {
-                    use std::path::PathBuf;
-                    if let Some(src) = self.tabs[i].current_path.clone() {
-                        let stem = src
-                            .file_stem()
-                            .map(|s| s.to_string_lossy().into_owned())
-                            .unwrap_or_else(|| "drawing".into());
-                        let parent = src
-                            .parent()
-                            .map(|p| p.to_path_buf())
-                            .unwrap_or_else(|| PathBuf::from("."));
-                        let folder = parent.join(format!("{stem}_archive"));
-                        match std::fs::create_dir_all(&folder) {
-                            Ok(()) => {
-                                let mut copied = 0usize;
-                                if let Some(fname) = src.file_name() {
-                                    if std::fs::copy(&src, folder.join(fname)).is_ok() {
-                                        copied += 1;
-                                    }
+                use std::path::PathBuf;
+                if let Some(src) = self.tabs[i].current_path.clone() {
+                    let stem = src
+                        .file_stem()
+                        .map(|s| s.to_string_lossy().into_owned())
+                        .unwrap_or_else(|| "drawing".into());
+                    let parent = src
+                        .parent()
+                        .map(|p| p.to_path_buf())
+                        .unwrap_or_else(|| PathBuf::from("."));
+                    let folder = parent.join(format!("{stem}_archive"));
+                    match std::fs::create_dir_all(&folder) {
+                        Ok(()) => {
+                            let mut copied = 0usize;
+                            if let Some(fname) = src.file_name() {
+                                if std::fs::copy(&src, folder.join(fname)).is_ok() {
+                                    copied += 1;
                                 }
-                                let mut deps: Vec<String> = Vec::new();
-                                for br in self.tabs[i].scene.document.block_records.iter() {
-                                    if !br.xref_path.trim().is_empty() {
-                                        deps.push(br.xref_path.clone());
-                                    }
-                                }
-                                for e in self.tabs[i].scene.document.entities() {
-                                    if let codec::EntityType::RasterImage(img) = e {
-                                        if !img.file_path.trim().is_empty() {
-                                            deps.push(img.file_path.clone());
-                                        }
-                                    }
-                                }
-                                for d in deps {
-                                    let dp = PathBuf::from(&d);
-                                    let resolved = if dp.is_absolute() {
-                                        dp
-                                    } else {
-                                        parent.join(&dp)
-                                    };
-                                    if resolved.exists() {
-                                        if let Some(fname) = resolved.file_name() {
-                                            if std::fs::copy(&resolved, folder.join(fname)).is_ok()
-                                            {
-                                                copied += 1;
-                                            }
-                                        }
-                                    }
-                                }
-                                self.command_line.push_output(
-                                    crate::tf!(
-                                        "{cmd}: packaged {copied} file(s) into {}",
-                                        folder.display()
-                                    )
-                                    .as_ref(),
-                                );
                             }
-                            Err(e) => self.command_line.push_error(
-                                crate::tf!("{cmd}: cannot create folder ({e}).").as_ref(),
-                            ),
-                        }
-                    } else {
-                        self.command_line.push_error(
-                            crate::t!("ARCHIVE: save the drawing first (it has no file path yet).")
+                            let mut deps: Vec<String> = Vec::new();
+                            for br in self.tabs[i].scene.document.block_records.iter() {
+                                if !br.xref_path.trim().is_empty() {
+                                    deps.push(br.xref_path.clone());
+                                }
+                            }
+                            for e in self.tabs[i].scene.document.entities() {
+                                if let codec::EntityType::RasterImage(img) = e {
+                                    if !img.file_path.trim().is_empty() {
+                                        deps.push(img.file_path.clone());
+                                    }
+                                }
+                            }
+                            for d in deps {
+                                let dp = PathBuf::from(&d);
+                                let resolved = if dp.is_absolute() {
+                                    dp
+                                } else {
+                                    parent.join(&dp)
+                                };
+                                if resolved.exists() {
+                                    if let Some(fname) = resolved.file_name() {
+                                        if std::fs::copy(&resolved, folder.join(fname)).is_ok() {
+                                            copied += 1;
+                                        }
+                                    }
+                                }
+                            }
+                            self.command_line.push_output(
+                                crate::tf!(
+                                    "{cmd}: packaged {copied} file(s) into {}",
+                                    folder.display()
+                                )
                                 .as_ref(),
-                        );
+                            );
+                        }
+                        Err(e) => self
+                            .command_line
+                            .push_error(crate::tf!("{cmd}: cannot create folder ({e}).").as_ref()),
                     }
+                } else {
+                    self.command_line.push_error(
+                        crate::t!("ARCHIVE: save the drawing first (it has no file path yet).")
+                            .as_ref(),
+                    );
                 }
             }
 
@@ -395,21 +392,19 @@ impl DraftFlowCAD {
             // line is fed through the same command path the `--script` startup
             // flag uses. Blank rows submit Enter to the active command.
             "SCRIPT" | "SCR" => {
-                {
-                    return Some(Task::perform(
-                        async move {
-                            crate::sys::file_dialog()
-                                .add_filter("Script files (*.scr)", &["scr"])
-                                .pick_file()
-                                .await
-                                .map(|h| crate::sys::handle_path(&h))
-                        },
-                        |path| match path {
-                            Some(p) => Message::Command(format!("SCRIPT \"{}\"", p.display())),
-                            None => Message::Noop,
-                        },
-                    ));
-                }
+                return Some(Task::perform(
+                    async move {
+                        crate::sys::file_dialog()
+                            .add_filter("Script files (*.scr)", &["scr"])
+                            .pick_file()
+                            .await
+                            .map(|h| crate::sys::handle_path(&h))
+                    },
+                    |path| match path {
+                        Some(p) => Message::Command(format!("SCRIPT \"{}\"", p.display())),
+                        None => Message::Noop,
+                    },
+                ));
             }
             cmd if cmd.starts_with("SCRIPT ") || cmd.starts_with("SCR ") => {
                 let path = cmd.split_once(' ').map(|(_, r)| r.trim().to_string());
@@ -421,7 +416,8 @@ impl DraftFlowCAD {
                                 Ok(text) => return Some(self.run_script(clean_path, &text)),
                                 Err(e) => {
                                     self.command_line.push_error(
-                                        crate::tf!("SCRIPT: cannot read {clean_path}: {e}").as_ref(),
+                                        crate::tf!("SCRIPT: cannot read {clean_path}: {e}")
+                                            .as_ref(),
                                     );
                                 }
                             }
@@ -533,7 +529,7 @@ fn parse_background_color(args: &[&str]) -> Option<[f32; 4]> {
 
 #[cfg(test)]
 mod tests {
-    use crate::app::{Message, DraftFlowCAD};
+    use crate::app::{DraftFlowCAD, Message};
 
     fn fresh_app() -> DraftFlowCAD {
         let mut app = DraftFlowCAD::new_for_test();

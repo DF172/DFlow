@@ -17,15 +17,15 @@ use crate::app::Message;
 use crate::scene::named_parameters::ParameterTable;
 use crate::scene::Scene;
 use crate::t;
+use crate::ui::kit;
 use crate::ui::kit::muted_style;
+use crate::ui::kit::plain_button;
+use crate::ui::style::tokens;
 use codec::types::Handle;
 use codec::EntityType;
 use iced::widget::tooltip::Position as TipPos;
 use iced::widget::{column, container, row, text, text_input, tooltip, Space};
-use crate::ui::kit::plain_button;
 use iced::{Element, Length, Theme};
-use crate::ui::style::tokens;
-use crate::ui::kit;
 
 /// Short "Kind handle" label for an entity without a user-facing name.
 fn entity_label(scene: &Scene, handle: Handle) -> String {
@@ -233,11 +233,24 @@ pub fn view_window<'a>(
         row![
             container(text(t!("Name")).size(tokens::TEXT_LABEL).style(muted_style))
                 .width(Length::Fixed(NAME_WIDTH)),
-            container(text(t!("Formula")).size(tokens::TEXT_LABEL).style(muted_style)).width(sizing.width),
-            container(text(t!("Value")).size(tokens::TEXT_LABEL).style(muted_style))
-                .width(Length::Fixed(VALUE_WIDTH)),
-            container(text(t!("Used by")).size(tokens::TEXT_LABEL).style(muted_style))
-                .width(Length::Fixed(USED_BY_WIDTH)),
+            container(
+                text(t!("Formula"))
+                    .size(tokens::TEXT_LABEL)
+                    .style(muted_style)
+            )
+            .width(sizing.width),
+            container(
+                text(t!("Value"))
+                    .size(tokens::TEXT_LABEL)
+                    .style(muted_style)
+            )
+            .width(Length::Fixed(VALUE_WIDTH)),
+            container(
+                text(t!("Used by"))
+                    .size(tokens::TEXT_LABEL)
+                    .style(muted_style)
+            )
+            .width(Length::Fixed(USED_BY_WIDTH)),
             Space::new().width(Length::Fixed(30.0)),
         ]
         .spacing(tokens::GAP_ROW),
@@ -266,9 +279,12 @@ pub fn view_window<'a>(
             .padding(kit::PAD_FIELD)
             .width(sizing.width);
         let value_cell: Element<'_, Message> = match results.get(idx).cloned().flatten() {
-            Some(Ok(value)) => {
-                container(text(format!("= {value:.4}")).size(tokens::TEXT_BODY).style(muted_style)).into()
-            }
+            Some(Ok(value)) => container(
+                text(format!("= {value:.4}"))
+                    .size(tokens::TEXT_BODY)
+                    .style(muted_style),
+            )
+            .into(),
             Some(Err(msg)) => container(
                 text(msg)
                     .size(tokens::TEXT_LABEL)
@@ -315,7 +331,8 @@ pub fn view_window<'a>(
             hint,
             Space::new().height(tokens::GAP_CONTROL),
             head,
-            crate::ui::kit::themed_scrollable(container(list).padding(gutter)).height(sizing.height),
+            crate::ui::kit::themed_scrollable(container(list).padding(gutter))
+                .height(sizing.height),
             Space::new().height(tokens::GAP_CONTROL),
             row![add, Space::new().width(sizing.width), apply].align_y(iced::Center),
         ]

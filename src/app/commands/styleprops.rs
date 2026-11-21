@@ -717,8 +717,9 @@ impl DraftFlowCAD {
                 {
                     crate::modules::draw::modify::setbylayer::set_mode(mode);
                 } else {
-                    self.command_line
-                        .push_error(crate::t!("SETBYLAYERMODE requires an integer from 0 to 255.").as_ref());
+                    self.command_line.push_error(
+                        crate::t!("SETBYLAYERMODE requires an integer from 0 to 255.").as_ref(),
+                    );
                 }
             }
             "SETBYLAYER" | "-SETBYLAYER" => {
@@ -1328,15 +1329,19 @@ impl DraftFlowCAD {
                                 }
                                 if refusal.ask_again {
                                     self.command_line.push_output(&crate::tf!(
-                                        "Enter new value for {name} <{current}>:"
-                                    , name = name, current = current));
+                                        "Enter new value for {name} <{current}>:",
+                                        name = name,
+                                        current = current
+                                    ));
                                     self.pending_setvar = Some(name.clone());
                                 }
                             }
                             None => {
                                 self.command_line.push_output(&crate::tf!(
-                                    "Enter new value for {name} <{current}>:"
-                                , name = name, current = current));
+                                    "Enter new value for {name} <{current}>:",
+                                    name = name,
+                                    current = current
+                                ));
                                 self.pending_setvar = Some(name.clone());
                             }
                         }
@@ -1347,14 +1352,15 @@ impl DraftFlowCAD {
                         if let Some(value) = &value {
                             match value.parse::<i32>().ok().filter(|v| (-90..=90).contains(v)) {
                                 Some(fade) => self.set_xref_fade(fade),
-                                None => self
-                                    .command_line
-                                    .push_error(crate::t!("Requires an integer between -90 and 90.").as_ref()),
+                                None => self.command_line.push_error(
+                                    crate::t!("Requires an integer between -90 and 90.").as_ref(),
+                                ),
                             }
                         } else {
                             self.command_line.push_output(&crate::tf!(
-                                "Enter new value for XDWGFADECTL <{current}>:"
-                            , current = current));
+                                "Enter new value for XDWGFADECTL <{current}>:",
+                                current = current
+                            ));
                             self.pending_setvar = Some(name.clone());
                         }
                         return Some(self.finish_dispatch(cmd));
@@ -1420,12 +1426,16 @@ impl DraftFlowCAD {
                                     set_import_settings(settings);
                                 }
                                 None => self.command_line.push_error(&crate::tf!(
-                                    "Requires an integer between 0 and {max}."
-                                , max = max)),
+                                    "Requires an integer between 0 and {max}.",
+                                    max = max
+                                )),
                             }
                         } else {
-                            self.command_line
-                                .push_output(&crate::tf!("Enter new value for {name} <{current}>:", name = name, current = current));
+                            self.command_line.push_output(&crate::tf!(
+                                "Enter new value for {name} <{current}>:",
+                                name = name,
+                                current = current
+                            ));
                             self.pending_setvar = Some(name.clone());
                         }
                         return Some(self.finish_dispatch(cmd));
@@ -1454,8 +1464,15 @@ impl DraftFlowCAD {
                     }
                     if matches!(name.as_str(), "UCSORTHO" | "UCSVIEW") {
                         use crate::modules::view::view_cmd;
-                        let current = i16::from(if name == "UCSORTHO" { view_cmd::ucs_ortho() } else { view_cmd::ucs_view() });
-                        match value.as_deref().map(|v| v.trim().parse::<i16>().ok().filter(|v| (0..=1).contains(v))) {
+                        let current = i16::from(if name == "UCSORTHO" {
+                            view_cmd::ucs_ortho()
+                        } else {
+                            view_cmd::ucs_view()
+                        });
+                        match value
+                            .as_deref()
+                            .map(|v| v.trim().parse::<i16>().ok().filter(|v| (0..=1).contains(v)))
+                        {
                             Some(Some(mode)) => {
                                 if current != mode {
                                     if name == "UCSORTHO" {
@@ -1467,12 +1484,21 @@ impl DraftFlowCAD {
                                 }
                             }
                             Some(None) => {
-                                self.command_line.push_error(crate::t!("Requires 0 or 1 only.").as_ref());
-                                self.command_line.push_output(&crate::tf!("Enter new value for {name} <{current}>:", name = name, current = current));
+                                self.command_line
+                                    .push_error(crate::t!("Requires 0 or 1 only.").as_ref());
+                                self.command_line.push_output(&crate::tf!(
+                                    "Enter new value for {name} <{current}>:",
+                                    name = name,
+                                    current = current
+                                ));
                                 self.pending_setvar = Some(name.clone());
                             }
                             None => {
-                                self.command_line.push_output(&crate::tf!("Enter new value for {name} <{current}>:", name = name, current = current));
+                                self.command_line.push_output(&crate::tf!(
+                                    "Enter new value for {name} <{current}>:",
+                                    name = name,
+                                    current = current
+                                ));
                                 self.pending_setvar = Some(name.clone());
                             }
                         }
@@ -1495,14 +1521,16 @@ impl DraftFlowCAD {
                                 self.command_line
                                     .push_error(crate::t!("Requires 0 or 1 only.").as_ref());
                                 self.command_line.push_output(&crate::tf!(
-                                    "Enter new value for SURFACEASSOCIATIVITY <{current}>:"
-                                , current = current));
+                                    "Enter new value for SURFACEASSOCIATIVITY <{current}>:",
+                                    current = current
+                                ));
                                 self.pending_setvar = Some(name.clone());
                             }
                             None => {
                                 self.command_line.push_output(&crate::tf!(
-                                    "Enter new value for SURFACEASSOCIATIVITY <{current}>:"
-                                , current = current));
+                                    "Enter new value for SURFACEASSOCIATIVITY <{current}>:",
+                                    current = current
+                                ));
                                 self.pending_setvar = Some(name.clone());
                             }
                         }
@@ -1547,14 +1575,16 @@ impl DraftFlowCAD {
                                 self.command_line
                                     .push_error(crate::t!("Requires 0 or 1 only.").as_ref());
                                 self.command_line.push_output(&crate::tf!(
-                                    "Enter new value for FIELDDISPLAY <{current}>:"
-                                , current = current));
+                                    "Enter new value for FIELDDISPLAY <{current}>:",
+                                    current = current
+                                ));
                                 self.pending_setvar = Some(name.clone());
                             }
                             None => {
                                 self.command_line.push_output(&crate::tf!(
-                                    "Enter new value for FIELDDISPLAY <{current}>:"
-                                , current = current));
+                                    "Enter new value for FIELDDISPLAY <{current}>:",
+                                    current = current
+                                ));
                                 self.pending_setvar = Some(name.clone());
                             }
                         }
@@ -1591,11 +1621,16 @@ impl DraftFlowCAD {
                                         self.sync_underlay_tab();
                                     }
                                 }
-                                None => self.command_line.push_error(crate::t!("Requires 0 or 1 only").as_ref()),
+                                None => self
+                                    .command_line
+                                    .push_error(crate::t!("Requires 0 or 1 only").as_ref()),
                             }
                         } else {
-                            self.command_line
-                                .push_output(&crate::tf!("Enter new value for {name} <{current}>:", name = name, current = current));
+                            self.command_line.push_output(&crate::tf!(
+                                "Enter new value for {name} <{current}>:",
+                                name = name,
+                                current = current
+                            ));
                             self.pending_setvar = Some(name.clone());
                         }
                         return Some(self.finish_dispatch(cmd));

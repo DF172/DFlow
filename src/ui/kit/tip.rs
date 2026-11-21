@@ -131,7 +131,11 @@ mod tests {
     fn a_tip_at_the_top_edge_flips_below() {
         let anchor = anchor_at(400.0, 4.0);
         let placed = flip_rect(anchor, tip(), viewport(), GAP, Side::Above);
-        assert_eq!(placed.y, anchor.y + anchor.height + GAP, "no room above means below");
+        assert_eq!(
+            placed.y,
+            anchor.y + anchor.height + GAP,
+            "no room above means below"
+        );
         assert!(placed.y >= anchor.y + anchor.height);
     }
 
@@ -144,7 +148,11 @@ mod tests {
             viewport().width - tip().width,
             "the tip stays inside the window"
         );
-        assert_eq!(placed.y, anchor.y + anchor.height + GAP, "sliding is cross-axis only");
+        assert_eq!(
+            placed.y,
+            anchor.y + anchor.height + GAP,
+            "sliding is cross-axis only"
+        );
     }
 
     #[test]
@@ -210,7 +218,10 @@ mod tests {
             .split("pub fn full<'a, M: 'a>(")
             .nth(1)
             .expect("the full-text tip");
-        assert!(body.contains("tooltip("), "the tip must be the tooltip widget");
+        assert!(
+            body.contains("tooltip("),
+            "the tip must be the tooltip widget"
+        );
         assert!(body.contains("tooltip::Position::Bottom"));
         // Tips are glass in this app: `app/view/controls.rs::viewport_tooltip`
         // and `ribbon::widgets::RenderCtx::theme` both say so, and the latter

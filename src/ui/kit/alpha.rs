@@ -22,7 +22,7 @@ use iced::advanced::renderer;
 use iced::advanced::widget::{tree, Tree, Widget};
 use iced::widget::{button, checkbox, container, pick_list, text, text_input};
 use iced::{
-    Background, Color, Element, Event, Length, Rectangle, Renderer, Size, Theme, Vector, mouse,
+    mouse, Background, Color, Element, Event, Length, Rectangle, Renderer, Size, Theme, Vector,
 };
 
 thread_local! {
@@ -194,10 +194,7 @@ impl Fade for checkbox::Style {
 /// [`Entrance`] reopens it around the child's draw so the kit's ink solvers
 /// see the same number, and hands the child a faded inherited text colour for
 /// the plain `text()` that does not ask the kit for one.
-pub fn entrance<'a, M: 'a>(
-    alpha: f32,
-    content: impl FnOnce() -> Element<'a, M>,
-) -> Element<'a, M> {
+pub fn entrance<'a, M: 'a>(alpha: f32, content: impl FnOnce() -> Element<'a, M>) -> Element<'a, M> {
     let alpha = alpha.clamp(0.0, 1.0);
     let content = at(alpha, content);
     Element::new(Entrance { content, alpha })
@@ -256,9 +253,9 @@ impl<'a, M> Widget<M, Theme, Renderer> for Entrance<'a, M> {
         shell: &mut iced::advanced::Shell<'_, M>,
         viewport: &Rectangle,
     ) {
-        self.content.as_widget_mut().update(
-            tree, event, layout, cursor, renderer, shell, viewport,
-        );
+        self.content
+            .as_widget_mut()
+            .update(tree, event, layout, cursor, renderer, shell, viewport);
     }
 
     fn mouse_interaction(
@@ -327,7 +324,11 @@ mod tests {
             assert!((current() - 0.5).abs() < 1e-6);
             ink(full)
         });
-        assert!((half.a - 0.5).abs() < 1e-6, "ink alpha {} is not 0.5", half.a);
+        assert!(
+            (half.a - 0.5).abs() < 1e-6,
+            "ink alpha {} is not 0.5",
+            half.a
+        );
         assert_eq!(current(), 1.0, "the scope must restore");
     }
 
@@ -360,7 +361,11 @@ mod tests {
             let solved = inner.finish(text::Style {
                 color: Some(Color::WHITE),
             });
-            assert_eq!(solved.color.unwrap().a, 1.0, "a nested style must stay whole");
+            assert_eq!(
+                solved.color.unwrap().a,
+                1.0,
+                "a nested style must stay whole"
+            );
             drop(inner);
             let painted = outer.finish(solved);
             assert!(

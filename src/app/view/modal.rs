@@ -1,10 +1,10 @@
-use super::super::{Message, DraftFlowCAD};
+use super::super::{DraftFlowCAD, Message};
 use crate::t;
 use crate::ui::kit;
+use crate::ui::style::tokens;
 use iced::widget::{button, column, container, row, text, Space};
 use iced::{Element, Fill, Fit, Length, Theme};
 use std::borrow::Cow;
-use crate::ui::style::tokens;
 
 impl DraftFlowCAD {
     /// Title shown in the active modal's title bar. Keep in sync with the
@@ -96,10 +96,16 @@ impl DraftFlowCAD {
         let tab = &self.tabs[self.active_tab];
         let doc = &tab.scene.document;
         let field = |value: String| -> Element<'_, Message> {
-            text(value).size(tokens::TEXT_MICRO).style(kit::muted_style).into()
+            text(value)
+                .size(tokens::TEXT_MICRO)
+                .style(kit::muted_style)
+                .into()
         };
         let sep = || -> Element<'_, Message> {
-            text("·").size(tokens::TEXT_MICRO).style(kit::muted_style).into()
+            text("·")
+                .size(tokens::TEXT_MICRO)
+                .style(kit::muted_style)
+                .into()
         };
         let mut fields: Vec<Element<'_, Message>> = Vec::new();
         let mut leading: Option<Element<'_, Message>> = None;
@@ -245,7 +251,9 @@ impl DraftFlowCAD {
             }
             K::LayerStateManager => {
                 let count = doc.layer_states().len();
-                fields.push(field(crate::tf!("Saved layer states: {}", count).into_owned()));
+                fields.push(field(
+                    crate::tf!("Saved layer states: {}", count).into_owned(),
+                ));
                 fields.push(sep());
                 fields.push(field(format!(
                     "{} {}",
@@ -339,9 +347,11 @@ impl DraftFlowCAD {
                     t!("Datum"),
                     state.datum_identifier.trim()
                 )));
-                let mut actions = row![
-                    kit::dialog_button(t!("Cancel").into_owned(), Message::CloseModal, false),
-                ]
+                let mut actions = row![kit::dialog_button(
+                    t!("Cancel").into_owned(),
+                    Message::CloseModal,
+                    false
+                ),]
                 .spacing(tokens::GAP_ROW)
                 .align_y(iced::Center);
                 if state.editing.is_some() {
@@ -1130,9 +1140,7 @@ impl DraftFlowCAD {
                             styles: styles.clone(),
                             used: styles
                                 .iter()
-                                .map(|name| {
-                                    self.style_in_use(crate::app::StyleKind::Text, name)
-                                })
+                                .map(|name| self.style_in_use(crate::app::StyleKind::Text, name))
                                 .collect(),
                             selected: &self.textstyle_selected,
                             current: &tab.scene.document.header.current_text_style_name,
@@ -1228,9 +1236,7 @@ impl DraftFlowCAD {
                             styles: styles.clone(),
                             used: styles
                                 .iter()
-                                .map(|name| {
-                                    self.style_in_use(crate::app::StyleKind::MLine, name)
-                                })
+                                .map(|name| self.style_in_use(crate::app::StyleKind::MLine, name))
                                 .collect(),
                             selected: &self.mlstyle_selected,
                             style: selected_style,
@@ -1330,9 +1336,7 @@ impl DraftFlowCAD {
                             styles: styles.clone(),
                             used: styles
                                 .iter()
-                                .map(|name| {
-                                    self.style_in_use(crate::app::StyleKind::Table, name)
-                                })
+                                .map(|name| self.style_in_use(crate::app::StyleKind::Table, name))
                                 .collect(),
                             selected: &self.tablestyle_selected,
                             current: &tab.scene.document.header.current_table_style_name,
@@ -1586,9 +1590,7 @@ impl DraftFlowCAD {
                             styles: styles.clone(),
                             used: styles
                                 .iter()
-                                .map(|name| {
-                                    self.style_in_use(crate::app::StyleKind::MLeader, name)
-                                })
+                                .map(|name| self.style_in_use(crate::app::StyleKind::MLeader, name))
                                 .collect(),
                             selected: &self.mleaderstyle_selected,
                             style: selected_style,
@@ -2222,7 +2224,11 @@ fn hyperlink_dialog_window<'a>(
     items.push(Space::new().height(Fill).into());
     items.push(
         row![
-            dialog_button(t!("Remove"), Message::HyperlinkRemove, kit::dialog_danger_style),
+            dialog_button(
+                t!("Remove"),
+                Message::HyperlinkRemove,
+                kit::dialog_danger_style
+            ),
             Space::new().width(Fill),
             dialog_button(t!("Cancel"), Message::HyperlinkCancel, kit::secondary_style),
             Space::new().width(tokens::GAP_ROW),
@@ -2262,7 +2268,11 @@ fn save_as_dialog_window<'a>(
     };
 
     let mut items: Vec<Element<'a, Message>> = Vec::new();
-    items.push(text(t!("Save Drawing As")).size(tokens::TEXT_HEADING).into());
+    items.push(
+        text(t!("Save Drawing As"))
+            .size(tokens::TEXT_HEADING)
+            .into(),
+    );
     items.push(Space::new().height(tokens::GAP_SECTION).into());
 
     // Web has no native file dialog, so the file name is typed here. On native
@@ -2292,7 +2302,11 @@ fn save_as_dialog_window<'a>(
                 kit::primary_style
             ),
             Space::new().width(tokens::GAP_ROW),
-            dialog_button(t!("Cancel"), Message::SaveDialogCancel, kit::secondary_style),
+            dialog_button(
+                t!("Cancel"),
+                Message::SaveDialogCancel,
+                kit::secondary_style
+            ),
         ]
         .into(),
     );
@@ -2325,7 +2339,11 @@ fn unsaved_changes_dialog_window(
             row![
                 dialog_button(t!("Save"), Message::UnsavedDialogSave, kit::primary_style),
                 iced::widget::Space::new().width(tokens::GAP_ROW),
-                dialog_button(t!("Discard"), Message::UnsavedDialogDiscard, kit::dialog_danger_style),
+                dialog_button(
+                    t!("Discard"),
+                    Message::UnsavedDialogDiscard,
+                    kit::dialog_danger_style
+                ),
                 iced::widget::Space::new().width(tokens::GAP_ROW),
                 dialog_button(
                     t!("Cancel"),
@@ -2343,7 +2361,6 @@ fn unsaved_changes_dialog_window(
     .padding(kit::Size::Plate.padding())
     .into()
 }
-
 
 fn file_in_use_dialog_window(
     path: &str,
@@ -2679,7 +2696,11 @@ fn update_check_window(
             ..
         } => (
             crate::tr!("update-check", "available"),
-            crate::tr!("update-check", "available-in-app-body", version = version.clone()),
+            crate::tr!(
+                "update-check",
+                "available-in-app-body",
+                version = version.clone()
+            ),
         ),
         CheckState::Available { version, .. } => (
             crate::tr!("update-check", "available"),
@@ -2690,10 +2711,7 @@ fn update_check_window(
             crate::tr!("update-check", "blocked-unsaved-body"),
         ),
         CheckState::Busy {
-            stage,
-            done,
-            total,
-            ..
+            stage, done, total, ..
         } => match stage {
             BusyStage::Downloading => {
                 fraction = Some(match total.filter(|t| *t > 0) {
@@ -2746,8 +2764,7 @@ fn update_check_window(
 
     let actions: Option<Element<'static, Message>> = match state {
         CheckState::Available {
-            installer: Some(_),
-            ..
+            installer: Some(_), ..
         }
         | CheckState::Blocked { .. } => Some(
             row![
@@ -2763,8 +2780,7 @@ fn update_check_window(
             .into(),
         ),
         CheckState::Available {
-            installer: None,
-            ..
+            installer: None, ..
         } => Some(
             row![
                 dialog_button(
@@ -2794,9 +2810,7 @@ fn update_check_window(
         ),
         CheckState::Busy { .. } => None,
         // The process is about to exit on its own; nothing to press.
-        CheckState::Installed {
-            relaunch: true, ..
-        } => None,
+        CheckState::Installed { relaunch: true, .. } => None,
         CheckState::Installed {
             relaunch: false, ..
         } => Some(
@@ -2823,9 +2837,9 @@ fn update_check_window(
             .align_y(iced::Center)
             .into(),
         ),
-        CheckState::Idle | CheckState::Checking | CheckState::UpToDate { .. } => Some(
-            row![dismiss()].align_y(iced::Center).into(),
-        ),
+        CheckState::Idle | CheckState::Checking | CheckState::UpToDate { .. } => {
+            Some(row![dismiss()].align_y(iced::Center).into())
+        }
     };
 
     let mut body = column![text(headline).size(tokens::TEXT_HEADING)].spacing(tokens::GAP_ROW);

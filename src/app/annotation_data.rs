@@ -9,7 +9,7 @@ use codec::types::{Handle, Vector3};
 use codec::{CadDocument, EntityType};
 use iced::Task;
 
-use super::{Message, ModalKind, DraftFlowCAD};
+use super::{DraftFlowCAD, Message, ModalKind};
 use crate::command::CadCommand;
 use crate::ui::window::annotation_data::{
     DataExtractionField, DataExtractionState, DataLinkChoice, DataLinkField, ExtractionBegin,
@@ -336,9 +336,7 @@ fn workbook_metadata(path: &Path) -> Result<(Vec<String>, Vec<String>), String> 
 /// lists and threw the message away, so an unreadable workbook was
 /// indistinguishable from an empty one — and from a `.csv`, which legitimately
 /// reports no sheets and no named ranges.
-fn workbook_metadata_or_reason(
-    path: &Path,
-) -> (Vec<String>, Vec<String>, Option<String>) {
+fn workbook_metadata_or_reason(path: &Path) -> (Vec<String>, Vec<String>, Option<String>) {
     match workbook_metadata(path) {
         Ok(loaded) => (loaded.0, loaded.1, None),
         Err(error) => (Vec::new(), Vec::new(), Some(error)),
@@ -349,7 +347,8 @@ fn workbook_metadata_or_reason(
 /// the web, where no path exists to reopen).
 fn workbook_metadata_bytes(bytes: &[u8]) -> Result<(Vec<String>, Vec<String>), String> {
     use calamine::{open_workbook_auto_from_rs, Reader};
-    let workbook = open_workbook_auto_from_rs(Cursor::new(bytes)).map_err(|error| error.to_string())?;
+    let workbook =
+        open_workbook_auto_from_rs(Cursor::new(bytes)).map_err(|error| error.to_string())?;
     let sheets = workbook.sheet_names();
     let names = workbook
         .defined_names()
@@ -397,8 +396,9 @@ fn workbook_rows<RS: std::io::Read + std::io::Seek>(
             .find(|(candidate, _)| candidate.eq_ignore_ascii_case(name))
             .map(|(_, formula)| formula.clone())
             .ok_or_else(|| crate::t!("The named range was not found.").into_owned())?;
-        named_range_target(&formula)
-            .ok_or_else(|| crate::t!("The named range does not refer to a worksheet cell range.").into_owned())?
+        named_range_target(&formula).ok_or_else(|| {
+            crate::t!("The named range does not refer to a worksheet cell range.").into_owned()
+        })?
     } else {
         let selected_sheet = sheet
             .filter(|value| !value.trim().is_empty())
@@ -1303,7 +1303,6 @@ impl DraftFlowCAD {
         Task::none()
     }
 
-
     pub(super) fn on_data_link_browse(&mut self) -> Task<Message> {
         Task::perform(
             async {
@@ -1873,7 +1872,6 @@ impl DraftFlowCAD {
         )
     }
 
-
     pub(super) fn on_data_extraction_add_drawings_result(
         &mut self,
         paths: Vec<PathBuf>,
@@ -1904,7 +1902,6 @@ impl DraftFlowCAD {
             Message::DataExtractionAddFolderResult,
         )
     }
-
 
     pub(super) fn on_data_extraction_add_folder_result(
         &mut self,
@@ -2034,7 +2031,6 @@ mod tests {
         assert!(register_picked_source("a.csv", Arc::new(b"old".to_vec())));
     }
 
-
     use super::*;
 
     #[test]
@@ -2117,10 +2113,7 @@ mod tests {
     #[test]
     fn registered_bytes_match_by_file_name() {
         let key = format!("draftflow-match-{}-{}.xlsx", std::process::id(), line!());
-        register_picked_source(
-            &format!(r"C:\drawings\{key}"),
-            Arc::new(Vec::new()),
-        );
+        register_picked_source(&format!(r"C:\drawings\{key}"), Arc::new(Vec::new()));
         // Exact key…
         assert!(picked_source_bytes(&format!(r"C:\drawings\{key}")).is_some());
         // …same file under a differently-cased bare name (the web stores only
@@ -2215,7 +2208,8 @@ mod tests {
         // writers now: the two listing sites added here, plus the preview read
         // and the link-rows read that already reported this way.
         assert_eq!(
-            body.matches("self.data_link_manager.status = error;").count(),
+            body.matches("self.data_link_manager.status = error;")
+                .count(),
             4,
             "the dialog lost one of its four `status` reporters"
         );

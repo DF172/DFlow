@@ -235,8 +235,9 @@ pub fn save_prefs(prefs: GraphicsPrefs) -> Result<(), PrefsFault> {
     // A failed serialisation used to write an empty file, which the reader
     // answers with the defaults — so the old, readable preferences were
     // replaced by none and nothing was said about it.
-    let body = serde_json::to_string_pretty(&json)
-        .map_err(|reason| PrefsFault::NotWritten { reason: reason.to_string() })?;
+    let body = serde_json::to_string_pretty(&json).map_err(|reason| PrefsFault::NotWritten {
+        reason: reason.to_string(),
+    })?;
     if let Some(parent) = p.parent() {
         std::fs::create_dir_all(parent).map_err(|reason| PrefsFault::NotWritten {
             reason: reason.to_string(),
@@ -1033,8 +1034,7 @@ where
             dropped_backend_value = false;
             continue;
         }
-        if arg == OsStr::new("--new-instance") || extra_args.iter().any(|e| arg == OsStr::new(e))
-        {
+        if arg == OsStr::new("--new-instance") || extra_args.iter().any(|e| arg == OsStr::new(e)) {
             continue;
         }
         if safe_mode && arg == OsStr::new("--backend") {
@@ -1048,7 +1048,6 @@ where
     }
     forwarded
 }
-
 
 /// `candidates` with `gl` moved to the front.
 pub fn prefer_gl(candidates: &[String]) -> Vec<String> {
@@ -1683,7 +1682,13 @@ mod tests {
         assert_eq!(got, args(&["drawing.dwg"]));
 
         let got = relaunch_args(
-            args(&["--backend", "vulkan", "drawing.dwg", "--backend=gl", "--other"]),
+            args(&[
+                "--backend",
+                "vulkan",
+                "drawing.dwg",
+                "--backend=gl",
+                "--other",
+            ]),
             &["--safe-mode"],
         );
         assert_eq!(
@@ -1752,7 +1757,8 @@ mod tests {
     #[test]
     fn a_backend_that_survived_is_not_blamed_for_a_later_kill() {
         let _guard = SENTINEL_TESTS.lock().unwrap_or_else(|e| e.into_inner());
-        let dir = std::env::temp_dir().join(format!("draftflow-gpu-survived-{}", std::process::id()));
+        let dir =
+            std::env::temp_dir().join(format!("draftflow-gpu-survived-{}", std::process::id()));
         let _ = std::fs::create_dir_all(&dir);
         // SAFETY: single-threaded test mutating a process-local test hook.
         unsafe { std::env::set_var(SENTINEL_DIR_ENV, &dir) };
@@ -2001,7 +2007,8 @@ mod tests {
     #[test]
     fn a_sentinel_that_cannot_be_written_says_the_guard_is_off() {
         let _guard = SENTINEL_TESTS.lock().unwrap_or_else(|e| e.into_inner());
-        let dir = std::env::temp_dir().join(format!("draftflow-gpu-armfault-{}", std::process::id()));
+        let dir =
+            std::env::temp_dir().join(format!("draftflow-gpu-armfault-{}", std::process::id()));
         std::fs::remove_dir_all(&dir).ok();
         std::fs::create_dir_all(&dir).unwrap();
         // A regular file sitting where the sentinel folder has to be created:
@@ -2031,7 +2038,8 @@ mod tests {
     #[test]
     fn a_survival_proof_that_cannot_land_is_reported() {
         let _guard = SENTINEL_TESTS.lock().unwrap_or_else(|e| e.into_inner());
-        let dir = std::env::temp_dir().join(format!("draftflow-gpu-markfault-{}", std::process::id()));
+        let dir =
+            std::env::temp_dir().join(format!("draftflow-gpu-markfault-{}", std::process::id()));
         std::fs::remove_dir_all(&dir).ok();
         std::fs::create_dir_all(&dir).unwrap();
         // SAFETY: serialized by SENTINEL_TESTS; process-local test hook.
@@ -2107,7 +2115,8 @@ mod tests {
     #[test]
     fn a_graphics_pref_that_cannot_reach_disk_says_the_renderer_is_repicked() {
         let _guard = SENTINEL_TESTS.lock().unwrap_or_else(|e| e.into_inner());
-        let dir = std::env::temp_dir().join(format!("draftflow-gpu-prefsfault-{}", std::process::id()));
+        let dir =
+            std::env::temp_dir().join(format!("draftflow-gpu-prefsfault-{}", std::process::id()));
         std::fs::remove_dir_all(&dir).ok();
         std::fs::create_dir_all(&dir).unwrap();
         // SAFETY: serialized by SENTINEL_TESTS; process-local test hook.

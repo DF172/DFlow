@@ -1245,9 +1245,11 @@ impl DraftFlowCAD {
                 } else {
                     // EXPLMODE 0 keeps references that are not uniformly and
                     // positively scaled whole.
-                    let selected: Vec<_> =
-                        if super::blockvars::explmode(&self.tabs[i].scene.document) == 0 {
-                            selected
+                    let selected: Vec<_> = if super::blockvars::explmode(
+                        &self.tabs[i].scene.document,
+                    ) == 0
+                    {
+                        selected
                                 .into_iter()
                                 .filter(|(_, entity)| match entity {
                                     codec::EntityType::Insert(ins) => {
@@ -1266,9 +1268,9 @@ impl DraftFlowCAD {
                                     _ => true,
                                 })
                                 .collect()
-                        } else {
-                            selected
-                        };
+                    } else {
+                        selected
+                    };
                     let replacements = plan_explode(&selected, &self.tabs[i].scene.document);
                     let exploded = replacements.len();
                     if exploded > 0 {
