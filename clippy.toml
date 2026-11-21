@@ -1,0 +1,5 @@
+# Clippy thresholds for this codebase.
+# Structural lints (arg count / type complexity) are managed here instead of
+# being silenced per-site; the mechanical lints are fixed in code.
+too-many-arguments-threshold = 12
+type-complexity-threshold = 500
