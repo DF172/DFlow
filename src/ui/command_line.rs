@@ -433,6 +433,16 @@ impl CommandLine {
     pub fn push_error(&mut self, msg: &str) {
         self.error_revision = self.error_revision.wrapping_add(1);
         self.last_error = Some(msg.to_owned());
+        // Batch 3 item 27: every failed command rides this one choke point
+        // (677 call sites), so the card's danger border pulse fires here and
+        // nowhere else. Warnings deliberately do not: they are not failures.
+        crate::ui::motion::pulse(
+            crate::ui::motion::CMD_ERROR_PULSE,
+            1.0,
+            0.0,
+            0,
+            crate::ui::motion::CMD_ERROR_PULSE_TIME,
+        );
         self.push(EntryKind::Error, format_error(&t!(msg)));
     }
     /// Append an error unless it is already the latest history line. Repeated
@@ -441,6 +451,14 @@ impl CommandLine {
     pub fn push_error_once(&mut self, msg: &str) {
         self.error_revision = self.error_revision.wrapping_add(1);
         self.last_error = Some(msg.to_owned());
+        // Same pulse as push_error: a repeated retry failure still failed.
+        crate::ui::motion::pulse(
+            crate::ui::motion::CMD_ERROR_PULSE,
+            1.0,
+            0.0,
+            0,
+            crate::ui::motion::CMD_ERROR_PULSE_TIME,
+        );
         let text = format_error(&t!(msg));
         if let Some(last) = self
             .history
@@ -1332,7 +1350,21 @@ impl CommandLine {
             iced::Padding::from([tokens::GAP_CONTROL, tokens::GAP_FIELD]),
             "",
         )
-        .style(|theme: &Theme| kit::sheet_style(theme, ""))
+        .style(|theme: &Theme| {
+            let mut style = kit::sheet_style(theme, "");
+            // Batch 3 item 27: the card's border flashes danger for 150 ms
+            // when a command fails. No popup, no shake — the eye is already
+            // on the card because that is where the error line landed.
+            let p = crate::ui::motion::value_or(crate::ui::motion::CMD_ERROR_PULSE, 0.0);
+            if p > 0.0 {
+                style.border.color = crate::ui::motion::mix(
+                    style.border.color,
+                    theme.palette().danger.base.color,
+                    p,
+                );
+            }
+            style
+        })
         .width(Length::Fill.max(720.0));
 
         // The card's edge is its own frame now, so the seam that used to

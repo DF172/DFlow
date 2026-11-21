@@ -608,13 +608,19 @@ impl LayerPanel {
 
             // The row is built inside its entrance scope: every kit control
             // and glyph below is painted at this alpha, and the row itself
-            // wears the same fade on its plate.
-            rows_col = rows_col.push(crate::ui::kit::alpha::entrance(
-                crate::ui::motion::entrance_value(
-                    crate::ui::dock::entrance_keys(crate::ui::dock::PanelId::Layers),
-                    row,
-                ),
-                || {
+            // wears the same fade on its plate. Batch 3 item 23 multiplies in
+            // the turn-off dim: for 120 ms after the layer goes OFF the row
+            // fades toward 45% ink and recovers, so the eye follows the state
+            // change. The row stays in the tree — this is not a removal.
+            let off_dim = crate::ui::motion::value_or(
+                crate::ui::motion::layer_off_key(&layer.name),
+                0.0,
+            );
+            let row_alpha = crate::ui::motion::entrance_value(
+                crate::ui::dock::entrance_keys(crate::ui::dock::PanelId::Layers),
+                row,
+            ) * (1.0 - 0.55 * off_dim);
+            rows_col = rows_col.push(crate::ui::kit::alpha::entrance(row_alpha, || {
                     layer_row(
                         i,
                         layer,

@@ -869,9 +869,12 @@ impl PropertiesPanel {
             .width(Length::Fill);
 
         let mut col = column![rows.wrap(|| hdr.into())].spacing(tokens::GAP_NONE);
-        if collapsed && needle.is_empty() {
-            return col.into();
-        }
+
+        // The body is built whether or not the section is open: it is the thing
+        // that has the height, and the accordion eases *that height* down to
+        // zero. A filter forces it open — a matching row that stayed hidden
+        // under a collapsed header would be a dead end.
+        let mut body = column![].spacing(tokens::GAP_NONE);
 
         // Consecutive "<Base> X / <Base> Y [/ <Base> Z]" text rows collapse
         // into one clickable summary row; clicking expands the components.
@@ -895,10 +898,10 @@ impl PropertiesPanel {
                     .map(prop_text_value)
                     .collect::<Vec<_>>()
                     .join(", ");
-                col = col.push(rows.wrap(|| render_group_row(base, key, expanded, joined, theme)));
+                body = body.push(rows.wrap(|| render_group_row(base, key, expanded, joined, theme)));
                 if expanded {
                     for prop in &section.props[idx..idx + group_len] {
-                        col = col.push(
+                        body = body.push(
                             rows.wrap(|| self.render_prop_row(prop, coord_component(&prop.label), theme)),
                         );
                     }
@@ -907,11 +910,18 @@ impl PropertiesPanel {
             } else {
                 let prop = &section.props[idx];
                 if hit(&prop.label) {
-                    col = col.push(rows.wrap(|| self.render_prop_row(prop, &prop.label, theme)));
+                    body = body.push(rows.wrap(|| self.render_prop_row(prop, &prop.label, theme)));
                 }
                 idx += 1;
             }
         }
+
+        let eased = crate::ui::motion::value_or(
+            crate::ui::motion::section_key(&section.title),
+            if collapsed { 0.0 } else { 1.0 },
+        );
+        let progress = if needle.is_empty() { eased } else { 1.0 };
+        col = col.push(kit::collapse(progress, body.into()));
 
         col.into()
     }
@@ -954,6 +964,9 @@ impl PropertiesPanel {
             PropValue::Hyperlink(val) => render_hyperlink_row(label, val, theme),
             PropValue::ReadOnly(val) if prop.field == "annotative_scale" => {
                 render_annotative_scale_row(label, val, theme)
+            }
+            PropValue::ReadOnly(val) if prop.field == "association_status" => {
+                render_assoc_status_row(label, val, theme)
             }
             PropValue::ReadOnly(val) => render_ro_row(label, val, theme),
             PropValue::ReadOnlyWithTooltip { value, tooltip } => {
@@ -1290,12 +1303,22 @@ impl PropertiesPanel {
             .unwrap_or(entity_val);
 
         let active = self.active_field.as_ref() == Some(&key);
+        // Only the focused field can hold uncommitted text, so it carries the
+        // dirty edge. The value is read per frame, which is what makes the
+        // 80 ms arrival/return visible.
+        let dirty = if active {
+            crate::ui::motion::value_or(crate::ui::motion::PROP_DIRTY, 0.0)
+        } else {
+            0.0
+        };
         let ti = text_input("", display)
             .id(prop_geom_field_id(field))
             .on_input(move |v| Message::PropGeomInput { field, value: v })
             .on_submit(Message::PropGeomCommit(field))
             .size(FONT_SZ)
-            .style(kit::field_style)
+            .style(move |theme: &Theme, status| {
+                kit::field_style_dirty(theme, status, dirty)
+            })
             .padding(kit::PAD_FIELD)
             .width(Length::Fill);
 
@@ -1839,6 +1862,27 @@ fn render_ro_row<'a>(label: &'a str, value: &'a str, theme: &Theme) -> Element<'
     // (carrying the full, un-truncated value) and copied with Ctrl+C.
     let field = crate::ui::read_only::field(value, FONT_SZ, Length::Fill);
     prop_row_widget(label, field, theme)
+}
+
+/// Association status (item 18). When the status reads Broken / Unresolved
+/// the value plate carries a warning tint; the moment the association is
+/// severed, `ASSOC_BREAK` makes that tint flash once for 100 ms. The pulse is
+/// read here, in the UI overlay — no clock or motion state enters the canvas
+/// paint path.
+fn render_assoc_status_row<'a>(label: &'a str, value: &'a str, theme: &Theme) -> Element<'a, Message> {
+    let broken = value == t!("Broken reference").as_ref()
+        || value == t!("Unresolved reference").as_ref();
+    let field = crate::ui::read_only::field(value, FONT_SZ, Length::Fill);
+    if !broken {
+        return prop_row_widget(label, field, theme);
+    }
+    let pulse = crate::ui::motion::value_or(crate::ui::motion::ASSOC_BREAK, 0.0);
+    // A severed reference keeps a faint plate; the pulse brightens it and
+    // falls back to the resting tint, so the row still reports the state.
+    let plate = container(field)
+        .padding(Padding::from([1.0, tokens::GAP_CONTROL]))
+        .style(move |theme: &Theme| kit::assoc_plate_style(theme, pulse));
+    prop_row_widget(label, plate.into(), theme)
 }
 
 fn render_ro_with_tooltip_row<'a>(

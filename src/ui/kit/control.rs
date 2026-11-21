@@ -1170,6 +1170,22 @@ pub fn field_style(theme: &Theme, status: text_input::Status) -> text_input::Sty
     paint.finish(field_style_solve(theme, status))
 }
 
+/// Field style whose edge carries the "typed but not applied" tint. `t` = 0
+/// is the stock field; `t` = 1 is a full warning edge. The panel passes the
+/// eased motion value, so the tint arrives and leaves over ~80 ms.
+pub fn field_style_dirty(theme: &Theme, status: text_input::Status, t: f32) -> text_input::Style {
+    let mut style = field_style(theme, status);
+    let t = t.clamp(0.0, 1.0);
+    if t > 0.0 {
+        style.border.color = crate::ui::motion::mix(
+            style.border.color,
+            theme.palette().warning.base.color,
+            t,
+        );
+    }
+    style
+}
+
 fn field_style_solve(theme: &Theme, status: text_input::Status) -> text_input::Style {
     let palette = theme.palette();
     let focused = matches!(status, text_input::Status::Focused { .. });

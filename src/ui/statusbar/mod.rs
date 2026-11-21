@@ -1636,4 +1636,43 @@ mod b5_e3_tests {
             "update() stopped calling sync_motion(); every state track would freeze"
         );
     }
+
+    /// Item 25 / F7 (2026-11-20 chairman ruling): the grid toggle gets NO
+    /// status pill and NO pulse. This is a deliberate decline, not an
+    /// omission — the grid appearing/disappearing on the canvas is itself the
+    /// feedback, so a pill or a pulse would be noise. The existing guard
+    /// `the_lights_are_chased_from_update` pins that the sync walks exactly
+    /// `LIT_PILLS`; with no GRID key in that list there is no track for F7 to
+    /// ride, and the scans below pin that neither surface grew a GRID key or
+    /// a GRID pulse.
+    #[test]
+    fn the_grid_has_no_status_pill_so_f7_stays_silent() {
+        assert!(
+            !LIT_PILLS.iter().any(|id| id.contains("GRID")),
+            "LIT_PILLS grew a GRID key: F7 would gain a status pill against \
+             the 2026-11-20 ruling (grid visibility is its own feedback)"
+        );
+        let bar = std::fs::read_to_string(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/src/ui/statusbar/mod.rs"
+        ))
+        .expect("statusbar/mod.rs must be readable");
+        let bar_prod = bar.split("\n#[cfg(test)]").next().unwrap_or(&bar);
+        assert!(
+            !bar_prod.contains("ST_GRID") && !bar_prod.contains("GRID"),
+            "the status bar grew a GRID key or pulse: F7 must stay silent \
+             (2026-11-20 ruling)"
+        );
+        let sync = std::fs::read_to_string(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/src/app/update/motion.rs"
+        ))
+        .expect("app/update/motion.rs must be readable");
+        let sync_prod = sync.split("\n#[cfg(test)]").next().unwrap_or(&sync);
+        assert!(
+            !sync_prod.contains("GRID"),
+            "the update-side sync grew a GRID track: F7 must not pulse \
+             (2026-11-20 ruling)"
+        );
+    }
 }

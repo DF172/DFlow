@@ -1894,6 +1894,21 @@ pub(super) fn quick_access_btn<'a>(
     cmd: &'static str,
     theme: &Theme,
 ) -> Element<'a, Message> {
+    quick_access_btn_msg(icon_bytes, label, cmd, Message::Command(cmd.to_string()), theme)
+}
+
+/// [`quick_access_btn`] with the click's message supplied by the caller.
+///
+/// The Open button becomes a cancel target while a file is loading, and the
+/// button itself must stay the same size and glyph — the progress rim is drawn
+/// on it — so the message, not the control, is what changes.
+pub(super) fn quick_access_btn_msg<'a>(
+    icon_bytes: &'static [u8],
+    label: &'static str,
+    cmd: &'static str,
+    press: Message,
+    theme: &Theme,
+) -> Element<'a, Message> {
     // The glyph sits unframed in the strip: muted at rest, ink under the
     // pointer, the way the sheet draws every chrome icon button.
     let hover_key = crate::ui::motion::hover_key(cmd);
@@ -1911,7 +1926,7 @@ pub(super) fn quick_access_btn<'a>(
             .align_x(iced::Center)
             .align_y(iced::Center),
     )
-    .on_press(Message::Command(cmd.to_string()))
+    .on_press(press)
     .style(move |theme: &Theme, status| {
         if crate::ui::style::draftflow_theme::draftflow_colors(theme).is_some() {
             style_for(theme, status, Role::Ghost, "")

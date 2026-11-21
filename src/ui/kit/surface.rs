@@ -1298,6 +1298,25 @@ pub fn accent_plate_style(theme: &Theme) -> container::Style {
     }
 }
 
+/// [`accent_plate_style`] under a fade, for a drop ghost that is still arriving.
+///
+/// The ghost's head is an accent plate; while the drop preview eases in, the
+/// plate and the ink on it both scale by the same `alpha`, so the bar and its
+/// label cross-fade as one object rather than the plate leading the text.
+#[must_use]
+pub fn drop_ghost_head_style(theme: &Theme, alpha: f32) -> container::Style {
+    let plate = accent_plate_style(theme);
+    let alpha = if alpha.is_finite() { alpha.clamp(0.0, 1.0) } else { 0.0 };
+    container::Style {
+        background: plate.background.map(|background| match background {
+            Background::Color(color) => Background::Color(color.scale_alpha(alpha)),
+            gradient => gradient,
+        }),
+        text_color: plate.text_color.map(|ink| ink.scale_alpha(alpha)),
+        ..plate
+    }
+}
+
 /// [`frame_style`]'s ring with the page showing through under it.
 ///
 /// `frame_style` answers the ring and nothing else — its own body sets
@@ -1430,6 +1449,25 @@ pub fn port_dot_style(theme: &Theme, linked: bool) -> container::Style {
             color: ring,
             width: tokens::EDGE_RING,
             radius: tokens::RADIUS_FIELD.into(),
+        },
+        ..Default::default()
+    }
+}
+
+/// The plate under a severed association (item 18). A broken / unresolved
+/// reference keeps a faint warning tint at rest (0.10) so the row still reads
+/// as a warning after the flash; `pulse` (0..1) lifts it toward 0.40 while
+/// `motion::ASSOC_BREAK` runs its one-shot 100 ms beat, then it settles back.
+/// Lives here, not at the call site, so the ratchet keeps the literal in kit.
+#[must_use]
+pub fn assoc_plate_style(theme: &Theme, pulse: f32) -> container::Style {
+    let mut color = theme.palette().warning.base.color;
+    color.a = (0.10 + 0.30 * pulse.clamp(0.0, 1.0)).clamp(0.0, 1.0);
+    container::Style {
+        background: Some(Background::Color(color)),
+        border: Border {
+            radius: tokens::RADIUS_FIELD.into(),
+            ..Default::default()
         },
         ..Default::default()
     }
@@ -1945,9 +1983,25 @@ pub fn stripe_style(theme: &Theme, index: usize, track: &'static str) -> contain
 /// its plate and keeps the page's ink is the defect this replaces: the lit
 /// status-bar pill was inked with `primary.weak.text`, the foreground of a
 /// `primary.weak` plate the kit stopped painting.
+/// The lit endpoint of a pill's ink walk, shared by [`pill_ink_at`] and the
+/// batch 3 item 25 toggle pulse so the two can never disagree about what
+/// "fully lit" means.
+fn pill_lit(theme: &Theme) -> Color {
+    if let Some(colors) = draftflow_colors(theme) {
+        colors.ink
+    } else {
+        tokens::control_ink(theme, tokens::Control::Strong)
+    }
+}
+
+/// How far the batch 3 item 25 toggle pulse walks the ink toward lit at its
+/// peak. Deliberately small: F8 / F3 are hammered while drafting, so the bump
+/// must read as a quiet confirmation, never as a flash.
+const MODE_PULSE_BLEND: f32 = 0.22;
+
 fn pill_ink_at(theme: &Theme, engage: f32, hover: f32) -> Color {
     let engage = engage.clamp(0.0, 1.0);
-    let (rest, lit) = if let Some(colors) = draftflow_colors(theme) {
+    let rest = if let Some(colors) = draftflow_colors(theme) {
         // Under the sheet a pill carries no plate at all: it is a word on the
         // bar with a rule under it, so its ink is the page's own body ink.
         // `control_ink(Strong)` is the ink for the `strong` background rung,
@@ -1955,21 +2009,18 @@ fn pill_ink_at(theme: &Theme, engage: f32, hover: f32) -> Color {
         // it painted the icon onto itself and the whole pill read as a solid
         // black rectangle. Resting is the faint rung; the pointer walks it up
         // to body ink.
-        (motion::mix(colors.faint, colors.ink, hover), colors.ink)
+        motion::mix(colors.faint, colors.ink, hover)
     } else {
         // The resting plate is the weakest→weak step, so its ink is that step's
         // own text, walked on the same pointer channel as the plate. Taking
         // `base.text` here would be the page ink again.
-        (
-            motion::mix(
-                tokens::control_ink(theme, tokens::Control::Weakest),
-                tokens::control_ink(theme, tokens::Control::Weak),
-                hover,
-            ),
-            tokens::control_ink(theme, tokens::Control::Strong),
+        motion::mix(
+            tokens::control_ink(theme, tokens::Control::Weakest),
+            tokens::control_ink(theme, tokens::Control::Weak),
+            hover,
         )
     };
-    motion::mix(rest, lit, engage)
+    motion::mix(rest, pill_lit(theme), engage)
 }
 
 /// [`pill_ink_at`] for a caller that has an id but no hover value yet — the
@@ -1977,7 +2028,14 @@ fn pill_ink_at(theme: &Theme, engage: f32, hover: f32) -> Color {
 #[must_use]
 pub fn pill_ink(id: &'static str, active: bool, theme: &Theme, track: &'static str) -> Color {
     let engage = motion::engage(motion::state_key(id), active);
-    pill_ink_at(theme, engage, pill_hover(id)).scale_alpha(fade(track))
+    let mut ink = pill_ink_at(theme, engage, pill_hover(id)).scale_alpha(fade(track));
+    // Batch 3 item 25: the one-shot toggle bump rides the same ink the icon
+    // already reads, so the pulse lands on icon and label alike.
+    let bump = motion::value_or(motion::pulse_key(id), 0.0);
+    if bump > 0.0 {
+        ink = motion::mix(ink, pill_lit(theme), MODE_PULSE_BLEND * bump);
+    }
+    ink
 }
 
 /// The pointer channel of a pill: its own hover track, clamped the way every
@@ -2009,7 +2067,7 @@ pub fn pill_style(
     track: &'static str,
 ) -> container::Style {
     let engage = motion::engage(motion::state_key(id), active);
-    let (background, border, ink) = pill_parts(theme, engage, pill_hover(id), track);
+    let (background, border, ink) = pill_parts(id, theme, engage, pill_hover(id), track);
     container::Style {
         background,
         border,
@@ -2035,7 +2093,7 @@ pub fn pill_button_style(
     let pressed = matches!(status, button::Status::Pressed);
     let hover = if pressed { 1.0 } else { pill_hover(id) };
     let engage = motion::engage(motion::state_key(id), active);
-    let (background, border, text_color) = pill_parts(theme, engage, hover, track);
+    let (background, border, text_color) = pill_parts(id, theme, engage, hover, track);
     button::Style {
         background,
         border,
@@ -2055,6 +2113,7 @@ pub fn pill_button_style(
 /// shapes of status-bar pill disagree about what "lit" means, and what let the
 /// resting half be spelled a third way by hand at the call site.
 fn pill_parts(
+    id: &'static str,
     theme: &Theme,
     engage: f32,
     hover: f32,
@@ -2062,7 +2121,12 @@ fn pill_parts(
 ) -> (Option<Background>, Border, Color) {
     let p = fade(track);
     let engage = engage.clamp(0.0, 1.0);
-    let ink = pill_ink_at(theme, engage, hover).scale_alpha(p);
+    let mut ink = pill_ink_at(theme, engage, hover).scale_alpha(p);
+    // Batch 3 item 25: same bump as [`pill_ink`], on the plate adapters' ink.
+    let bump = motion::value_or(motion::pulse_key(id), 0.0);
+    if bump > 0.0 {
+        ink = motion::mix(ink, pill_lit(theme), MODE_PULSE_BLEND * bump);
+    }
     // Under the sheet a pill is a word on the bar, not a plate: the lit rung is
     // carried by the ink and by the rule L3 draws over or under it
     // ([`crate::ui::kit::rule_under`]), and resting pills only gain a hover

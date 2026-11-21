@@ -29,6 +29,7 @@
 //!     forwarding stub on its way out, never a second, subtly different authority.
 
 pub mod alpha;
+pub mod collapse;
 pub mod control;
 pub mod empty;
 pub mod feedback;
@@ -37,13 +38,16 @@ pub mod label;
 pub mod meter;
 pub mod plain;
 pub mod press;
+pub mod ring;
 pub mod ruled;
 pub mod stack;
 pub mod surface;
 pub mod tip;
 
+pub use collapse::collapse;
 pub use plain::{apply_site, plain_button};
 pub use press::sink;
+pub use ring::{progress_ring, Ring};
 
 pub use control::{
     bare_field_style, brand_mark, btn, button_style, checkbox_style, danger_style, chip,
@@ -52,7 +56,7 @@ pub use control::{
     dialog_button,
     dialog_button_styled, dialog_button_styled_opt, dialog_danger_style, editor_style,
     error_field_style,
-    field_container_style, field_style,
+    field_container_style, field_style, field_style_dirty,
     form_radio, ghost_style, glyph_cell_style, icon_btn, joined_btn, labeled_checkbox, list_row,
     list_row_at,
     locked_style, menu_row_style, pick_list_style, picker_field_style,
@@ -62,6 +66,7 @@ pub use control::{
     themed_pick_list, themed_scrollable, tool_plate_style, Join, Press, Role, Size,
 };
 pub use glass::glass_pane;
+pub use glass::scrim_pane;
 pub use meter::meter;
 pub use label::{
     accent_style, body, caption, chord_ink_style, color_style, display, faint, faint_style, group,
@@ -80,10 +85,12 @@ pub use stack::{
 pub use surface::{
     accent_plate_style, brand_rule, canvas_glyphs, card_plate_style, chrome_plate_style,
     dialog_body_plate,
-    dialog_body_style, document_plane, document_style, field_radius_plate_style,
+    dialog_body_style, document_plane, document_style, drop_ghost_head_style,
+    field_radius_plate_style,
     fieldset_well_style, fade, float_style, frame_style, ghost_sheet_style, ground_style,
     group_box, guard_panel_style, hdivider, heading_plate_style, indicator,
     indicator_style, inset_card_style,
+    assoc_plate_style,
     mark_plate_style, marker_ring_style, node_plate_style, option_row_style, page, page_style,
     paper_style,
     pane_plate_style, picker_tile_border,

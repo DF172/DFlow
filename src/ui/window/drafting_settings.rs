@@ -6,6 +6,7 @@ use iced::widget::{column, container, row, text, text_input, Space};
 use iced::{Element, Fill, Theme};
 use std::borrow::Cow;
 use crate::ui::kit;
+use crate::ui::motion;
 
 /// Active tab in the Drafting Settings dialog.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -114,6 +115,57 @@ pub fn parse_grid_major(s: &str) -> Option<u32> {
     (2..=100).contains(&v).then_some(v)
 }
 
+/// Item 29 — weight of the out-of-range tint for one field.
+///
+/// `chase` is the idempotent retarget: it continues from the current
+/// interpolated value and does nothing when the settled value already matches,
+/// so calling this on every layout pass neither restarts a running ease nor
+/// mints a track for a field that was always legal (a legal field therefore
+/// costs zero tracks and zero extra drawing).
+fn warn_weight(key: &'static str, legal: bool) -> f32 {
+    motion::edge_ramp(key, !legal, motion::FIELD_WARN);
+    motion::value(key)
+}
+
+/// Item 29 — field style with the warning weight mixed in.
+///
+/// At `w == 0` this is exactly [`kit::field_style`], so a legal field paints
+/// the stock control. As `w` rises the border and the entered ink are mixed
+/// toward the theme's `warning` token via [`motion::mix`] — an RGB mix, not an
+/// alpha fade, because `transparency_enable` is off by default and an alpha
+/// tint would silently stay at 1.
+fn warn_field_style(
+    theme: &Theme,
+    status: iced::widget::text_input::Status,
+    w: f32,
+) -> iced::widget::text_input::Style {
+    let mut style = kit::field_style(theme, status);
+    if w > 0.0 {
+        let warn = theme.palette().warning.base.color;
+        // At full weight the border and the ink must be the token itself; a
+        // 1.0 mix lands a few e-8 away on some channels and makes exact-token
+        // assertions (and palette audits) fail.
+        if w >= 1.0 {
+            style.border.color = warn;
+            style.value = warn;
+        } else {
+            style.border.color = motion::mix(style.border.color, warn, w);
+            style.value = motion::mix(style.value, warn, w);
+        }
+    }
+    style
+}
+
+/// Empty text is "not typed yet", not "out of range": it stays neutral so
+/// clearing a field to retype it does not flash the warning.
+fn legal_or_empty_f32(s: &str, parse: fn(&str) -> Option<f32>) -> bool {
+    s.trim().is_empty() || parse(s).is_some()
+}
+
+fn legal_or_empty_u32(s: &str, parse: fn(&str) -> Option<u32>) -> bool {
+    s.trim().is_empty() || parse(s).is_some()
+}
+
 pub fn view_window<'a>(
     state: &'a DraftingSettingsState,
     _dirty: bool,
@@ -175,6 +227,28 @@ pub fn view_window<'a>(
 
     // ── Tab 1: Snap and Grid ─────────────────────────────────────────────
     let snap_and_grid_view = {
+        // Item 29: one out-of-range weight per numeric row, derived from the
+        // text currently in the buffer. Legal rows read 0 and hold no track.
+        let snap_x_w = warn_weight(
+            motion::FIELD_WARN_SNAP_X,
+            legal_or_empty_f32(&state.snap_x_input, parse_snap_spacing),
+        );
+        let snap_y_w = warn_weight(
+            motion::FIELD_WARN_SNAP_Y,
+            legal_or_empty_f32(&state.snap_y_input, parse_snap_spacing),
+        );
+        let grid_x_w = warn_weight(
+            motion::FIELD_WARN_GRID_X,
+            legal_or_empty_f32(&state.grid_x_input, parse_snap_spacing),
+        );
+        let grid_y_w = warn_weight(
+            motion::FIELD_WARN_GRID_Y,
+            legal_or_empty_f32(&state.grid_y_input, parse_snap_spacing),
+        );
+        let grid_major_w = warn_weight(
+            motion::FIELD_WARN_GRID_MAJOR,
+            legal_or_empty_u32(&state.grid_major_input, parse_grid_major),
+        );
         // Left Column: Snap settings
         let snap_on_toggle = kit::labeled_checkbox(
             crate::t!("Snap On (F9)"),
@@ -191,7 +265,10 @@ pub fn view_window<'a>(
                         .on_input(Message::DraftingSettingsSnapXChanged)
                         .size(tokens::TEXT_LABEL)
                         .padding(kit::PAD_FIELD)
-                        .width(100),
+                        .width(100)
+                        .style(move |theme, status| {
+                            warn_field_style(theme, status, snap_x_w)
+                        }),
                 ]
                 .spacing(tokens::GAP_ROW)
                 .align_y(iced::Center),
@@ -201,7 +278,10 @@ pub fn view_window<'a>(
                         .on_input(Message::DraftingSettingsSnapYChanged)
                         .size(tokens::TEXT_LABEL)
                         .padding(kit::PAD_FIELD)
-                        .width(100),
+                        .width(100)
+                        .style(move |theme, status| {
+                            warn_field_style(theme, status, snap_y_w)
+                        }),
                 ]
                 .spacing(tokens::GAP_ROW)
                 .align_y(iced::Center),
@@ -280,7 +360,10 @@ pub fn view_window<'a>(
                         .on_input(Message::DraftingSettingsGridXChanged)
                         .size(tokens::TEXT_LABEL)
                         .padding(kit::PAD_FIELD)
-                        .width(100),
+                        .width(100)
+                        .style(move |theme, status| {
+                            warn_field_style(theme, status, grid_x_w)
+                        }),
                 ]
                 .spacing(tokens::GAP_ROW)
                 .align_y(iced::Center),
@@ -290,7 +373,10 @@ pub fn view_window<'a>(
                         .on_input(Message::DraftingSettingsGridYChanged)
                         .size(tokens::TEXT_LABEL)
                         .padding(kit::PAD_FIELD)
-                        .width(100),
+                        .width(100)
+                        .style(move |theme, status| {
+                            warn_field_style(theme, status, grid_y_w)
+                        }),
                 ]
                 .spacing(tokens::GAP_ROW)
                 .align_y(iced::Center),
@@ -300,7 +386,10 @@ pub fn view_window<'a>(
                         .on_input(Message::DraftingSettingsGridMajorChanged)
                         .size(tokens::TEXT_LABEL)
                         .padding(kit::PAD_FIELD)
-                        .width(100),
+                        .width(100)
+                        .style(move |theme, status| {
+                            warn_field_style(theme, status, grid_major_w)
+                        }),
                 ]
                 .spacing(tokens::GAP_ROW)
                 .align_y(iced::Center),
@@ -616,4 +705,69 @@ pub fn view_window<'a>(
         Message::DraftingSettingsCloseDiscard,
         Message::DraftingSettingsCloseKeep,
     )
+}
+
+#[cfg(test)]
+mod p2b2_warn_tests {
+    use super::*;
+
+    /// Item 29 — a field that is legal from boot owns no warn track, so the
+    /// warning costs zero tracks and zero extra drawing; an out-of-range value
+    /// mints exactly one.
+    #[test]
+    fn legal_value_mints_no_warn_track_and_illegal_one_does() {
+        let _g = motion::test_gate_lock();
+        motion::set_enabled(true);
+        let key = motion::FIELD_WARN_SNAP_X;
+        for _ in 0..6 {
+            assert_eq!(warn_weight(key, true), 0.0, "a legal field painted a warn tint");
+        }
+        assert!(!motion::exists(key), "a legal field minted a warn track");
+        assert!(!motion::running(key));
+        warn_weight(key, false);
+        assert!(
+            motion::exists(key),
+            "an out-of-range value must own a warn track"
+        );
+
+        // Clearing a field to retype is "not typed yet", not "out of range".
+        assert!(legal_or_empty_f32("", parse_snap_spacing));
+        assert!(legal_or_empty_f32("   ", parse_snap_spacing));
+        assert!(!legal_or_empty_f32("0", parse_snap_spacing));
+        assert!(!legal_or_empty_f32("1e12", parse_snap_spacing));
+        assert!(legal_or_empty_u32("", parse_grid_major));
+        assert!(!legal_or_empty_u32("1", parse_grid_major));
+        assert!(!legal_or_empty_u32("101", parse_grid_major));
+        assert!(legal_or_empty_u32("5", parse_grid_major));
+    }
+
+    /// Item 29 — at weight 0 the style is exactly the stock field style (no
+    /// extra work), and at weight 1 the border has landed on the theme's
+    /// `warning` token, i.e. the tint is a token mix, not a hardcoded RGB.
+    #[test]
+    fn warn_style_is_free_when_legal_and_lands_on_the_token() {
+        let theme = Theme::Dark;
+        let status = iced::widget::text_input::Status::Active;
+        let stock = kit::field_style(&theme, status);
+        assert_eq!(
+            warn_field_style(&theme, status, 0.0),
+            stock,
+            "a legal field must paint the stock control unchanged"
+        );
+        let warn = theme.palette().warning.base.color;
+        assert_ne!(
+            stock.border.color, warn,
+            "the stock border already equals the warn token; the guard would be vacuous"
+        );
+        let lit = warn_field_style(&theme, status, 1.0);
+        assert_eq!(lit.border.color, warn, "the warn tint is not the theme token");
+        assert_eq!(lit.value, warn);
+        assert_eq!(
+            lit.border.width, stock.border.width,
+            "the warn tint must not change the border width (layout)"
+        );
+        let half = warn_field_style(&theme, status, 0.5);
+        assert_ne!(half.border.color, stock.border.color);
+        assert_ne!(half.border.color, warn, "weight 0.5 must be a real mix");
+    }
 }

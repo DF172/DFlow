@@ -764,6 +764,21 @@ pub fn themed_warning<'a, M: 'a>(bytes: &'static [u8], size: f32) -> Element<'a,
         .into()
 }
 
+/// Render a warning-state chrome icon at a chosen opacity. The save-state dot
+/// fades in and out, so it needs an alpha rather than the binary glyph.
+pub fn themed_warning_alpha<'a, M: 'a>(
+    bytes: &'static [u8],
+    size: f32,
+    alpha: f32,
+) -> Element<'a, M> {
+    glyph(bytes, size)
+        .style(|theme: &Theme, _| svg::Style {
+            color: Some(theme.palette().warning.base.color),
+        })
+        .opacity(alpha.clamp(0.0, 1.0))
+        .into()
+}
+
 /// Render a destructive-state chrome icon from the active Iced theme.
 pub fn themed_danger<'a, M: 'a>(bytes: &'static [u8], size: f32) -> Element<'a, M> {
     glyph(bytes, size)

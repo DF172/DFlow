@@ -598,6 +598,9 @@ impl Ribbon {
         // Index of the start page among the open documents, so its entry can
         // live in the tab row the way the sheet draws it.
         start_tab: Option<usize>,
+        // The open-file rim, when a file is loading: the fraction the old
+        // modal card's bar read, stroked around the button that started it.
+        open_ring: Option<kit::Ring>,
         theme: &'a Theme,
     ) -> (Element<'a, Message>, Element<'a, Message>) {
         // ── Quick-access file commands + undo/redo, one merged flow ────────
@@ -605,9 +608,24 @@ impl Ribbon {
         // The native window caption already carries the product name and its
         // version, so the bar does not repeat them: the tabs take the head.
 
+        let open_btn: Element<'a, Message> = match open_ring {
+            Some(ring) => kit::progress_ring(
+                quick_access_btn_msg(
+                    crate::ui::icons::FOLDER_OPEN,
+                    "Open",
+                    "OPEN",
+                    Message::OpenCancel,
+                    theme,
+                ),
+                ring,
+                theme.palette().primary.base.color,
+            ),
+            None => quick_access_btn(crate::ui::icons::FOLDER_OPEN, "Open", "OPEN", theme),
+        };
+
         let lead = iced::widget::Row::with_children(vec![
             quick_access_btn(crate::ui::icons::DOC_NEW, "New", "QNEW", theme).into(),
-            quick_access_btn(crate::ui::icons::FOLDER_OPEN, "Open", "OPEN", theme).into(),
+            open_btn,
             quick_access_btn(crate::ui::icons::SAVE, "Save", "SAVE", theme).into(),
             quick_access_btn(crate::ui::icons::FILE_EXPORT, "Save As", "SAVEAS", theme).into(),
             quick_access_btn(crate::ui::icons::PRINT, "Print", "PRINT", theme).into(),
@@ -1007,6 +1025,7 @@ impl Ribbon {
         is_start: bool,
         recent_colors: &[AcadColor],
         theme: &Theme,
+        undo_highlight: Option<usize>,
     ) -> Option<Element<'_, Message>> {
         if is_start {
             return None;
@@ -1029,13 +1048,42 @@ impl Ribbon {
                 .enumerate()
                 .map(|(idx, label)| {
                     let step = idx + 1;
+                    // Batch 3 item 28: the redo rows named by the last undo
+                    // (row 0 = last undone operation) carry a 100ms tint while
+                    // the UNDO_HIGHLIGHT pulse decays. History rows have no
+                    // stable id, so this is positional; only the redo branch
+                    // is highlighted — undo rows name operations still on the
+                    // undo stack.
+                    let lit = !is_undo && undo_highlight.is_some_and(|n| idx < n);
                     plain_button(text(label.clone()).size(tokens::TEXT_LABEL))
                         .on_press(if is_undo {
                             Message::UndoMany(step)
                         } else {
                             Message::RedoMany(step)
                         })
-                        .style(kit::ghost_style)
+                        .style(move |theme: &Theme, status| {
+                            let mut style = kit::ghost_style(theme, status);
+                            if lit {
+                                let p = crate::ui::motion::value_or(
+                                    crate::ui::motion::UNDO_HIGHLIGHT,
+                                    0.0,
+                                );
+                                if p > 0.0 {
+                                    let primary = theme.palette().primary.base.color;
+                                    match style.background.as_mut() {
+                                        Some(iced::Background::Color(c)) => {
+                                            *c = crate::ui::motion::mix(*c, primary, 0.25 * p);
+                                        }
+                                        _ => {
+                                            style.background = Some(iced::Background::Color(
+                                                primary.scale_alpha(0.18 * p),
+                                            ));
+                                        }
+                                    }
+                                }
+                            }
+                            style
+                        })
                         .width(Fill)
                         .padding(kit::Size::Control.padding())
                         .into()
@@ -2139,5 +2187,64 @@ mod tests {
                 "the row names {want}, which the Draw group does not own"
             );
         }
+    }
+
+    /// Item 37 moved the open progress from a modal card onto the Open
+    /// button's own edge. The paint side only: the assertions spell the shapes
+    /// they look for, so a scan that reached this module would always pass.
+    fn paint_side(src: &str) -> &str {
+        src.split("\n#[cfg(test)]").next().unwrap_or(src)
+    }
+
+    #[test]
+    fn the_open_ring_reads_a_track_the_update_side_owns() {
+        let view = std::fs::read_to_string(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/src/app/view/mod.rs"
+        ))
+        .expect("the main view must be readable");
+        let view = paint_side(&view);
+        assert!(
+            view.contains("motion::value_or(crate::ui::motion::PROGRESS"),
+            "the ring paints the raw counter again instead of the eased track"
+        );
+        assert!(
+            view.contains("motion::OPEN_RING"),
+            "the ring no longer fades with the opening state"
+        );
+        assert!(
+            view.contains("kit::Ring {"),
+            "the view no longer builds the ring it hands the ribbon"
+        );
+
+        let ribbon = std::fs::read_to_string(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/src/ui/ribbon/mod.rs"
+        ))
+        .expect("the ribbon must be readable");
+        let ribbon = paint_side(&ribbon);
+        assert!(
+            ribbon.contains("kit::progress_ring("),
+            "the Open button stopped growing a ring around itself"
+        );
+        assert!(
+            ribbon.contains("Message::OpenCancel"),
+            "the ring replaced the card, so the button must carry the cancel"
+        );
+
+        let update = std::fs::read_to_string(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/src/app/update/viewport.rs"
+        ))
+        .expect("the viewport update module must be readable");
+        let update = paint_side(&update);
+        assert!(
+            update.contains("motion::chase(crate::ui::motion::PROGRESS"),
+            "no update-side chase owns the progress track"
+        );
+        assert!(
+            update.contains("progress_seed"),
+            "a new open must seed the track at zero instead of inheriting the last file's bar"
+        );
     }
 }

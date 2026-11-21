@@ -2180,6 +2180,11 @@ fn style_struct_literal(line: &str, needle: &str) -> bool {
         if at > 0 && is_word_char(line[..at].chars().next_back().unwrap_or(' ')) {
             continue; // e.g. `my_button::Style` — not one of ours
         }
+        // `-> iced::widget::text_input::Style {` is a return type, not a
+        // hand-written struct literal.
+        if line[..at].trim_end().ends_with("->") {
+            continue;
+        }
         if strip_leading_spaces_tabs(&line[from..]).starts_with('{') {
             return true;
         }
