@@ -18,6 +18,12 @@ impl PlotWindowCommand {
     }
 }
 
+impl Default for PlotWindowCommand {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CadCommand for PlotWindowCommand {
     fn name(&self) -> &'static str {
         "PLOTWINDOW"

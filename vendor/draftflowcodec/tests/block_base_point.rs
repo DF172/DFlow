@@ -23,8 +23,14 @@ fn reserved_space_markers_roundtrip_without_entity_index_entries() {
             assert_eq!(actual.block_end_handle, expected.block_end_handle);
             let begin = result.get_entity(actual.block_entity_handle).unwrap();
             let end = result.get_entity(actual.block_end_handle).unwrap();
-            assert!(matches!(begin, draftflowcodec::entities::EntityType::Block(_)));
-            assert!(matches!(end, draftflowcodec::entities::EntityType::BlockEnd(_)));
+            assert!(matches!(
+                begin,
+                draftflowcodec::entities::EntityType::Block(_)
+            ));
+            assert!(matches!(
+                end,
+                draftflowcodec::entities::EntityType::BlockEnd(_)
+            ));
             assert_eq!(begin.common().owner_handle, actual.handle);
             assert_eq!(end.common().owner_handle, actual.handle);
         }

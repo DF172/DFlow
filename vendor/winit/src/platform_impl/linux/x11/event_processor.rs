@@ -679,10 +679,10 @@ impl EventProcessor {
             drop(shared_state_lock);
 
             if moved {
-                callback(&self.target, Event::WindowEvent {
-                    window_id,
-                    event: WindowEvent::Moved(outer.into()),
-                });
+                callback(
+                    &self.target,
+                    Event::WindowEvent { window_id, event: WindowEvent::Moved(outer.into()) },
+                );
             }
             outer
         };
@@ -727,13 +727,16 @@ impl EventProcessor {
                 drop(shared_state_lock);
 
                 let inner_size = Arc::new(Mutex::new(new_inner_size));
-                callback(&self.target, Event::WindowEvent {
-                    window_id,
-                    event: WindowEvent::ScaleFactorChanged {
-                        scale_factor: new_scale_factor,
-                        inner_size_writer: InnerSizeWriter::new(Arc::downgrade(&inner_size)),
+                callback(
+                    &self.target,
+                    Event::WindowEvent {
+                        window_id,
+                        event: WindowEvent::ScaleFactorChanged {
+                            scale_factor: new_scale_factor,
+                            inner_size_writer: InnerSizeWriter::new(Arc::downgrade(&inner_size)),
+                        },
                     },
-                });
+                );
 
                 let new_inner_size = *inner_size.lock().unwrap();
                 drop(inner_size);
@@ -780,10 +783,13 @@ impl EventProcessor {
         }
 
         if resized {
-            callback(&self.target, Event::WindowEvent {
-                window_id,
-                event: WindowEvent::Resized(new_inner_size.into()),
-            });
+            callback(
+                &self.target,
+                Event::WindowEvent {
+                    window_id,
+                    event: WindowEvent::Resized(new_inner_size.into()),
+                },
+            );
         }
     }
 
@@ -1505,10 +1511,13 @@ impl EventProcessor {
         }
         let physical_key = xkb::raw_keycode_to_physicalkey(keycode);
 
-        callback(&self.target, Event::DeviceEvent {
-            device_id,
-            event: DeviceEvent::Key(RawKeyEvent { physical_key, state }),
-        });
+        callback(
+            &self.target,
+            Event::DeviceEvent {
+                device_id,
+                event: DeviceEvent::Key(RawKeyEvent { physical_key, state }),
+            },
+        );
     }
 
     fn xinput2_hierarchy_changed<T: 'static, F>(&mut self, xev: &XIHierarchyEvent, mut callback: F)
@@ -1523,15 +1532,21 @@ impl EventProcessor {
         for info in infos {
             if 0 != info.flags & (xinput2::XISlaveAdded | xinput2::XIMasterAdded) {
                 self.init_device(info.deviceid as xinput::DeviceId);
-                callback(&self.target, Event::DeviceEvent {
-                    device_id: mkdid(info.deviceid as xinput::DeviceId),
-                    event: DeviceEvent::Added,
-                });
+                callback(
+                    &self.target,
+                    Event::DeviceEvent {
+                        device_id: mkdid(info.deviceid as xinput::DeviceId),
+                        event: DeviceEvent::Added,
+                    },
+                );
             } else if 0 != info.flags & (xinput2::XISlaveRemoved | xinput2::XIMasterRemoved) {
-                callback(&self.target, Event::DeviceEvent {
-                    device_id: mkdid(info.deviceid as xinput::DeviceId),
-                    event: DeviceEvent::Removed,
-                });
+                callback(
+                    &self.target,
+                    Event::DeviceEvent {
+                        device_id: mkdid(info.deviceid as xinput::DeviceId),
+                        event: DeviceEvent::Removed,
+                    },
+                );
                 let mut devices = self.devices.borrow_mut();
                 devices.remove(&DeviceId(info.deviceid as xinput::DeviceId));
             }

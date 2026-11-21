@@ -17,6 +17,12 @@ impl IdCommand {
     }
 }
 
+impl Default for IdCommand {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CadCommand for IdCommand {
     fn set_working_plane(&mut self, plane: WorkingPlane) {
         self.plane = plane;

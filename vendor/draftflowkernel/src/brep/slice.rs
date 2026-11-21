@@ -5,7 +5,10 @@
 //! entity, so a failed cut never makes the source disappear.
 
 use super::topology::{Body, EdgeKey, FaceKey, Lump, Shell};
-use super::{body_bounds, combine, imprint, operation_tolerance, Containment, Operation, Placement, Provenance, Snag};
+use super::{
+    body_bounds, combine, imprint, operation_tolerance, Containment, Operation, Placement,
+    Provenance, Snag,
+};
 use crate::space::{Plane, Vec3};
 
 /// The two non-empty bodies produced by a plane crossing a body.
@@ -28,8 +31,7 @@ pub fn slice_by_plane(body: &Body, plane: Plane) -> Result<Option<PlaneSlice>, S
         return Ok(None);
     }
     let normal = plane.normal().ok_or(Snag::CutRefused)?;
-    let plane = Plane::orthonormal(plane.origin, plane.x_axis, normal)
-        .ok_or(Snag::CutRefused)?;
+    let plane = Plane::orthonormal(plane.origin, plane.x_axis, normal).ok_or(Snag::CutRefused)?;
     let bounds = body_bounds(body).ok_or(Snag::CutRefused)?;
     let frame = projected_bounds(bounds, plane).ok_or(Snag::CutRefused)?;
     let tolerance = operation_tolerance(&[body]);
@@ -79,8 +81,8 @@ pub fn slice_by_surface(body: &Body, cutter: &Body) -> Result<Option<PlaneSlice>
     let mut negative_faces = Vec::new();
     let mut positive_faces = Vec::new();
     for face in divided.face_keys() {
-        let point = super::boolean::interior_point(&divided, face, tolerance)
-            .ok_or(Snag::CutRefused)?;
+        let point =
+            super::boolean::interior_point(&divided, face, tolerance).ok_or(Snag::CutRefused)?;
         let distance = surface_distance(cutter, point).ok_or(Snag::CutRefused)?;
         if distance < -tolerance {
             negative_faces.push(face);
@@ -117,20 +119,8 @@ pub fn slice_by_surface(body: &Body, cutter: &Body) -> Result<Option<PlaneSlice>
         return Err(Snag::CutRefused);
     }
     Ok(Some(PlaneSlice {
-        negative: copy_closed_side(
-            &divided,
-            &negative_faces,
-            &divided_cutter,
-            &caps,
-            false,
-        )?,
-        positive: copy_closed_side(
-            &divided,
-            &positive_faces,
-            &divided_cutter,
-            &caps,
-            true,
-        )?,
+        negative: copy_closed_side(&divided, &negative_faces, &divided_cutter, &caps, false)?,
+        positive: copy_closed_side(&divided, &positive_faces, &divided_cutter, &caps, true)?,
     }))
 }
 
@@ -170,7 +160,12 @@ fn copy_closed_side(
         owner: lump,
         provenance: Provenance::Synthesized,
     });
-    result.lumps.get_mut(lump).ok_or(Snag::CutRefused)?.shells.push(shell);
+    result
+        .lumps
+        .get_mut(lump)
+        .ok_or(Snag::CutRefused)?
+        .shells
+        .push(shell);
     result.roots.push(lump);
     for face in faces {
         super::boolean::copy_face(&mut result, source, *face, shell, false)?;
@@ -179,11 +174,7 @@ fn copy_closed_side(
         super::boolean::copy_face(&mut result, cutter, *face, shell, flip_caps)?;
     }
     super::boolean::orient_shell(&mut result)?;
-    if result
-        .edges
-        .iter()
-        .any(|(_, edge)| edge.coedges.len() != 2)
-        || !result.validate().is_empty()
+    if result.edges.iter().any(|(_, edge)| edge.coedges.len() != 2) || !result.validate().is_empty()
     {
         return Err(Snag::CutRefused);
     }
@@ -207,9 +198,21 @@ fn projected_bounds(bounds: super::Aabb, plane: Plane) -> Option<FrameBounds> {
     let mut max = [f64::NEG_INFINITY; 3];
     for bits in 0..8 {
         let point = Vec3::new(
-            if bits & 1 == 0 { bounds.min[0] } else { bounds.max[0] },
-            if bits & 2 == 0 { bounds.min[1] } else { bounds.max[1] },
-            if bits & 4 == 0 { bounds.min[2] } else { bounds.max[2] },
+            if bits & 1 == 0 {
+                bounds.min[0]
+            } else {
+                bounds.max[0]
+            },
+            if bits & 2 == 0 {
+                bounds.min[1]
+            } else {
+                bounds.max[1]
+            },
+            if bits & 4 == 0 {
+                bounds.min[2]
+            } else {
+                bounds.max[2]
+            },
         ) - origin;
         let local = [point.dot(x), point.dot(y), point.dot(normal)];
         for axis in 0..3 {
@@ -230,8 +233,18 @@ fn split_solid(
     tolerance: f64,
 ) -> Result<Option<PlaneSlice>, Snag> {
     let (negative_cutter, positive_cutter) = half_boxes(plane, frame, tolerance)?;
-    let negative = combine(body.clone(), negative_cutter, Operation::Intersection, tolerance)?;
-    let positive = combine(body.clone(), positive_cutter, Operation::Intersection, tolerance)?;
+    let negative = combine(
+        body.clone(),
+        negative_cutter,
+        Operation::Intersection,
+        tolerance,
+    )?;
+    let positive = combine(
+        body.clone(),
+        positive_cutter,
+        Operation::Intersection,
+        tolerance,
+    )?;
     if negative.faces.is_empty() || positive.faces.is_empty() {
         return Ok(None);
     }
@@ -320,20 +333,35 @@ fn split_capped(
                         owner: loop_key,
                         provenance: Provenance::Synthesized,
                     });
-                    divided.edges.get_mut(edge).ok_or(Snag::CutRefused)?.coedges.push(coedge);
+                    divided
+                        .edges
+                        .get_mut(edge)
+                        .ok_or(Snag::CutRefused)?
+                        .coedges
+                        .push(coedge);
                     coedges.push(coedge);
                 }
-                divided.loops.get_mut(loop_key).ok_or(Snag::CutRefused)?.coedges = coedges;
+                divided
+                    .loops
+                    .get_mut(loop_key)
+                    .ok_or(Snag::CutRefused)?
+                    .coedges = coedges;
                 loops.push(loop_key);
             }
             divided.faces.get_mut(face).ok_or(Snag::CutRefused)?.loops = loops;
             caps[index].push(face);
         }
     }
-    let mut negative: Vec<FaceKey> =
-        sides.iter().filter(|(_, side)| **side == -1).map(|(face, _)| *face).collect();
-    let mut positive: Vec<FaceKey> =
-        sides.iter().filter(|(_, side)| **side == 1).map(|(face, _)| *face).collect();
+    let mut negative: Vec<FaceKey> = sides
+        .iter()
+        .filter(|(_, side)| **side == -1)
+        .map(|(face, _)| *face)
+        .collect();
+    let mut positive: Vec<FaceKey> = sides
+        .iter()
+        .filter(|(_, side)| **side == 1)
+        .map(|(face, _)| *face)
+        .collect();
     negative.extend(&caps[0]);
     positive.extend(&caps[1]);
     let [negative, positive] = [negative, positive].map(|faces| copy_faces(&divided, &faces));
@@ -359,7 +387,11 @@ fn cap_regions(
 ) -> Result<Vec<Vec<Vec<(EdgeKey, bool)>>>, Snag> {
     let ends = |(edge, forward): (EdgeKey, bool)| {
         let node = body.edges.get(edge)?;
-        Some(if forward { (node.start, node.end) } else { (node.end, node.start) })
+        Some(if forward {
+            (node.start, node.end)
+        } else {
+            (node.end, node.start)
+        })
     };
     let mut left: Vec<(EdgeKey, bool)> = uses.to_vec();
     let mut rings = Vec::new();
@@ -387,7 +419,9 @@ fn cap_regions(
         .and_then(|(edge, _)| body.edges.get(*edge))
         .and_then(|edge| body.vertices.get(edge.start))
         .map_or(Vec3::from(plane.origin), |vertex| Vec3::from(vertex.point));
-    let facing = Vec3::from(plane.normal().ok_or(Snag::CutRefused)?).dot(outward).signum();
+    let facing = Vec3::from(plane.normal().ok_or(Snag::CutRefused)?)
+        .dot(outward)
+        .signum();
     let polygon = |ring: &[(EdgeKey, bool)]| -> Option<Vec<[f64; 2]>> {
         let mut points = Vec::new();
         for (edge, forward) in ring {
@@ -521,7 +555,11 @@ fn face_side(body: &Body, face: FaceKey, plane: Plane, tolerance: f64) -> Result
     if high <= tolerance && low >= -tolerance {
         let inside = super::boolean::interior_point(body, face, tolerance)
             .and_then(|point| plane.distance_to(point));
-        return Ok(if inside.is_some_and(|distance| distance > tolerance) { 1 } else { -1 });
+        return Ok(if inside.is_some_and(|distance| distance > tolerance) {
+            1
+        } else {
+            -1
+        });
     }
     if high <= tolerance {
         Ok(-1)
@@ -543,7 +581,12 @@ fn copy_faces(source: &Body, faces: &[FaceKey]) -> Result<Body, Snag> {
         owner: lump,
         provenance: Provenance::Synthesized,
     });
-    result.lumps.get_mut(lump).ok_or(Snag::CutRefused)?.shells.push(shell);
+    result
+        .lumps
+        .get_mut(lump)
+        .ok_or(Snag::CutRefused)?
+        .shells
+        .push(shell);
     result.roots.push(lump);
     for face in faces {
         super::boolean::copy_face(&mut result, source, *face, shell, false)?;
@@ -555,11 +598,7 @@ fn copy_faces(source: &Body, faces: &[FaceKey]) -> Result<Body, Snag> {
     }
 }
 
-fn half_boxes(
-    plane: Plane,
-    frame: FrameBounds,
-    tolerance: f64,
-) -> Result<(Body, Body), Snag> {
+fn half_boxes(plane: Plane, frame: FrameBounds, tolerance: f64) -> Result<(Body, Body), Snag> {
     let span = (0..3)
         .map(|axis| frame.max[axis] - frame.min[axis])
         .fold(1.0_f64, f64::max);
@@ -594,12 +633,7 @@ mod tests {
     #[test]
     fn a_plane_splits_a_box_into_two_valid_solids() {
         let body = cuboid([0.0; 3], [4.0, 2.0, 2.0]).unwrap();
-        let plane = Plane::orthonormal(
-            [1.5, 0.0, 0.0],
-            [0.0, 1.0, 0.0],
-            [1.0, 0.0, 0.0],
-        )
-        .unwrap();
+        let plane = Plane::orthonormal([1.5, 0.0, 0.0], [0.0, 1.0, 0.0], [1.0, 0.0, 0.0]).unwrap();
 
         let sliced = slice_by_plane(&body, plane).unwrap().unwrap();
         assert!(sliced.negative.validate().is_empty());
@@ -613,12 +647,7 @@ mod tests {
     #[test]
     fn a_tangent_plane_does_not_split_a_box() {
         let body = cuboid([0.0; 3], [4.0, 2.0, 2.0]).unwrap();
-        let plane = Plane::orthonormal(
-            [4.0, 0.0, 0.0],
-            [0.0, 1.0, 0.0],
-            [1.0, 0.0, 0.0],
-        )
-        .unwrap();
+        let plane = Plane::orthonormal([4.0, 0.0, 0.0], [0.0, 1.0, 0.0], [1.0, 0.0, 0.0]).unwrap();
 
         assert!(slice_by_plane(&body, plane).unwrap().is_none());
     }

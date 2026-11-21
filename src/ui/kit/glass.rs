@@ -263,7 +263,7 @@ impl shader::Primitive for GlassPane {
         _bounds: &Rectangle,
         viewport: &Viewport,
     ) {
-        let scale = viewport.scale_factor() as f32;
+        let scale = viewport.scale_factor();
         let frame_size = [
             viewport.physical_width().max(1) as f32,
             viewport.physical_height().max(1) as f32,

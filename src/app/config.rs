@@ -125,7 +125,7 @@ impl UiThemeConfig {
             resolve_system_theme()
         } else {
             builtin_theme(&self.name)
-                .unwrap_or_else(|| crate::ui::style::draftflow_theme::draftflow_dark())
+                .unwrap_or_else(crate::ui::style::draftflow_theme::draftflow_dark)
         }
     }
 }

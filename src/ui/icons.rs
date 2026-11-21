@@ -632,14 +632,10 @@ fn starts_with_word_ignore_ascii_case(source: &[u8], index: usize, word: &[u8]) 
     let Some(end) = index.checked_add(word.len()) else {
         return false;
     };
-    if end > source.len()
+    !(end > source.len()
         || !source[index..end].eq_ignore_ascii_case(word)
         || index > 0 && source[index - 1].is_ascii_alphabetic()
-        || end < source.len() && source[end].is_ascii_alphabetic()
-    {
-        return false;
-    }
-    true
+        || end < source.len() && source[end].is_ascii_alphabetic())
 }
 
 fn color_hex(color: Color) -> [u8; 7] {

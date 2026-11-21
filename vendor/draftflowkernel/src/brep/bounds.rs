@@ -68,7 +68,10 @@ impl Aabb {
 
     /// Whether two boxes share any space.
     /// A box holding nothing, overlapping no other.
-    pub const EMPTY: Self = Self { min: [f64::INFINITY; 3], max: [f64::NEG_INFINITY; 3] };
+    pub const EMPTY: Self = Self {
+        min: [f64::INFINITY; 3],
+        max: [f64::NEG_INFINITY; 3],
+    };
 
     pub fn overlaps(&self, other: &Self) -> bool {
         (0..3).all(|axis| self.min[axis] <= other.max[axis] && other.min[axis] <= self.max[axis])
@@ -110,22 +113,37 @@ pub fn face_bounds(body: &Body, face: FaceKey) -> Option<Aabb> {
     match surface {
         Surface::Sphere(sphere) => {
             let normal = sphere.frame.normal()?;
-            let extent = std::array::from_fn(|axis| sphere.radius.abs()
-                * sphere.frame.x_axis[axis].hypot(sphere.frame.y_axis[axis]).hypot(normal[axis]));
+            let extent = std::array::from_fn(|axis| {
+                sphere.radius.abs()
+                    * sphere.frame.x_axis[axis]
+                        .hypot(sphere.frame.y_axis[axis])
+                        .hypot(normal[axis])
+            });
             return centred_bounds(sphere.frame.origin, extent);
         }
         Surface::Torus(torus) => {
             let normal = torus.frame.normal()?;
             let extent = std::array::from_fn(|axis| {
                 let radial = torus.frame.x_axis[axis].hypot(torus.frame.y_axis[axis]);
-                torus.major_radius.abs() * radial + torus.minor_radius.abs() * radial.hypot(normal[axis])
+                torus.major_radius.abs() * radial
+                    + torus.minor_radius.abs() * radial.hypot(normal[axis])
             });
             return centred_bounds(torus.frame.origin, extent);
         }
         Surface::Nurbs(surface) => {
             // Positive rational weights keep the surface inside its control hull.
-            if surface.weights().iter().flatten().any(|w| !w.is_finite() || *w <= 0.0)
-                || surface.control_points().iter().flatten().flatten().any(|v| !v.is_finite()) {
+            if surface
+                .weights()
+                .iter()
+                .flatten()
+                .any(|w| !w.is_finite() || *w <= 0.0)
+                || surface
+                    .control_points()
+                    .iter()
+                    .flatten()
+                    .flatten()
+                    .any(|v| !v.is_finite())
+            {
                 return None;
             }
             return Aabb::around(surface.control_points().iter().flatten().copied());
@@ -170,11 +188,16 @@ pub fn face_bounds(body: &Body, face: FaceKey) -> Option<Aabb> {
         let chord = points
             .windows(2)
             .map(|pair| {
-                (0..3).map(|axis| (pair[1][axis] - pair[0][axis]).powi(2)).sum::<f64>().sqrt()
+                (0..3)
+                    .map(|axis| (pair[1][axis] - pair[0][axis]).powi(2))
+                    .sum::<f64>()
+                    .sqrt()
             })
             .fold(0.0, f64::max);
-        let pad = if matches!(curve, super::Curve3::Nurbs(_) | super::Curve3::PlanarSpline { .. })
-        {
+        let pad = if matches!(
+            curve,
+            super::Curve3::Nurbs(_) | super::Curve3::PlanarSpline { .. }
+        ) {
             chord * 0.06
         } else {
             0.0
@@ -192,10 +215,11 @@ pub fn face_bounds(body: &Body, face: FaceKey) -> Option<Aabb> {
     // so the edges alone leave the point out — and the box with it misses
     // every face the cone's tip reaches.
     if let Surface::Cone(cone) = surface {
-        let singular = node
-            .loops
-            .iter()
-            .any(|ring| body.loops.get(*ring).is_some_and(|ring| ring.coedges.is_empty()));
+        let singular = node.loops.iter().any(|ring| {
+            body.loops
+                .get(*ring)
+                .is_some_and(|ring| ring.coedges.is_empty())
+        });
         let height = cone.radius / cone.half_angle.tan();
         if singular && height.is_finite() {
             let normal = cone.base.normal()?;
@@ -250,7 +274,12 @@ fn centred_bounds(centre: [f64; 3], extent: [f64; 3]) -> Option<Aabb> {
         min: std::array::from_fn(|axis| centre[axis] - extent[axis]),
         max: std::array::from_fn(|axis| centre[axis] + extent[axis]),
     };
-    bounds.min.iter().chain(&bounds.max).all(|v| v.is_finite()).then_some(bounds)
+    bounds
+        .min
+        .iter()
+        .chain(&bounds.max)
+        .all(|v| v.is_finite())
+        .then_some(bounds)
 }
 
 /// The box around a point set, for a caller that already has the points.
@@ -351,14 +380,30 @@ mod tests {
     #[test]
     fn closed_surfaces_and_nurbs_are_bounded_by_their_full_extent() {
         use crate::brep::{Sphere, Torus};
-        use crate::space::{Plane, NurbsSurface3};
-        let frame = Plane::orthonormal([7.0, -9.0, 12.0], [1.0, 1.0, 0.0], [1.0, -1.0, 2.0]).unwrap();
+        use crate::space::{NurbsSurface3, Plane};
+        let frame =
+            Plane::orthonormal([7.0, -9.0, 12.0], [1.0, 1.0, 0.0], [1.0, -1.0, 2.0]).unwrap();
         let surfaces = [
             Surface::Sphere(Sphere { frame, radius: 3.0 }),
-            Surface::Torus(Torus { frame, major_radius: 5.0, minor_radius: 2.0 }),
-            Surface::Nurbs(NurbsSurface3::new(1, 1,
-                vec![vec![[0.0; 3], [1.0, 2.0, 3.0]], vec![[4.0, 5.0, 1.0], [6.0, 7.0, 2.0]]],
-                vec![0.0, 0.0, 1.0, 1.0], vec![0.0, 0.0, 1.0, 1.0], Some(vec![vec![1.0, 2.0], vec![3.0, 1.0]])).unwrap()),
+            Surface::Torus(Torus {
+                frame,
+                major_radius: 5.0,
+                minor_radius: 2.0,
+            }),
+            Surface::Nurbs(
+                NurbsSurface3::new(
+                    1,
+                    1,
+                    vec![
+                        vec![[0.0; 3], [1.0, 2.0, 3.0]],
+                        vec![[4.0, 5.0, 1.0], [6.0, 7.0, 2.0]],
+                    ],
+                    vec![0.0, 0.0, 1.0, 1.0],
+                    vec![0.0, 0.0, 1.0, 1.0],
+                    Some(vec![vec![1.0, 2.0], vec![3.0, 1.0]]),
+                )
+                .unwrap(),
+            ),
         ];
         for surface in surfaces {
             let mut body = cuboid([0.0; 3], [1.0; 3]).unwrap();
@@ -371,7 +416,10 @@ mod tests {
                     let (u, v) = if matches!(surface, Surface::Nurbs(_)) {
                         (i as f64 / 32.0, j as f64 / 32.0)
                     } else {
-                        (i as f64 * std::f64::consts::TAU / 32.0, j as f64 * std::f64::consts::TAU / 32.0)
+                        (
+                            i as f64 * std::f64::consts::TAU / 32.0,
+                            j as f64 * std::f64::consts::TAU / 32.0,
+                        )
                     };
                     assert!(bounds.holds(surface.point_at(u, v)));
                 }

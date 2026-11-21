@@ -437,7 +437,10 @@ impl Entity for ExtendedEntity {
 /// drawing: origin + x·X + y·Y + z·Z, where X, Y and Z are the placement
 /// axes (scaled by the cloud's scale).
 pub fn point_cloud_ex_to_world(data: &PointCloudExData, p: Vector3) -> Vector3 {
-    data.ucs_origin + data.ucs_x_direction * p.x + data.ucs_y_direction * p.y + data.ucs_z_direction * p.z
+    data.ucs_origin
+        + data.ucs_x_direction * p.x
+        + data.ucs_y_direction * p.y
+        + data.ucs_z_direction * p.z
 }
 
 /// The eight corners of a PointCloudEx's extents, placed in the drawing.

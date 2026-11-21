@@ -61,6 +61,12 @@ impl<const MEASURE: bool> CurveMarkerCommand<MEASURE> {
     }
 }
 
+impl<const MEASURE: bool> Default for CurveMarkerCommand<MEASURE> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<const MEASURE: bool> CadCommand for CurveMarkerCommand<MEASURE> {
     fn name(&self) -> &'static str {
         if MEASURE {

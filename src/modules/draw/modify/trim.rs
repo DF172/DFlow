@@ -3114,7 +3114,7 @@ impl CadCommand for TrimCommand {
                 let dy = by - ay;
                 let len2 = dx * dx + dy * dy;
                 let t_click = if len2 > 1e-12 {
-                    ((pt.x as f64 - ax) * dx + (pt.y as f64 - ay) * dy) / len2
+                    ((pt.x - ax) * dx + (pt.y - ay) * dy) / len2
                 } else {
                     0.5
                 };
@@ -3141,7 +3141,7 @@ impl CadCommand for TrimCommand {
                 if ts.is_empty() {
                     return vec![];
                 }
-                let click_angle = (pt.y as f64 - cy).atan2(pt.x as f64 - cx);
+                let click_angle = (pt.y - cy).atan2(pt.x - cx);
                 let t_click = arc_t(click_angle, a0, a1);
                 let survivors = trim_arc(a, &ts, t_click);
                 let mut out = Vec::new();
@@ -3164,7 +3164,7 @@ impl CadCommand for TrimCommand {
                 if ts.len() < 2 {
                     return vec![];
                 }
-                let click_angle = (pt.y as f64 - cy).atan2(pt.x as f64 - cx);
+                let click_angle = (pt.y - cy).atan2(pt.x - cx);
                 let t_click = arc_t(click_angle, 0.0, TAU);
                 let survivors = trim_circle(c, &ts, t_click);
                 if survivors.is_empty() {
@@ -3189,7 +3189,7 @@ impl CadCommand for TrimCommand {
                 if ts.is_empty() {
                     return vec![];
                 }
-                let t_click = curve.parameter_at([pt.x as f64, pt.y as f64]);
+                let t_click = curve.parameter_at([pt.x, pt.y]);
                 let survivors = trim_ray(r, &ts, t_click);
                 let mut out = Vec::new();
                 push_trim_hints(&mut out, entity.unwrap(), &survivors);
@@ -3210,7 +3210,7 @@ impl CadCommand for TrimCommand {
                 if ts.is_empty() {
                     return vec![];
                 }
-                let t_click = curve.parameter_at([pt.x as f64, pt.y as f64]);
+                let t_click = curve.parameter_at([pt.x, pt.y]);
                 let survivors = trim_xline(x, &ts, t_click);
                 let mut out = Vec::new();
                 push_trim_hints(&mut out, entity.unwrap(), &survivors);
@@ -3244,8 +3244,8 @@ impl CadCommand for TrimCommand {
                 if ts.is_empty() {
                     return vec![];
                 }
-                let rx = pt.x as f64 - e.center.x;
-                let ry = pt.y as f64 - e.center.y;
+                let rx = pt.x - e.center.x;
+                let ry = pt.y - e.center.y;
                 let xl = rx * nx + ry * ny;
                 let yl = -rx * ny + ry * nx;
                 let t_ell = ellipse_closest_parameter(a, b, xl, yl);
@@ -3269,7 +3269,7 @@ impl CadCommand for TrimCommand {
                 if ts.is_empty() {
                     return vec![];
                 }
-                let t_click = spline_nearest_t(s, pt.x as f64, pt.y as f64)
+                let t_click = spline_nearest_t(s, pt.x, pt.y)
                     .and_then(|t_actual| {
                         let (t0, t1) = spline_range(s)?;
                         Some(t_to_rel(t_actual, t0, t1))
@@ -3290,7 +3290,7 @@ impl CadCommand for TrimCommand {
                 out
             }
             Some(EntityType::LwPolyline(p)) => {
-                let Some(survivors) = trim_lwpolyline(p, pt.x as f64, pt.y as f64, geos) else {
+                let Some(survivors) = trim_lwpolyline(p, pt.x, pt.y, geos) else {
                     return vec![];
                 };
                 let mut out = Vec::new();
@@ -3691,7 +3691,7 @@ impl CadCommand for ExtendCommand {
                 let dy = by - ay;
                 let len2 = dx * dx + dy * dy;
                 let t_click = if len2 > 1e-12 {
-                    ((pt.x as f64 - ax) * dx + (pt.y as f64 - ay) * dy) / len2
+                    ((pt.x - ax) * dx + (pt.y - ay) * dy) / len2
                 } else {
                     0.5
                 };
@@ -3706,7 +3706,7 @@ impl CadCommand for ExtendCommand {
                 }
             }
             Some(EntityType::Arc(a)) => {
-                let ang = (pt.y as f64 - a.center.y).atan2(pt.x as f64 - a.center.x);
+                let ang = (pt.y - a.center.y).atan2(pt.x - a.center.x);
                 let t_click = arc_t(ang, a.start_angle, a.end_angle);
                 if let Some(ext) = extend_arc(a, t_click, &self.geos) {
                     return extend_hover_wires(
@@ -3729,8 +3729,8 @@ impl CadCommand for ExtendCommand {
                         if t1 <= t0 {
                             t1 += TAU;
                         }
-                        let rx = pt.x as f64 - e.center.x;
-                        let ry = pt.y as f64 - e.center.y;
+                        let rx = pt.x - e.center.x;
+                        let ry = pt.y - e.center.y;
                         let xl = rx * nx + ry * ny;
                         let yl = -rx * ny + ry * nx;
                         let t_ell = ellipse_closest_parameter(a, b, xl, yl);
@@ -3748,7 +3748,7 @@ impl CadCommand for ExtendCommand {
                 }
             }
             Some(EntityType::LwPolyline(p)) => {
-                if let Some(ext) = extend_lwpoly(p, pt.x as f64, pt.y as f64, &self.geos) {
+                if let Some(ext) = extend_lwpoly(p, pt.x, pt.y, &self.geos) {
                     return extend_hover_wires(
                         &EntityType::LwPolyline(p.clone()),
                         &ext,
@@ -3759,7 +3759,7 @@ impl CadCommand for ExtendCommand {
                 }
             }
             Some(EntityType::Spline(s)) => {
-                let t_click = spline_nearest_t(s, pt.x as f64, pt.y as f64)
+                let t_click = spline_nearest_t(s, pt.x, pt.y)
                     .and_then(|t_actual| {
                         let (t0, t1) = spline_range(s)?;
                         Some(t_to_rel(t_actual, t0, t1))
@@ -5880,8 +5880,11 @@ impl CadCommand for ExtrimCommand {
         };
         let q = [pt.x, pt.y];
         let geos = self.geos.clone();
-        let side =
-            |m: [f64; 2]| line_seg_ts(m[0], m[1], q[0], q[1], Handle::NULL, &geos).len() % 2 == 0;
+        let side = |m: [f64; 2]| {
+            line_seg_ts(m[0], m[1], q[0], q[1], Handle::NULL, &geos)
+                .len()
+                .is_multiple_of(2)
+        };
         let mut repl: Vec<(Handle, Vec<EntityType>)> = Vec::new();
         for (h, e) in &self.all {
             if *h == bh {
@@ -5961,8 +5964,11 @@ impl CadCommand for ExtrimCommand {
         }
         let q = [pt.x, pt.y];
         let geos = &self.geos;
-        let side =
-            |m: [f64; 2]| line_seg_ts(m[0], m[1], q[0], q[1], Handle::NULL, geos).len() % 2 == 0;
+        let side = |m: [f64; 2]| {
+            line_seg_ts(m[0], m[1], q[0], q[1], Handle::NULL, geos)
+                .len()
+                .is_multiple_of(2)
+        };
         // Removed (pick side) → red, surviving → blue; the boundary → yellow.
         let mut removed: Vec<[f32; 3]> = Vec::new();
         let mut kept: Vec<[f32; 3]> = Vec::new();

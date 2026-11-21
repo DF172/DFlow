@@ -65,11 +65,7 @@ struct SphereShape {
 /// Negative distances keep the original body as the cavity and grow a new
 /// exterior.  Exact rectangular boxes, circular cylinders and spheres are
 /// supported; other surface sets are refused without changing the input.
-pub fn shell(
-    body: &Body,
-    removed_faces: &[FaceKey],
-    distance: f64,
-) -> Result<Body, ShellError> {
+pub fn shell(body: &Body, removed_faces: &[FaceKey], distance: f64) -> Result<Body, ShellError> {
     if !distance.is_finite() || distance == 0.0 {
         return Err(ShellError::InvalidDistance);
     }
@@ -187,7 +183,11 @@ fn shell_box(
     subtract(outer, cavity, body)
 }
 
-fn placed_box(shape: &BoxShape, local_origin: [f64; 3], size: [f64; 3]) -> Result<Body, ShellError> {
+fn placed_box(
+    shape: &BoxShape,
+    local_origin: [f64; 3],
+    size: [f64; 3],
+) -> Result<Body, ShellError> {
     let local = super::make::cuboid(local_origin, size).ok_or(ShellError::NoMaterial)?;
     super::place::transform(
         &local,
@@ -211,7 +211,12 @@ fn shell_cylinder(
     let mut bottom_open = false;
     let mut top_open = false;
     for face in removed {
-        match shape.faces.get(face).copied().ok_or(ShellError::UnknownFace)? {
+        match shape
+            .faces
+            .get(face)
+            .copied()
+            .ok_or(ShellError::UnknownFace)?
+        {
             CylinderFace::Side => side_open = true,
             CylinderFace::Bottom => bottom_open = true,
             CylinderFace::Top => top_open = true,
@@ -264,11 +269,7 @@ fn shell_cylinder(
                 cavity_top - cavity_z,
             )
         };
-    if outer_radius <= 0.0
-        || outer_height <= 0.0
-        || cavity_radius <= 0.0
-        || cavity_height <= 0.0
-    {
+    if outer_radius <= 0.0 || outer_height <= 0.0 || cavity_radius <= 0.0 || cavity_height <= 0.0 {
         return Err(ShellError::NoMaterial);
     }
     let outer = placed_cylinder(shape, outer_radius, outer_z, outer_height)?;
@@ -282,8 +283,8 @@ fn placed_cylinder(
     local_z: f64,
     height: f64,
 ) -> Result<Body, ShellError> {
-    let local = super::make::cylinder([0.0, 0.0, local_z], radius, height)
-        .ok_or(ShellError::NoMaterial)?;
+    let local =
+        super::make::cylinder([0.0, 0.0, local_z], radius, height).ok_or(ShellError::NoMaterial)?;
     super::place::transform(
         &local,
         &Placement {
@@ -350,7 +351,11 @@ fn shell_prismatic(
         let normal = outward(top)?;
         let mut bottom = None;
         for face in body.face_keys().filter(|face| *face != top) {
-            match body.faces.get(face).and_then(|node| body.surfaces.get(node.surface))? {
+            match body
+                .faces
+                .get(face)
+                .and_then(|node| body.surfaces.get(node.surface))?
+            {
                 Surface::Plane(_) => {
                     let along = outward(face)?.dot(normal);
                     if along < -1.0 + 1e-9 && bottom.is_none() {
@@ -374,12 +379,19 @@ fn shell_prismatic(
         return None;
     }
     let profile = super::planar_face_profile(body, top)?;
-    let floor = body.faces.get(bottom).and_then(|node| body.surfaces.get(node.surface));
+    let floor = body
+        .faces
+        .get(bottom)
+        .and_then(|node| body.surfaces.get(node.surface));
     let Some(Surface::Plane(floor)) = floor else {
         return None;
     };
     let height = (Vec3::from(profile.plane.origin) - Vec3::from(floor.origin)).dot(normal);
-    let rings = profile.loops.iter().map(|ring| ring_polyline(ring)).collect::<Option<Vec<_>>>()?;
+    let rings = profile
+        .loops
+        .iter()
+        .map(|ring| ring_polyline(ring))
+        .collect::<Option<Vec<_>>>()?;
     let tolerance = super::operation_tolerance(&[body]);
     let thickness = distance.abs();
     let region: Vec<Curve> = rings.iter().cloned().map(Curve::Polyline).collect();
@@ -390,15 +402,24 @@ fn shell_prismatic(
     let moved = |ring: &Polyline, into: bool| -> Vec<Polyline> {
         let curve = Curve::Polyline(ring.clone());
         let pieces = curve.segment_count().max(1) as f64;
-        let (at, ahead) = (curve.point_at(0.5 / pieces), curve.point_at(0.5 / pieces + 1e-6));
+        let (at, ahead) = (
+            curve.point_at(0.5 / pieces),
+            curve.point_at(0.5 / pieces + 1e-6),
+        );
         let along = [ahead[0] - at[0], ahead[1] - at[1]];
         let length = along[0].hypot(along[1]);
         if length == 0.0 {
             return Vec::new();
         }
         let reach = thickness * 1e-3;
-        let left = [at[0] - along[1] / length * reach, at[1] + along[0] / length * reach];
-        let right = [at[0] + along[1] / length * reach, at[1] - along[0] / length * reach];
+        let left = [
+            at[0] - along[1] / length * reach,
+            at[1] + along[0] / length * reach,
+        ];
+        let right = [
+            at[0] + along[1] / length * reach,
+            at[1] - along[0] / length * reach,
+        ];
         let side = if in_region(left) == into { left } else { right };
         crate::geom2d::offset_polyline(ring, thickness, side)
     };
@@ -418,8 +439,13 @@ fn shell_prismatic(
             result = super::combine(result, piece?, Operation::Union, tolerance).ok()?;
         }
         for hole in holes {
-            result = super::combine(result, run(hole, from, to)?, Operation::Difference, tolerance)
-                .ok()?;
+            result = super::combine(
+                result,
+                run(hole, from, to)?,
+                Operation::Difference,
+                tolerance,
+            )
+            .ok()?;
         }
         Some(result)
     };
@@ -430,10 +456,17 @@ fn shell_prismatic(
         if outer.is_empty() {
             return Some(Err(ShellError::NoMaterial));
         }
-        let holes: Vec<Polyline> = rings[1..].iter().flat_map(|ring| moved(ring, true)).collect();
+        let holes: Vec<Polyline> = rings[1..]
+            .iter()
+            .flat_map(|ring| moved(ring, true))
+            .collect();
         let (from, to) = (
             if open_top { -through } else { thickness },
-            if open_bottom { height + through } else { height - thickness },
+            if open_bottom {
+                height + through
+            } else {
+                height - thickness
+            },
         );
         if to <= from {
             return Some(Err(ShellError::NoMaterial));
@@ -441,7 +474,10 @@ fn shell_prismatic(
         solid(&outer, &holes, from, to).map(|cavity| (body.clone(), cavity))
     } else {
         let outer = moved(&rings[0], false);
-        let holes: Vec<Polyline> = rings[1..].iter().flat_map(|ring| moved(ring, false)).collect();
+        let holes: Vec<Polyline> = rings[1..]
+            .iter()
+            .flat_map(|ring| moved(ring, false))
+            .collect();
         let exterior = solid(&outer, &holes, -thickness, height + thickness);
         let cavity = if removed.is_empty() {
             Some(body.clone())
@@ -450,7 +486,11 @@ fn shell_prismatic(
                 &rings[..1],
                 &rings[1..],
                 if open_top { -through - thickness } else { 0.0 },
-                if open_bottom { height + through + thickness } else { height },
+                if open_bottom {
+                    height + through + thickness
+                } else {
+                    height
+                },
             )
         };
         exterior.zip(cavity)
@@ -535,16 +575,16 @@ fn shell_revolved(
                 return None;
             }
             let rim = [circle.radius, section(circle.plane.origin)[1]];
-            if !rims.iter().any(|seen| (seen[0] - rim[0]).hypot(seen[1] - rim[1]) <= fit) {
+            if !rims
+                .iter()
+                .any(|seen| (seen[0] - rim[0]).hypot(seen[1] - rim[1]) <= fit)
+            {
                 rims.push(rim);
             }
         }
         let inside = || super::boolean::interior_point(body, face, fit).map(section);
-        let piece = |ends: [[f64; 2]; 2], round: Option<([f64; 2], [f64; 2])>| Piece {
-            ends,
-            round,
-            face,
-        };
+        let piece =
+            |ends: [[f64; 2]; 2], round: Option<([f64; 2], [f64; 2])>| Piece { ends, round, face };
         pieces.push(match (surface, rims.as_slice()) {
             (Surface::Plane(plane), [rim, rest @ ..]) if square(plane.normal()) => {
                 let other = rest.first().copied().unwrap_or([0.0, rim[1]]);
@@ -587,7 +627,10 @@ fn shell_revolved(
                     Some(two) => *two,
                     None => {
                         let up = through[1] > one[1];
-                        [0.0, centre[1] + if up { sphere.radius } else { -sphere.radius }]
+                        [
+                            0.0,
+                            centre[1] + if up { sphere.radius } else { -sphere.radius },
+                        ]
                     }
                 };
                 piece([*one, other], Some((centre, through)))
@@ -602,12 +645,12 @@ fn shell_revolved(
         });
     }
     if removed.iter().any(|face| {
-        !pieces
-            .iter()
-            .any(|piece| piece.face == *face && piece.round.is_none() && {
+        !pieces.iter().any(|piece| {
+            piece.face == *face && piece.round.is_none() && {
                 let [a, b] = piece.ends;
                 (a[1] - b[1]).abs() <= fit
-            })
+            }
+        })
     }) {
         return None;
     }
@@ -672,20 +715,35 @@ fn shell_revolved(
                 (if passed < sweep { sweep } else { sweep - turn } / 4.0).tan()
             }
         };
-        half.push(PolylineVertex { position: from, bulge });
+        half.push(PolylineVertex {
+            position: from,
+            bulge,
+        });
     }
     let ring = if touches_axis {
         // Mirrored across the axis and walked back: a reflection and a
         // reversal leave each bulge as it was.
         let mut vertices = half.clone();
-        vertices.push(PolylineVertex { position: at, bulge: half[half.len() - 1].bulge });
+        vertices.push(PolylineVertex {
+            position: at,
+            bulge: half[half.len() - 1].bulge,
+        });
         for index in (1..half.len()).rev() {
             let [r, z] = half[index].position;
-            vertices.push(PolylineVertex { position: [-r, z], bulge: half[index - 1].bulge });
+            vertices.push(PolylineVertex {
+                position: [-r, z],
+                bulge: half[index - 1].bulge,
+            });
         }
-        Polyline { vertices, closed: true }
+        Polyline {
+            vertices,
+            closed: true,
+        }
     } else {
-        Polyline { vertices: half.clone(), closed: true }
+        Polyline {
+            vertices: half.clone(),
+            closed: true,
+        }
     };
     let thickness = distance.abs();
     let region = [Curve::Polyline(ring.clone())];
@@ -694,13 +752,26 @@ fn shell_revolved(
     let side = |into: bool| -> [f64; 2] {
         let curve = Curve::Polyline(ring.clone());
         let pieces = curve.segment_count().max(1) as f64;
-        let (at, ahead) = (curve.point_at(0.5 / pieces), curve.point_at(0.5 / pieces + 1e-6));
+        let (at, ahead) = (
+            curve.point_at(0.5 / pieces),
+            curve.point_at(0.5 / pieces + 1e-6),
+        );
         let along = [ahead[0] - at[0], ahead[1] - at[1]];
         let length = along[0].hypot(along[1]).max(f64::MIN_POSITIVE);
         let reach = thickness * 1e-3;
-        let left = [at[0] - along[1] / length * reach, at[1] + along[0] / length * reach];
-        let right = [at[0] + along[1] / length * reach, at[1] - along[0] / length * reach];
-        if crate::geom2d::contains(&region, left, tolerance) == into { left } else { right }
+        let left = [
+            at[0] - along[1] / length * reach,
+            at[1] + along[0] / length * reach,
+        ];
+        let right = [
+            at[0] + along[1] / length * reach,
+            at[1] - along[0] / length * reach,
+        ];
+        if crate::geom2d::contains(&region, left, tolerance) == into {
+            left
+        } else {
+            right
+        }
     };
     // The near half of a ring mirrored across the axis, closed along it.
     let near_half = |ring: &Polyline| -> Option<Polyline> {
@@ -715,7 +786,11 @@ fn shell_revolved(
             }
             let Some(arc) = ring.segment_arc(index) else {
                 let t = from.position[0] / (from.position[0] - to[0]);
-                return Some(([0.0, from.position[1] + (to[1] - from.position[1]) * t], 0.0, 0.0));
+                return Some((
+                    [0.0, from.position[1] + (to[1] - from.position[1]) * t],
+                    0.0,
+                    0.0,
+                ));
             };
             if to[0] == 0.0 {
                 return Some((to, from.bulge, 0.0));
@@ -737,9 +812,15 @@ fn shell_revolved(
                 })
             })
         };
-        let crossings: Vec<usize> = (0..count).filter(|index| crossing(*index).is_some()).collect();
+        let crossings: Vec<usize> = (0..count)
+            .filter(|index| crossing(*index).is_some())
+            .collect();
         match crossings.as_slice() {
-            [] => ring.vertices.iter().all(|vertex| vertex.position[0] > 0.0).then(|| ring.clone()),
+            [] => ring
+                .vertices
+                .iter()
+                .all(|vertex| vertex.position[0] > 0.0)
+                .then(|| ring.clone()),
             [enter, leave] => {
                 // Out of the far side at one, back from the near side at the
                 // other: the near stretch between them, closed on the axis.
@@ -750,7 +831,10 @@ fn shell_revolved(
                 } else {
                     (*leave, *enter, two, one)
                 };
-                let mut vertices = vec![PolylineVertex { position: start.0, bulge: start.2 }];
+                let mut vertices = vec![PolylineVertex {
+                    position: start.0,
+                    bulge: start.2,
+                }];
                 let mut index = (from + 1) % count;
                 while index != to {
                     vertices.push(ring.vertices[index]);
@@ -761,7 +845,10 @@ fn shell_revolved(
                     bulge: end.1,
                 });
                 vertices.push(PolylineVertex::straight(end.0));
-                Some(Polyline { vertices, closed: true })
+                Some(Polyline {
+                    vertices,
+                    closed: true,
+                })
             }
             _ => None,
         }
@@ -784,10 +871,13 @@ fn shell_revolved(
             let Some(Surface::Plane(plane)) = body.surfaces.get(node.surface) else {
                 return None;
             };
-            let outward = Vec3::from(plane.normal()?).dot(along)
-                * if node.forward { 1.0 } else { -1.0 };
+            let outward =
+                Vec3::from(plane.normal()?).dot(along) * if node.forward { 1.0 } else { -1.0 };
             let level = piece.ends[0][1];
-            let (at, past) = (level - outward.signum() * lift, level + outward.signum() * out);
+            let (at, past) = (
+                level - outward.signum() * lift,
+                level + outward.signum() * out,
+            );
             let count = ring.vertices.len();
             let index = (0..count).find(|index| {
                 let (from, to) = (ring.vertices[*index], ring.vertices[(index + 1) % count]);
@@ -827,9 +917,16 @@ fn shell_revolved(
                 let from = ring.vertices[index].position;
                 let to = ring.vertices[(index + 1) % count].position;
                 profile.push(match ring.segment_arc(index) {
-                    None => Curve::Line(crate::geom2d::Line { start: from, end: to }),
+                    None => Curve::Line(crate::geom2d::Line {
+                        start: from,
+                        end: to,
+                    }),
                     Some(arc) => {
-                        let start = if arc.sweep > 0.0 { arc.start_angle } else { arc.end_angle };
+                        let start = if arc.sweep > 0.0 {
+                            arc.start_angle
+                        } else {
+                            arc.end_angle
+                        };
                         Curve::Arc(crate::geom2d::Arc {
                             centre: arc.center,
                             radius: arc.radius,
@@ -856,7 +953,13 @@ fn shell_revolved(
     let halves = |rings: Vec<Polyline>| -> Option<Vec<Polyline>> {
         rings
             .into_iter()
-            .map(|ring| if touches_axis { near_half(&snapped(ring)) } else { Some(ring) })
+            .map(|ring| {
+                if touches_axis {
+                    near_half(&snapped(ring))
+                } else {
+                    Some(ring)
+                }
+            })
             .collect()
     };
     let moved = crate::geom2d::offset_polyline(&ring, thickness, side(distance > 0.0));
@@ -881,7 +984,10 @@ fn shell_revolved(
             let own = if touches_axis {
                 let mut vertices = half.clone();
                 vertices.push(PolylineVertex::straight(at));
-                Polyline { vertices, closed: true }
+                Polyline {
+                    vertices,
+                    closed: true,
+                }
             } else {
                 ring.clone()
             };
@@ -915,7 +1021,11 @@ fn ring_polyline(ring: &[crate::geom2d::Curve]) -> Option<crate::geom2d::Polylin
     let first = pieces.first()?;
     let next = pieces.get(1).unwrap_or(first);
     let (a, b) = ends(first);
-    let mut at = if near(b, ends(next).0) || near(b, ends(next).1) { a } else { b };
+    let mut at = if near(b, ends(next).0) || near(b, ends(next).1) {
+        a
+    } else {
+        b
+    };
     let start = at;
     let mut vertices = Vec::with_capacity(pieces.len());
     for piece in &pieces {
@@ -931,14 +1041,24 @@ fn ring_polyline(ring: &[crate::geom2d::Curve]) -> Option<crate::geom2d::Polylin
             Curve::Line(_) => 0.0,
             Curve::Arc(arc) => {
                 let turn = (arc.sweep() / 4.0).tan();
-                if forward { turn } else { -turn }
+                if forward {
+                    turn
+                } else {
+                    -turn
+                }
             }
             _ => return None,
         };
-        vertices.push(PolylineVertex { position: at, bulge });
+        vertices.push(PolylineVertex {
+            position: at,
+            bulge,
+        });
         at = if forward { to } else { from };
     }
-    near(at, start).then_some(crate::geom2d::Polyline { vertices, closed: true })
+    near(at, start).then_some(crate::geom2d::Polyline {
+        vertices,
+        closed: true,
+    })
 }
 
 /// The exterior less the cavity, a closed one checked to take exactly its
@@ -976,9 +1096,10 @@ fn shell_polyhedral(
     removed: &HashSet<FaceKey>,
     distance: f64,
 ) -> Result<Body, ShellError> {
-    let planar = body.faces.iter().all(|(_, face)| {
-        matches!(body.surfaces.get(face.surface), Some(Surface::Plane(_)))
-    });
+    let planar = body
+        .faces
+        .iter()
+        .all(|(_, face)| matches!(body.surfaces.get(face.surface), Some(Surface::Plane(_))));
     if !planar {
         return Err(ShellError::UnsupportedSolid);
     }
@@ -986,10 +1107,20 @@ fn shell_polyhedral(
         return Err(ShellError::NoMaterial);
     }
     let thickness = distance.abs();
-    let through = |face: FaceKey| if removed.contains(&face) { thickness * 2.0 } else { 0.0 };
+    let through = |face: FaceKey| {
+        if removed.contains(&face) {
+            thickness * 2.0
+        } else {
+            0.0
+        }
+    };
     let (outer, cavity) = if distance > 0.0 {
         let cavity = offset_planes(body, &|face| {
-            if removed.contains(&face) { through(face) } else { -thickness }
+            if removed.contains(&face) {
+                through(face)
+            } else {
+                -thickness
+            }
         })
         .ok_or(ShellError::NoMaterial)?;
         // Every corner of the cavity not run out through an open face lies
@@ -1061,7 +1192,10 @@ fn offset_planes(body: &Body, shift: &dyn Fn(FaceKey) -> f64) -> Option<Body> {
         }
         let point = Vec3::from(solve3(normal, right)?);
         let scale = 1.0 + point.length();
-        if around.iter().any(|(n, c)| (n.dot(point) - c).abs() > tolerance.max(1e-12 * scale)) {
+        if around
+            .iter()
+            .any(|(n, c)| (n.dot(point) - c).abs() > tolerance.max(1e-12 * scale))
+        {
             return None;
         }
         result.vertices.get_mut(key)?.point = point.to_array();
@@ -1074,10 +1208,12 @@ fn offset_planes(body: &Body, shift: &dyn Fn(FaceKey) -> f64) -> Option<Body> {
         if along.length() <= tolerance {
             return None;
         }
-        let curve = result.curves.insert(super::Curve3::Line(super::geometry::Line3 {
-            origin: from.to_array(),
-            direction: along.to_array(),
-        }));
+        let curve = result
+            .curves
+            .insert(super::Curve3::Line(super::geometry::Line3 {
+                origin: from.to_array(),
+                direction: along.to_array(),
+            }));
         let node = result.edges.get_mut(key)?;
         node.curve = curve;
         node.start_parameter = 0.0;
@@ -1155,7 +1291,10 @@ fn solve3(m: [[f64; 3]; 3], r: [f64; 3]) -> Option<[f64; 3]> {
             + m[0][2] * (m[1][0] * m[2][1] - m[1][1] * m[2][0])
     };
     let whole = det(m);
-    let scale = m.iter().flatten().fold(0.0f64, |big, value| big.max(value.abs()));
+    let scale = m
+        .iter()
+        .flatten()
+        .fold(0.0f64, |big, value| big.max(value.abs()));
     if whole.abs() <= 1e-12 * scale.powi(3) {
         return None;
     }
@@ -1239,9 +1378,20 @@ fn recognize_box(body: &Body) -> Option<BoxShape> {
         if projection.abs() < 1.0 - 1e-8 {
             return None;
         }
-        faces.insert(key, BoxFace { axis, maximum: projection > 0.0 });
+        faces.insert(
+            key,
+            BoxFace {
+                axis,
+                maximum: projection > 0.0,
+            },
+        );
     }
-    (faces.len() == 6).then_some(BoxShape { origin, axes, size, faces })
+    (faces.len() == 6).then_some(BoxShape {
+        origin,
+        axes,
+        size,
+        faces,
+    })
 }
 
 fn recognize_cylinder(body: &Body) -> Option<CylinderShape> {
@@ -1273,7 +1423,10 @@ fn recognize_cylinder(body: &Body) -> Option<CylinderShape> {
             if normal.dot(axis).abs() < 1.0 - 1e-8 {
                 return None;
             }
-            Some((*key, (Vec3::from(plane.origin) - Vec3::from(cylinder.base.origin)).dot(axis)))
+            Some((
+                *key,
+                (Vec3::from(plane.origin) - Vec3::from(cylinder.base.origin)).dot(axis),
+            ))
         })
         .collect::<Option<Vec<_>>>()?;
     cap_positions.sort_by(|a, b| a.1.total_cmp(&b.1));
@@ -1348,7 +1501,10 @@ mod tests {
             let hollow = shell(&plate, &removed, distance).unwrap();
             assert!(hollow.validate().is_empty());
             let got = volume(&hollow);
-            assert!((got - expected).abs() < 1e-4 * expected, "{distance}: {got} {expected}");
+            assert!(
+                (got - expected).abs() < 1e-4 * expected,
+                "{distance}: {got} {expected}"
+            );
         }
     }
 
@@ -1375,7 +1531,10 @@ mod tests {
         ] {
             let hollow = shell(&block, &removed, distance).unwrap();
             assert!(hollow.validate().is_empty());
-            assert!((volume(&hollow) - expected).abs() < 1e-6 * expected, "{distance}");
+            assert!(
+                (volume(&hollow) - expected).abs() < 1e-6 * expected,
+                "{distance}"
+            );
         }
     }
 
@@ -1387,18 +1546,27 @@ mod tests {
         // 5.5 from -0.5. Each volume a multiple of π.
         use crate::geom2d::{Arc, Curve, Line};
         let profile = vec![
-            Curve::Line(Line { start: [0.0, 0.0], end: [5.0, 0.0] }),
-            Curve::Line(Line { start: [5.0, 0.0], end: [5.0, 10.0] }),
+            Curve::Line(Line {
+                start: [0.0, 0.0],
+                end: [5.0, 0.0],
+            }),
+            Curve::Line(Line {
+                start: [5.0, 0.0],
+                end: [5.0, 10.0],
+            }),
             Curve::Arc(Arc {
                 centre: [0.0, 10.0],
                 radius: 5.0,
                 start_angle: 0.0,
                 end_angle: PI / 2.0,
             }),
-            Curve::Line(Line { start: [0.0, 15.0], end: [0.0, 0.0] }),
+            Curve::Line(Line {
+                start: [0.0, 15.0],
+                end: [0.0, 0.0],
+            }),
         ];
-        let plane = crate::space::Plane::orthonormal([0.0; 3], [1.0, 0.0, 0.0], [0.0, -1.0, 0.0])
-            .unwrap();
+        let plane =
+            crate::space::Plane::orthonormal([0.0; 3], [1.0, 0.0, 0.0], [0.0, -1.0, 0.0]).unwrap();
         let capsule =
             crate::brep::revolve_region(plane, &[profile], [0.0; 3], [0.0, 0.0, 1.0], 2.0 * PI)
                 .unwrap();
@@ -1420,7 +1588,10 @@ mod tests {
             let hollow = shell(&capsule, &removed, distance).unwrap();
             assert!(hollow.validate().is_empty());
             let got = volume(&hollow) / PI;
-            assert!((got - expected).abs() < 1e-3 * expected, "{distance}: {got} {expected}");
+            assert!(
+                (got - expected).abs() < 1e-3 * expected,
+                "{distance}: {got} {expected}"
+            );
         }
     }
 

@@ -246,7 +246,7 @@ pub fn continue_anchor(entity: &EntityType, last: Option<DVec3>) -> Option<(DVec
     let curve = crate::entities::curve::entity_curve(entity)?;
     let start = DVec3::from_array(curve.point_at(0.0));
     let end = DVec3::from_array(curve.point_at(1.0));
-    let use_end = last.map_or(true, |point| point.distance(end) <= point.distance(start));
+    let use_end = last.is_none_or(|point| point.distance(end) <= point.distance(start));
     let (point, tangent) = if use_end {
         (end, DVec3::from_array(curve.tangent_at(1.0)))
     } else {
@@ -1515,6 +1515,12 @@ impl ArcCSECommand {
     }
 }
 
+impl Default for ArcCSECommand {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CadCommand for ArcCSECommand {
     fn set_working_plane(&mut self, plane: WorkingPlane) {
         self.plane = plane;
@@ -1788,6 +1794,12 @@ impl ArcCommand {
             Some((c, r, sa, ea)) => arc_preview(c, r, sa, ea, self.plane).or(Some(fallback)),
             None => Some(fallback),
         }
+    }
+}
+
+impl Default for ArcCommand {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -2194,6 +2206,12 @@ impl Arc3PCommand {
     }
 }
 
+impl Default for Arc3PCommand {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CadCommand for Arc3PCommand {
     fn set_working_plane(&mut self, plane: WorkingPlane) {
         self.plane = plane;
@@ -2328,6 +2346,12 @@ impl ArcSCECommand {
     }
 }
 
+impl Default for ArcSCECommand {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CadCommand for ArcSCECommand {
     fn set_working_plane(&mut self, plane: WorkingPlane) {
         self.plane = plane;
@@ -2422,6 +2446,12 @@ impl ArcSCACommand {
             cw: false,
             plane: WorkingPlane::default(),
         }
+    }
+}
+
+impl Default for ArcSCACommand {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -2563,6 +2593,12 @@ impl ArcSCLCommand {
     }
 }
 
+impl Default for ArcSCLCommand {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CadCommand for ArcSCLCommand {
     fn set_working_plane(&mut self, plane: WorkingPlane) {
         self.plane = plane;
@@ -2694,6 +2730,12 @@ impl ArcSEACommand {
     }
 }
 
+impl Default for ArcSEACommand {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CadCommand for ArcSEACommand {
     fn set_working_plane(&mut self, plane: WorkingPlane) {
         self.plane = plane;
@@ -2800,6 +2842,12 @@ impl ArcSERCommand {
             ctrl: false,
             plane: WorkingPlane::default(),
         }
+    }
+}
+
+impl Default for ArcSERCommand {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -2916,6 +2964,12 @@ impl ArcSEDCommand {
     }
 }
 
+impl Default for ArcSEDCommand {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CadCommand for ArcSEDCommand {
     fn set_working_plane(&mut self, plane: WorkingPlane) {
         self.plane = plane;
@@ -3022,6 +3076,12 @@ impl ArcCSACommand {
             cw: false,
             plane: WorkingPlane::default(),
         }
+    }
+}
+
+impl Default for ArcCSACommand {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -3156,6 +3216,12 @@ impl ArcCSLCommand {
             cw: false,
             plane: WorkingPlane::default(),
         }
+    }
+}
+
+impl Default for ArcCSLCommand {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

@@ -123,7 +123,12 @@ pub fn extrude(plane: Plane, profile: &[Curve2], direction: [f64; 3]) -> Option<
         .collect();
     let top: Vec<VertexKey> = corners
         .iter()
-        .map(|uv| add_vertex(&mut body, (Vec3::from(plane.point_at(*uv)) + along).to_array()))
+        .map(|uv| {
+            add_vertex(
+                &mut body,
+                (Vec3::from(plane.point_at(*uv)) + along).to_array(),
+            )
+        })
         .collect();
 
     let base_edges = profile_edges(&mut body, &plane, profile, &senses, &base)?;
@@ -140,8 +145,24 @@ pub fn extrude(plane: Plane, profile: &[Curve2], direction: [f64; 3]) -> Option<
     // The two caps. Each looks away from the solid, so which of them agrees
     // with the shared plane's own normal is decided by the sweep's direction
     // alone; how its loop runs is decided by the profile's winding as well.
-    add_cap(&mut body, shell, plane, &base_edges, &senses, up < 0.0, !outward)?;
-    add_cap(&mut body, shell, far, &top_edges, &senses, up > 0.0, outward)?;
+    add_cap(
+        &mut body,
+        shell,
+        plane,
+        &base_edges,
+        &senses,
+        up < 0.0,
+        !outward,
+    )?;
+    add_cap(
+        &mut body,
+        shell,
+        far,
+        &top_edges,
+        &senses,
+        up > 0.0,
+        outward,
+    )?;
 
     // One wall per profile piece: up the rail, along the top, down the next
     // rail, back along the bottom.
@@ -170,7 +191,13 @@ pub fn extrude(plane: Plane, profile: &[Curve2], direction: [f64; 3]) -> Option<
             let (circuit, pcurves) = reorder_with_pcurves(circuit, pcurves, outward);
             add_wall_with_pcurves(&mut body, shell, surface, forward, &circuit, &pcurves)?;
         } else {
-            add_wall(&mut body, shell, surface, forward, &reorder(circuit, outward))?;
+            add_wall(
+                &mut body,
+                shell,
+                surface,
+                forward,
+                &reorder(circuit, outward),
+            )?;
         }
     }
 
@@ -185,11 +212,7 @@ pub fn extrude(plane: Plane, profile: &[Curve2], direction: [f64; 3]) -> Option<
 /// one face per curve piece, while a closed source makes the lateral skin of
 /// an extrusion. Boundary edges intentionally have one coedge: that is the
 /// valid topology of an open shell rather than a damaged solid.
-pub fn extrude_surface(
-    plane: Plane,
-    profile: &[Curve2],
-    direction: [f64; 3],
-) -> Option<Body> {
+pub fn extrude_surface(plane: Plane, profile: &[Curve2], direction: [f64; 3]) -> Option<Body> {
     let along = Vec3::from(direction);
     if along.length() <= 1e-12 || !along.length().is_finite() {
         return None;
@@ -211,7 +234,9 @@ pub fn extrude_surface(
                 .zip(&senses)
                 .map(|(piece, forward)| piece.point_at(if *forward { 0.0 } else { 1.0 }))
                 .collect::<Vec<_>>();
-            let last = profile.last()?.point_at(if *senses.last()? { 1.0 } else { 0.0 });
+            let last = profile
+                .last()?
+                .point_at(if *senses.last()? { 1.0 } else { 0.0 });
             corners.push(last);
             (senses, corners)
         }
@@ -237,7 +262,12 @@ pub fn extrude_surface(
         .collect::<Vec<_>>();
     let top = corners
         .iter()
-        .map(|point| add_vertex(&mut body, (Vec3::from(plane.point_at(*point)) + along).to_array()))
+        .map(|point| {
+            add_vertex(
+                &mut body,
+                (Vec3::from(plane.point_at(*point)) + along).to_array(),
+            )
+        })
         .collect::<Vec<_>>();
     let far = Plane::from_axes(
         (Vec3::from(plane.origin) + along).to_array(),
@@ -248,7 +278,11 @@ pub fn extrude_surface(
     let mut base_edges = Vec::with_capacity(profile.len());
     let mut top_edges = Vec::with_capacity(profile.len());
     for (index, piece) in profile.iter().enumerate() {
-        let next = if is_closed { (index + 1) % corners.len() } else { index + 1 };
+        let next = if is_closed {
+            (index + 1) % corners.len()
+        } else {
+            index + 1
+        };
         let (base_from, base_to) = if senses[index] {
             (base[index], base[next])
         } else {
@@ -259,7 +293,9 @@ pub fn extrude_surface(
         } else {
             (top[next], top[index])
         };
-        base_edges.push(add_profile_edge(&mut body, &plane, piece, base_from, base_to)?);
+        base_edges.push(add_profile_edge(
+            &mut body, &plane, piece, base_from, base_to,
+        )?);
         top_edges.push(add_profile_edge(&mut body, &far, piece, top_from, top_to)?);
     }
     let rails = (0..corners.len())
@@ -267,7 +303,11 @@ pub fn extrude_surface(
         .collect::<Option<Vec<_>>>()?;
 
     for (index, piece) in profile.iter().enumerate() {
-        let next = if is_closed { (index + 1) % corners.len() } else { index + 1 };
+        let next = if is_closed {
+            (index + 1) % corners.len()
+        } else {
+            index + 1
+        };
         let (surface, spline) = wall_surface(&mut body, &plane, piece, along)?;
         let tangent = Vec3::from(plane.vector_at(piece.tangent_at(0.5)));
         let out = tangent * if senses[index] { 1.0 } else { -1.0 };
@@ -318,9 +358,7 @@ pub fn extrude_tapered(
     direction: [f64; 3],
     taper_angle: f64,
 ) -> Option<Body> {
-    if !taper_angle.is_finite()
-        || taper_angle.abs() >= std::f64::consts::FRAC_PI_2
-    {
+    if !taper_angle.is_finite() || taper_angle.abs() >= std::f64::consts::FRAC_PI_2 {
         return None;
     }
     if taper_angle.abs() <= 1e-12 {
@@ -334,13 +372,20 @@ pub fn extrude_tapered(
         let height = along.dot(normal);
         if along.cross(normal).length() <= 1e-10 * along.length().max(1.0) {
             let top = radius - height.abs() * taper_angle.tan();
-            if top <= 1e-12 || height.abs() <= 1e-12 { return None; }
+            if top <= 1e-12 || height.abs() <= 1e-12 {
+                return None;
+            }
             let origin = plane.point_at(centre);
             let section = Plane::from_axes(origin, plane.x_axis, normal.to_array());
             let points = [[0.0, 0.0], [radius, 0.0], [top, height], [0.0, height]];
-            let edges = (0..4).map(|index| Curve2::Line(crate::geom2d::Line {
-                start: points[index], end: points[(index + 1) % 4],
-            })).collect::<Vec<_>>();
+            let edges = (0..4)
+                .map(|index| {
+                    Curve2::Line(crate::geom2d::Line {
+                        start: points[index],
+                        end: points[(index + 1) % 4],
+                    })
+                })
+                .collect::<Vec<_>>();
             return revolve(section, &edges, origin, normal.to_array(), TAU);
         }
     }
@@ -390,10 +435,7 @@ pub fn extrude_tapered(
     if !tangent_length.is_finite() || tangent_length <= 1e-12 {
         return None;
     }
-    let tangent = [
-        tangent[0] / tangent_length,
-        tangent[1] / tangent_length,
-    ];
+    let tangent = [tangent[0] / tangent_length, tangent[1] / tangent_length];
     let inward = if signed_area > 0.0 {
         [-tangent[1], tangent[0]]
     } else {
@@ -436,9 +478,8 @@ pub fn extrude_tapered(
             .flat_map(|vertex| vertex.position)
             .map(f64::abs)
             .fold(offset.max(1.0), f64::max);
-        let tolerance = crate::geom2d::Tolerance::new(
-            (offset * 1e-5).max(coordinate_scale * 1e-10).max(1e-9),
-        );
+        let tolerance =
+            crate::geom2d::Tolerance::new((offset * 1e-5).max(coordinate_scale * 1e-10).max(1e-9));
         if top_profile.iter().any(|piece| {
             let point = piece.point_at(0.5);
             let distance = profile
@@ -475,9 +516,7 @@ pub fn extrude_surface_tapered(
     direction: [f64; 3],
     taper_angle: f64,
 ) -> Option<Body> {
-    if !taper_angle.is_finite()
-        || taper_angle.abs() >= std::f64::consts::FRAC_PI_2
-    {
+    if !taper_angle.is_finite() || taper_angle.abs() >= std::f64::consts::FRAC_PI_2 {
         return None;
     }
     if taper_angle.abs() <= 1e-12 {
@@ -489,7 +528,11 @@ pub fn extrude_surface_tapered(
     let mut body = extrude_tapered(plane, profile, direction, taper_angle)?;
     let lump = *body.roots.first()?;
     let shell = *body.lumps.get(lump)?.shells.first()?;
-    let far = Plane::from_axes((Vec3::from(plane.origin) + Vec3::from(direction)).to_array(), plane.x_axis, plane.y_axis);
+    let far = Plane::from_axes(
+        (Vec3::from(plane.origin) + Vec3::from(direction)).to_array(),
+        plane.x_axis,
+        plane.y_axis,
+    );
     let caps = vec![extrusion_cap(&body, &plane)?, extrusion_cap(&body, &far)?];
     if caps.len() != 2
         || caps.iter().any(|face| {
@@ -520,7 +563,11 @@ pub fn extrude_surface_tapered(
             .get_mut(shell)?
             .faces
             .retain(|candidate| *candidate != face_key);
-        if !body.faces.iter().any(|(_, remaining)| remaining.surface == face.surface) {
+        if !body
+            .faces
+            .iter()
+            .any(|(_, remaining)| remaining.surface == face.surface)
+        {
             body.surfaces.remove(face.surface);
         }
     }
@@ -733,34 +780,43 @@ fn ruled_open_surface(
 }
 
 /// Extrudes an outer loop and removes each following loop as a hole.
-pub fn extrude_region(
-    plane: Plane,
-    profiles: &[Vec<Curve2>],
-    direction: [f64; 3],
-) -> Option<Body> {
-    extrusion_region(plane, profiles, direction, |profile, _| extrude(plane, profile, direction))
+pub fn extrude_region(plane: Plane, profiles: &[Vec<Curve2>], direction: [f64; 3]) -> Option<Body> {
+    extrusion_region(plane, profiles, direction, |profile, _| {
+        extrude(plane, profile, direction)
+    })
 }
 
 #[cfg(feature = "offset")]
 fn complete_circular_profile(profile: &[Curve2]) -> Option<([f64; 2], f64)> {
     let first = profile.first()?;
     let (centre, radius) = match first {
-        Curve2::Circle(circle) if profile.len() == 1 => return Some((circle.centre, circle.radius)),
+        Curve2::Circle(circle) if profile.len() == 1 => {
+            return Some((circle.centre, circle.radius))
+        }
         Curve2::Arc(arc) => (arc.centre, arc.radius),
         _ => return None,
     };
     let mut sweep = 0.0;
     for curve in profile {
-        let Curve2::Arc(arc) = curve else { return None; };
+        let Curve2::Arc(arc) = curve else {
+            return None;
+        };
         if (arc.centre[0] - centre[0]).hypot(arc.centre[1] - centre[1]) > 1e-9
-            || (arc.radius - radius).abs() > 1e-9 { return None; }
+            || (arc.radius - radius).abs() > 1e-9
+        {
+            return None;
+        }
         sweep += arc.sweep();
     }
     ((sweep - TAU).abs() < 1e-9 && profile_senses(profile).is_some()).then_some((centre, radius))
 }
 
 /// Extrudes all region loops as lateral sheets, without Boolean operations.
-pub fn extrude_surface_region(plane: Plane, profiles: &[Vec<Curve2>], direction: [f64; 3]) -> Option<Body> {
+pub fn extrude_surface_region(
+    plane: Plane,
+    profiles: &[Vec<Curve2>],
+    direction: [f64; 3],
+) -> Option<Body> {
     let mut result = Body::new();
     for profile in profiles {
         let pieces = super::extrusion_profile_pieces(profile);
@@ -771,7 +827,12 @@ pub fn extrude_surface_region(plane: Plane, profiles: &[Vec<Curve2>], direction:
 
 /// Tapers the outer wall inward and hole walls outward for a positive angle.
 #[cfg(feature = "offset")]
-pub fn extrude_region_tapered(plane: Plane, profiles: &[Vec<Curve2>], direction: [f64; 3], angle: f64) -> Option<Body> {
+pub fn extrude_region_tapered(
+    plane: Plane,
+    profiles: &[Vec<Curve2>],
+    direction: [f64; 3],
+    angle: f64,
+) -> Option<Body> {
     extrusion_region(plane, profiles, direction, |profile, hole| {
         extrude_tapered(plane, profile, direction, if hole { -angle } else { angle })
     })
@@ -779,11 +840,24 @@ pub fn extrude_region_tapered(plane: Plane, profiles: &[Vec<Curve2>], direction:
 
 /// Tapered lateral sheets for all loops of a bounded region.
 #[cfg(feature = "offset")]
-pub fn extrude_surface_region_tapered(plane: Plane, profiles: &[Vec<Curve2>], direction: [f64; 3], angle: f64) -> Option<Body> {
+pub fn extrude_surface_region_tapered(
+    plane: Plane,
+    profiles: &[Vec<Curve2>],
+    direction: [f64; 3],
+    angle: f64,
+) -> Option<Body> {
     let mut result = Body::new();
     for (index, profile) in profiles.iter().enumerate() {
         let pieces = super::extrusion_profile_pieces(profile);
-        append_body(&mut result, &extrude_surface_tapered(plane, &pieces, direction, if index == 0 { angle } else { -angle })?)?;
+        append_body(
+            &mut result,
+            &extrude_surface_tapered(
+                plane,
+                &pieces,
+                direction,
+                if index == 0 { angle } else { -angle },
+            )?,
+        )?;
     }
     (!result.roots.is_empty() && result.validate().is_empty()).then_some(result)
 }
@@ -794,18 +868,34 @@ fn extrusion_region(
     direction: [f64; 3],
     build: impl Fn(&[Curve2], bool) -> Option<Body>,
 ) -> Option<Body> {
-    let profiles = profiles.iter().map(|ring| super::extrusion_profile_pieces(ring)).collect::<Vec<_>>();
+    let profiles = profiles
+        .iter()
+        .map(|ring| super::extrusion_profile_pieces(ring))
+        .collect::<Vec<_>>();
     valid_region_loops(&profiles)?;
     let mut result = build(profiles.first()?, false)?;
     if profiles.len() == 1 {
         return Some(result);
     }
-    let cap_planes = [plane, Plane::from_axes((Vec3::from(plane.origin) + Vec3::from(direction)).to_array(), plane.x_axis, plane.y_axis)];
-    let caps = cap_planes.iter().map(|plane| extrusion_cap(&result, plane)).collect::<Option<Vec<_>>>()?;
+    let cap_planes = [
+        plane,
+        Plane::from_axes(
+            (Vec3::from(plane.origin) + Vec3::from(direction)).to_array(),
+            plane.x_axis,
+            plane.y_axis,
+        ),
+    ];
+    let caps = cap_planes
+        .iter()
+        .map(|plane| extrusion_cap(&result, plane))
+        .collect::<Option<Vec<_>>>()?;
     let shell = result.faces.get(caps[0])?.owner;
     for hole in profiles.iter().skip(1) {
         let cutter = build(hole, true)?;
-        let hole_caps = cap_planes.iter().map(|plane| extrusion_cap(&cutter, plane)).collect::<Option<Vec<_>>>()?;
+        let hole_caps = cap_planes
+            .iter()
+            .map(|plane| extrusion_cap(&cutter, plane))
+            .collect::<Option<Vec<_>>>()?;
         for face in cutter.face_keys() {
             super::boolean::copy_face(&mut result, &cutter, face, shell, true).ok()?;
             if let Some(index) = hole_caps.iter().position(|cap| *cap == face) {
@@ -819,7 +909,11 @@ fn extrusion_region(
                     }
                 }
                 result.faces.get_mut(caps[index])?.loops.extend(loops);
-                result.shells.get_mut(shell)?.faces.retain(|key| *key != copied);
+                result
+                    .shells
+                    .get_mut(shell)?
+                    .faces
+                    .retain(|key| *key != copied);
                 result.faces.remove(copied)?;
             }
         }
@@ -828,40 +922,55 @@ fn extrusion_region(
     for cap in caps {
         valid_region_loops(&super::planar_face_profile(&result, cap)?.loops)?;
     }
-    (!result.roots.is_empty() && result.validate().is_empty()
-        && result.edges.iter().all(|(_, edge)| edge.coedges.len() == 2)).then_some(result)
+    (!result.roots.is_empty()
+        && result.validate().is_empty()
+        && result.edges.iter().all(|(_, edge)| edge.coedges.len() == 2))
+    .then_some(result)
 }
 
 fn extrusion_cap(body: &Body, plane: &Plane) -> Option<FaceKey> {
     let normal = Vec3::from(plane.normal()?);
     let tolerance = super::operation_tolerance(&[body]);
     body.face_keys().find(|key| {
-        let Some(face) = body.faces.get(*key) else { return false; };
-        let Some(Surface::Plane(candidate)) = body.surfaces.get(face.surface) else { return false; };
-        candidate.normal().is_some_and(|candidate_normal| normal.dot(Vec3::from(candidate_normal)).abs() > 1.0 - 1e-9)
-            && plane.distance_to(candidate.origin).is_some_and(|gap| gap.abs() <= tolerance)
+        let Some(face) = body.faces.get(*key) else {
+            return false;
+        };
+        let Some(Surface::Plane(candidate)) = body.surfaces.get(face.surface) else {
+            return false;
+        };
+        candidate.normal().is_some_and(|candidate_normal| {
+            normal.dot(Vec3::from(candidate_normal)).abs() > 1.0 - 1e-9
+        }) && plane
+            .distance_to(candidate.origin)
+            .is_some_and(|gap| gap.abs() <= tolerance)
     })
 }
 
 fn valid_region_loops(profiles: &[Vec<Curve2>]) -> Option<()> {
     let outer = profiles.first()?;
-    if outer.is_empty() { return None; }
+    if outer.is_empty() {
+        return None;
+    }
     let tolerance = crate::geom2d::Tolerance::new(1e-9);
     for (index, hole) in profiles.iter().enumerate().skip(1) {
         if hole.is_empty() || !crate::geom2d::contains(outer, hole[0].point_at(0.5), tolerance) {
             return None;
         }
         for previous in &profiles[..index] {
-            if hole.iter().any(|curve| previous.iter().any(|other| {
-                !crate::geom2d::intersect(curve, other, tolerance).is_empty()
-                    || crate::geom2d::distance_to(other, curve.point_at(0.5)) <= tolerance.linear()
-            })) {
+            if hole.iter().any(|curve| {
+                previous.iter().any(|other| {
+                    !crate::geom2d::intersect(curve, other, tolerance).is_empty()
+                        || crate::geom2d::distance_to(other, curve.point_at(0.5))
+                            <= tolerance.linear()
+                })
+            }) {
                 return None;
             }
         }
         for previous in &profiles[1..index] {
             if crate::geom2d::contains(previous, hole[0].point_at(0.5), tolerance)
-                || crate::geom2d::contains(hole, previous[0].point_at(0.5), tolerance) {
+                || crate::geom2d::contains(hole, previous[0].point_at(0.5), tolerance)
+            {
                 return None;
             }
         }
@@ -877,13 +986,9 @@ pub fn sweep_along(
     path: &[Curve2],
 ) -> Option<Body> {
     let senses = path_senses(path)?;
-    if let Some(body) = mitered_rectangular_line_sweep(
-        profile_plane,
-        profile,
-        path_plane,
-        path,
-        &senses,
-    ) {
+    if let Some(body) =
+        mitered_rectangular_line_sweep(profile_plane, profile, path_plane, path, &senses)
+    {
         return Some(body);
     }
     let mut result: Option<Body> = None;
@@ -892,7 +997,9 @@ pub fn sweep_along(
         let start_tangent = path_tangent(&path_plane, piece, forward, false)?;
         if let Some(previous) = previous_tangent {
             let axis = Vec3::from(path_plane.normal()?);
-            let angle = axis.dot(previous.cross(start_tangent)).atan2(previous.dot(start_tangent));
+            let angle = axis
+                .dot(previous.cross(start_tangent))
+                .atan2(previous.dot(start_tangent));
             if angle.abs() > 1e-10 {
                 let joint = path_plane.point_at(piece.point_at(if forward { 0.0 } else { 1.0 }));
                 profile_plane = turned_plane(profile_plane, Vec3::from(joint), axis, angle);
@@ -1035,7 +1142,10 @@ pub fn sweep_along_deformed(
     {
         return sweep_along(profile_plane, profile, path_plane, path);
     }
-    if profile.iter().any(|piece| !matches!(piece, Curve2::Line(_))) {
+    if profile
+        .iter()
+        .any(|piece| !matches!(piece, Curve2::Line(_)))
+    {
         return None;
     }
     let senses = path_senses(path)?;
@@ -1052,9 +1162,8 @@ pub fn sweep_along_deformed(
         .iter()
         .zip(profile_senses)
         .map(|(piece, forward)| {
-            let point = Vec3::from(
-                profile_plane.point_at(piece.point_at(if forward { 0.0 } else { 1.0 })),
-            );
+            let point =
+                Vec3::from(profile_plane.point_at(piece.point_at(if forward { 0.0 } else { 1.0 })));
             let delta = point - start.point;
             if delta.dot(start.tangent).abs() > 1e-8 * delta.length().max(1.0) {
                 return None;
@@ -1076,9 +1185,8 @@ pub fn sweep_along_deformed(
             let coordinates = profile_coordinates
                 .iter()
                 .map(|coordinate| {
-                    let across = (coordinate[0] * cos - coordinate[1] * sin)
-                        * section_scale
-                        * station.miter;
+                    let across =
+                        (coordinate[0] * cos - coordinate[1] * sin) * section_scale * station.miter;
                     let height = (coordinate[0] * sin + coordinate[1] * cos) * section_scale;
                     [across, height]
                 })
@@ -1092,7 +1200,11 @@ pub fn sweep_along_deformed(
                 })
                 .collect::<Vec<_>>();
             Some((
-                Plane::from_axes(station.point.to_array(), left.to_array(), path_normal.to_array()),
+                Plane::from_axes(
+                    station.point.to_array(),
+                    left.to_array(),
+                    path_normal.to_array(),
+                ),
                 pieces,
             ))
         })
@@ -1125,7 +1237,9 @@ fn deformation_stations(
         return None;
     }
     let first_point = path[0].point_at(if senses[0] { 0.0 } else { 1.0 });
-    let last_point = path.last()?.point_at(if *senses.last()? { 1.0 } else { 0.0 });
+    let last_point = path
+        .last()?
+        .point_at(if *senses.last()? { 1.0 } else { 0.0 });
     if meets(first_point, last_point) {
         return None;
     }
@@ -1204,7 +1318,9 @@ fn mitered_rectangular_line_sweep(
     senses: &[bool],
 ) -> Option<Body> {
     if profile.len() != 4
-        || profile.iter().any(|piece| !matches!(piece, Curve2::Line(_)))
+        || profile
+            .iter()
+            .any(|piece| !matches!(piece, Curve2::Line(_)))
         || path.len() != senses.len()
         || path.iter().any(|piece| !matches!(piece, Curve2::Line(_)))
     {
@@ -1296,11 +1412,7 @@ fn mitered_rectangular_line_sweep(
     }
 
     let base_origin = Vec3::from(path_plane.origin) + path_normal * height_min;
-    let base_plane = Plane::from_axes(
-        base_origin.to_array(),
-        path_plane.x_axis,
-        path_plane.y_axis,
-    );
+    let base_plane = Plane::from_axes(base_origin.to_array(), path_plane.x_axis, path_plane.y_axis);
     extrude(
         base_plane,
         &outline,
@@ -1838,12 +1950,7 @@ fn add_ring_with_pcurves(
     Some(ring)
 }
 
-fn add_coedge(
-    body: &mut Body,
-    ring: LoopKey,
-    edge: EdgeKey,
-    forward: bool,
-) -> Option<CoedgeKey> {
+fn add_coedge(body: &mut Body, ring: LoopKey, edge: EdgeKey, forward: bool) -> Option<CoedgeKey> {
     let coedge = body.coedges.insert(Coedge {
         edge,
         forward,
@@ -1988,7 +2095,9 @@ impl Turn {
     /// A vector turned about the axis.
     fn turned(&self, vector: Vec3, angle: f64) -> Vec3 {
         let (sin, cos) = angle.sin_cos();
-        vector * cos + self.axis.cross(vector) * sin + self.axis * (self.axis.dot(vector) * (1.0 - cos))
+        vector * cos
+            + self.axis.cross(vector) * sin
+            + self.axis * (self.axis.dot(vector) * (1.0 - cos))
     }
 
     /// A point turned about the axis.
@@ -2019,14 +2128,8 @@ impl Turn {
         let sweep = arc.sweep();
         let middle = arc.start_angle + sweep * 0.5;
         let (sin, cos) = middle.sin_cos();
-        let offset = Vec3::from(plane.vector_at([
-            arc.radius * cos,
-            arc.radius * sin,
-        ]));
-        let tangent = Vec3::from(plane.vector_at([
-            -arc.radius * sin,
-            arc.radius * cos,
-        ]));
+        let offset = Vec3::from(plane.vector_at([arc.radius * cos, arc.radius * sin]));
+        let tangent = Vec3::from(plane.vector_at([-arc.radius * sin, arc.radius * cos]));
         let radial = offset.dot(self.radial);
         let height = offset.dot(self.axis);
         let radial_tangent = tangent.dot(self.radial);
@@ -2065,11 +2168,7 @@ impl Turn {
     /// direction and point must be at that same angular station.
     fn face_sense(&self, surface: &Surface, on: [f64; 3], out: Vec3) -> Option<bool> {
         let halfway = self.angle * 0.5;
-        face_sense(
-            surface,
-            self.moved(on, halfway),
-            self.turned(out, halfway),
-        )
+        face_sense(surface, self.moved(on, halfway), self.turned(out, halfway))
     }
 
     fn trigonometric_projection_bounds(
@@ -2170,8 +2269,7 @@ impl Turn {
         let mut splits = 0_usize;
         let mut result: Option<ProjectionBounds> = None;
         while let Some((span, depth)) = pending.pop() {
-            let hull =
-                Self::nurbs_control_projection_bounds(plane, &span, origin, direction)?;
+            let hull = Self::nurbs_control_projection_bounds(plane, &span, origin, direction)?;
             let mut samples: Option<ProjectionBounds> = None;
             for parameter in [0.0, 0.5, 1.0] {
                 let point = Vec3::from(plane.point_at(span.point_at(parameter)));
@@ -2212,9 +2310,7 @@ impl Turn {
         origin: Vec3,
         direction: Vec3,
     ) -> Option<ProjectionBounds> {
-        let project = |point: [f64; 2]| {
-            (Vec3::from(plane.point_at(point)) - origin).dot(direction)
-        };
+        let project = |point: [f64; 2]| (Vec3::from(plane.point_at(point)) - origin).dot(direction);
         match piece {
             Curve2::Line(line) => ProjectionBounds::new(project(line.start), project(line.end)),
             Curve2::Arc(arc) => Self::trigonometric_projection_bounds(
@@ -2243,9 +2339,7 @@ impl Turn {
                     arc.sweep(),
                 )
             }
-            Curve2::Nurbs(curve) => {
-                Self::nurbs_projection_bounds(plane, curve, origin, direction)
-            }
+            Curve2::Nurbs(curve) => Self::nurbs_projection_bounds(plane, curve, origin, direction),
             _ => None,
         }
     }
@@ -2291,19 +2385,15 @@ impl Turn {
             let mut proven = RadialReach::default();
             for parameter in [0.0, 0.5, 1.0] {
                 let radius = self.station(plane, span.point_at(parameter)).radius;
-                proven.include(RadialReach::from_bounds(
-                    radius,
-                    radius,
-                    self.tolerance,
-                )?);
+                proven.include(RadialReach::from_bounds(radius, radius, self.tolerance)?);
             }
             reach.include(proven);
             if reach.straddles() {
                 return Some(reach);
             }
 
-            let unresolved = (possible.negative && !proven.negative)
-                || (possible.positive && !proven.positive);
+            let unresolved =
+                (possible.negative && !proven.negative) || (possible.positive && !proven.positive);
             if !unresolved {
                 continue;
             }
@@ -2330,13 +2420,7 @@ impl Turn {
                 let centre = self.station(plane, arc.centre).radius;
                 let cosine = Vec3::from(plane.vector_at([arc.radius, 0.0])).dot(self.radial);
                 let sine = Vec3::from(plane.vector_at([0.0, arc.radius])).dot(self.radial);
-                self.trigonometric_radial_reach(
-                    centre,
-                    cosine,
-                    sine,
-                    arc.start_angle,
-                    arc.sweep(),
-                )
+                self.trigonometric_radial_reach(centre, cosine, sine, arc.start_angle, arc.sweep())
             }
             Curve2::Ellipse(arc) => {
                 let ellipse = arc.ellipse;
@@ -2385,7 +2469,10 @@ impl Turn {
         }
         match piece {
             Curve2::Line(line) => {
-                let (a, b) = (self.station(plane, line.start), self.station(plane, line.end));
+                let (a, b) = (
+                    self.station(plane, line.start),
+                    self.station(plane, line.end),
+                );
                 if (b.height - a.height).abs() <= self.tolerance {
                     Some(PieceSurface::Surface(
                         Surface::Plane(self.circle(a.height)?),
@@ -2588,7 +2675,9 @@ pub fn revolve_surface(
                 .zip(&senses)
                 .map(|(piece, forward)| piece.point_at(if *forward { 0.0 } else { 1.0 }))
                 .collect::<Vec<_>>();
-            let last = profile.last()?.point_at(if *senses.last()? { 1.0 } else { 0.0 });
+            let last = profile
+                .last()?
+                .point_at(if *senses.last()? { 1.0 } else { 0.0 });
             corners.push(last);
             (senses, corners)
         }
@@ -2616,27 +2705,11 @@ pub fn revolve_surface(
 
     if turn.full {
         revolve_surface_whole(
-            &mut body,
-            shell,
-            &plane,
-            profile,
-            &senses,
-            &corners,
-            &stations,
-            &turn,
-            is_closed,
+            &mut body, shell, &plane, profile, &senses, &corners, &stations, &turn, is_closed,
         )?;
     } else {
         revolve_surface_part(
-            &mut body,
-            shell,
-            &plane,
-            profile,
-            &senses,
-            &corners,
-            &stations,
-            &turn,
-            is_closed,
+            &mut body, shell, &plane, profile, &senses, &corners, &stations, &turn, is_closed,
         )?;
     }
 
@@ -3196,7 +3269,15 @@ fn revolve_part(
         })
         .collect::<Option<Vec<_>>>()?;
 
-    add_cap(body, shell, *plane, &near_edges, senses, !turn.spin, !outward)?;
+    add_cap(
+        body,
+        shell,
+        *plane,
+        &near_edges,
+        senses,
+        !turn.spin,
+        !outward,
+    )?;
     add_cap(body, shell, far, &far_edges, senses, turn.spin, outward)?;
 
     for (index, piece) in profile.iter().enumerate() {
@@ -3303,7 +3384,11 @@ fn revolve_surface_part(
             PieceSurface::Unsupported => return None,
             PieceSurface::Surface(_, _) => {}
         }
-        let next = if closed { (index + 1) % corners.len() } else { index + 1 };
+        let next = if closed {
+            (index + 1) % corners.len()
+        } else {
+            index + 1
+        };
         let (near_from, near_to) = if senses[index] {
             (near[index], near[next])
         } else {
@@ -3348,7 +3433,11 @@ fn revolve_surface_part(
             PieceSurface::Surface(surface, _) => surface,
             PieceSurface::Unsupported => return None,
         };
-        let next = if closed { (index + 1) % corners.len() } else { index + 1 };
+        let next = if closed {
+            (index + 1) % corners.len()
+        } else {
+            index + 1
+        };
         let spline = matches!(surface, Surface::Nurbs(_));
         let revolved_arc = match (&surface, piece) {
             (Surface::Sphere(_) | Surface::Torus(_), Curve2::Arc(arc)) => {
@@ -3458,9 +3547,8 @@ fn revolve_whole(
     // edges on it.
     let vertices: Vec<Option<VertexKey>> = (0..count)
         .map(|index| {
-            (has_rim[index] || has_seam[index] || has_seam[previous(index)]).then(|| {
-                add_vertex(body, plane.point_at(profile_corner(profile, senses, index)))
-            })
+            (has_rim[index] || has_seam[index] || has_seam[previous(index)])
+                .then(|| add_vertex(body, plane.point_at(profile_corner(profile, senses, index))))
         })
         .collect();
 
@@ -3681,13 +3769,23 @@ fn revolve_surface_whole(
             if !matches!(&kinds[index], PieceSurface::Surface(_, false)) {
                 return Some(None);
             }
-            let next = if closed { (index + 1) % corner_count } else { index + 1 };
+            let next = if closed {
+                (index + 1) % corner_count
+            } else {
+                index + 1
+            };
             let (from, to) = if senses[index] {
                 (vertices[index]?, vertices[next]?)
             } else {
                 (vertices[next]?, vertices[index]?)
             };
-            Some(Some(add_profile_edge(body, plane, &profile[index], from, to)?))
+            Some(Some(add_profile_edge(
+                body,
+                plane,
+                &profile[index],
+                from,
+                to,
+            )?))
         })
         .collect::<Option<Vec<_>>>()?;
 
@@ -3697,7 +3795,11 @@ fn revolve_surface_whole(
             PieceSurface::Surface(surface, flat) => (surface, flat),
             PieceSurface::Unsupported => return None,
         };
-        let next = if closed { (index + 1) % corner_count } else { index + 1 };
+        let next = if closed {
+            (index + 1) % corner_count
+        } else {
+            index + 1
+        };
         let spline = matches!(surface, Surface::Nurbs(_));
         let revolved_arc = match (&surface, piece) {
             (Surface::Torus(_), Curve2::Arc(arc)) => {
@@ -3829,8 +3931,7 @@ mod tests {
             -std::f64::consts::FRAC_PI_2,
             f64::NAN,
         ] {
-            assert!(extrude_surface_tapered(Plane::XY, &profile, [0.0, 0.0, 5.0], angle)
-                .is_none());
+            assert!(extrude_surface_tapered(Plane::XY, &profile, [0.0, 0.0, 5.0], angle).is_none());
         }
     }
 
@@ -3846,20 +3947,14 @@ mod tests {
         .is_some());
 
         let profile = square(10.0);
-        assert!(extrude_tapered(
-            Plane::XY,
-            &profile,
-            [0.0, 0.0, 10.0],
-            20.0_f64.to_radians(),
-        )
-        .is_some());
-        assert!(extrude_tapered(
-            Plane::XY,
-            &profile,
-            [0.0, 0.0, 10.0],
-            30.0_f64.to_radians(),
-        )
-        .is_none());
+        assert!(
+            extrude_tapered(Plane::XY, &profile, [0.0, 0.0, 10.0], 20.0_f64.to_radians(),)
+                .is_some()
+        );
+        assert!(
+            extrude_tapered(Plane::XY, &profile, [0.0, 0.0, 10.0], 30.0_f64.to_radians(),)
+                .is_none()
+        );
         assert!(extrude_tapered(
             Plane::XY,
             &profile,
@@ -3905,11 +4000,7 @@ mod tests {
     #[test]
     fn every_wall_faces_out() {
         let solid = extrude(Plane::XY, &square(10.0), [0.0, 0.0, 4.0]).unwrap();
-        let mesh = crate::brep::mesh::body(
-            &solid,
-            crate::tessellation::DEFAULT_ANGLE,
-            1e-9,
-        );
+        let mesh = crate::brep::mesh::body(&solid, crate::tessellation::DEFAULT_ANGLE, 1e-9);
         let centre = Vec3::new(5.0, 5.0, 2.0);
         for triangle in &mesh.triangles {
             let corner = Vec3::from(mesh.positions[triangle[0]]);
@@ -4191,8 +4282,8 @@ mod tests {
                 end: [0.0, 0.0],
             }),
         ];
-        let solid = extrude(Plane::XY, &profile, [0.0, 0.0, 1.0])
-            .expect("an exact spline extrusion");
+        let solid =
+            extrude(Plane::XY, &profile, [0.0, 0.0, 1.0]).expect("an exact spline extrusion");
         assert!(solid.validate().is_empty());
         assert!(solid
             .surfaces
@@ -4255,8 +4346,8 @@ mod tests {
         // profile lying on the axis sweeps into nothing and leaves nothing
         // behind — no face, and no vertex at the centre of either disc.
         let profile = ring(&[[0.0, 0.0], [3.0, 0.0], [3.0, 6.0], [0.0, 6.0]]);
-        let solid = revolve(half_plane(), &profile, [0.0; 3], [0.0, 0.0, 1.0], TAU)
-            .expect("a cylinder");
+        let solid =
+            revolve(half_plane(), &profile, [0.0; 3], [0.0, 0.0, 1.0], TAU).expect("a cylinder");
         assert_eq!(solid.faces.len(), 3, "two discs and a wall");
         assert_eq!(solid.edges.len(), 3, "two rims and a seam");
         assert_eq!(solid.vertices.len(), 2);
@@ -4279,7 +4370,10 @@ mod tests {
                 pi * 9.0 * 6.0,
             ),
             // A cone, radius 5 by 12 high.
-            (ring(&[[0.0, 0.0], [5.0, 0.0], [0.0, 12.0]]), pi * 25.0 * 12.0 / 3.0),
+            (
+                ring(&[[0.0, 0.0], [5.0, 0.0], [0.0, 12.0]]),
+                pi * 25.0 * 12.0 / 3.0,
+            ),
             // A ring of square section: outer 7, inner 4, two tall. Pappus
             // again — the section's area times its centroid's journey.
             (
@@ -4402,7 +4496,11 @@ mod tests {
         // half disc's centroid sits 4r/3π out from the flat side.
         let area = 0.5 * std::f64::consts::PI * 4.0;
         let travel = TAU * (10.0 + 4.0 * 2.0 / (3.0 * std::f64::consts::PI));
-        assert!(measures(volume(&solid), area * travel), "{}", volume(&solid));
+        assert!(
+            measures(volume(&solid), area * travel),
+            "{}",
+            volume(&solid)
+        );
     }
 
     #[test]
@@ -4422,7 +4520,10 @@ mod tests {
         assert_eq!(solid.faces.len(), 5, "two caps and three lateral faces");
         assert_eq!(solid.euler_characteristic(), 2);
         assert!(solid.validate().is_empty());
-        assert_eq!(kinds(&solid), ["cylinder", "plane", "plane", "plane", "plane"]);
+        assert_eq!(
+            kinds(&solid),
+            ["cylinder", "plane", "plane", "plane", "plane"]
+        );
         // A quarter turn from the profile reaches +y but not −y.
         let bounds = crate::brep::body_bounds(&solid).unwrap();
         assert!((bounds.max[1] - 3.0).abs() < 1e-9, "{bounds:?}");
@@ -4433,13 +4534,17 @@ mod tests {
     fn a_part_turn_lights_the_right_way_out() {
         let profile = ring(&[[2.0, 0.0], [5.0, 0.0], [5.0, 4.0], [2.0, 4.0]]);
         for angle in [std::f64::consts::FRAC_PI_2, 2.0] {
-            let solid = revolve(half_plane(), &profile, [0.0; 3], [0.0, 0.0, 1.0], angle)
-                .expect("a slice");
+            let solid =
+                revolve(half_plane(), &profile, [0.0; 3], [0.0, 0.0, 1.0], angle).expect("a slice");
             assert!(solid.validate().is_empty(), "{angle}");
             // A slice of a tube: the ring's area times its height times the
             // fraction of a turn it covers. Negative would mean inside out.
             let want = std::f64::consts::PI * (25.0 - 4.0) * 4.0 * angle / TAU;
-            assert!(measures(volume(&solid), want), "{angle}: {}", volume(&solid));
+            assert!(
+                measures(volume(&solid), want),
+                "{angle}: {}",
+                volume(&solid)
+            );
         }
     }
 
@@ -4447,8 +4552,7 @@ mod tests {
     fn turning_the_other_way_gives_the_same_solid_the_other_side() {
         let profile = ring(&[[0.0, 0.0], [3.0, 0.0], [3.0, 6.0], [0.0, 6.0]]);
         let quarter = std::f64::consts::FRAC_PI_2;
-        let forwards =
-            revolve(half_plane(), &profile, [0.0; 3], [0.0, 0.0, 1.0], quarter).unwrap();
+        let forwards = revolve(half_plane(), &profile, [0.0; 3], [0.0, 0.0, 1.0], quarter).unwrap();
         let backwards =
             revolve(half_plane(), &profile, [0.0; 3], [0.0, 0.0, 1.0], -quarter).unwrap();
         assert!(backwards.validate().is_empty());
@@ -4488,7 +4592,14 @@ mod tests {
         // round.
         let profile = ring(&[[1.0, 0.0], [3.0, 0.0], [3.0, 4.0], [1.0, 4.0]]);
         assert!(revolve(half_plane(), &profile, [0.0; 3], [0.0, 1.0, 1.0], TAU).is_none());
-        assert!(revolve(half_plane(), &profile, [0.0, 5.0, 0.0], [0.0, 0.0, 1.0], TAU).is_none());
+        assert!(revolve(
+            half_plane(),
+            &profile,
+            [0.0, 5.0, 0.0],
+            [0.0, 0.0, 1.0],
+            TAU
+        )
+        .is_none());
     }
 
     #[test]
@@ -4539,14 +4650,8 @@ mod tests {
     fn a_revolved_region_keeps_its_hole() {
         let outer = ring(&[[2.0, 0.0], [5.0, 0.0], [5.0, 4.0], [2.0, 4.0]]);
         let hole = ring(&[[3.0, 1.0], [4.0, 1.0], [4.0, 3.0], [3.0, 3.0]]);
-        let solid = revolve_region(
-            half_plane(),
-            &[outer, hole],
-            [0.0; 3],
-            [0.0, 0.0, 1.0],
-            TAU,
-        )
-        .expect("a revolved region with a void");
+        let solid = revolve_region(half_plane(), &[outer, hole], [0.0; 3], [0.0, 0.0, 1.0], TAU)
+            .expect("a revolved region with a void");
         assert!(solid.validate().is_empty());
         assert_eq!(solid.roots.len(), 1);
         let shells = &solid.lumps.get(solid.roots[0]).unwrap().shells;
@@ -4575,14 +4680,9 @@ mod tests {
     fn every_loop_of_a_surface_region_remains_a_separate_sheet() {
         let outer = ring(&[[2.0, 0.0], [5.0, 0.0], [5.0, 4.0], [2.0, 4.0]]);
         let hole = ring(&[[3.0, 1.0], [4.0, 1.0], [4.0, 3.0], [3.0, 3.0]]);
-        let sheets = revolve_surface_region(
-            half_plane(),
-            &[outer, hole],
-            [0.0; 3],
-            [0.0, 0.0, 1.0],
-            TAU,
-        )
-        .expect("two revolved sheets");
+        let sheets =
+            revolve_surface_region(half_plane(), &[outer, hole], [0.0; 3], [0.0, 0.0, 1.0], TAU)
+                .expect("two revolved sheets");
         assert!(sheets.validate().is_empty());
         assert_eq!(sheets.roots.len(), 2);
     }
@@ -4592,11 +4692,10 @@ mod tests {
         let origin = [512_345.678, 4_512_345.678, 91.5];
         let plane = Plane::orthonormal(origin, [1.0, 0.0, 0.0], [0.0, -1.0, 0.0]).unwrap();
         let profile = ring(&[[0.0, 0.0], [0.4, 0.0], [0.4, 0.9], [0.0, 0.9]]);
-        let solid = revolve(plane, &profile, origin, [0.0, 0.0, 1.0], TAU)
-            .expect("a small cylinder");
+        let solid =
+            revolve(plane, &profile, origin, [0.0, 0.0, 1.0], TAU).expect("a small cylinder");
         assert!(solid.validate().is_empty());
         assert_eq!(solid.euler_characteristic(), 2);
         assert!(solid.worst_vertex_gap() < 1e-6);
     }
-
 }

@@ -42,17 +42,17 @@ pub mod imprint;
 pub mod intersect;
 pub mod loft;
 pub mod loft_general;
-pub mod mass;
 pub mod make;
-pub mod mesh;
 mod march;
+pub mod mass;
+pub mod mesh;
 mod near;
 pub(crate) mod nurbs_builder;
 pub mod pcurve;
 pub mod place;
 pub mod presspull;
-pub mod slice;
 pub mod shell;
+pub mod slice;
 pub mod split;
 pub mod sweep;
 pub mod sweep_path;
@@ -60,7 +60,9 @@ pub mod thicken;
 pub mod topology;
 
 pub use arena::{Arena, Key};
-pub use blend::{chamfer, chamfer_edges, fillet, fillet_edges, presspull, ChamferError, FilletError};
+pub use blend::{
+    chamfer, chamfer_edges, fillet, fillet_edges, presspull, ChamferError, FilletError,
+};
 pub use boolean::{combine, Operation};
 pub use bounds::{body_bounds, face_bounds, operation_tolerance, Aabb};
 pub use classify::{contains_point, Containment};
@@ -77,8 +79,8 @@ pub use presspull::{
     planar_region, presspull_face, presspull_region, subtract_planar_regions, union_planar_regions,
     PlanarFaceProfile, PlanarIntersection, PresspullMode,
 };
-pub use slice::{slice_by_plane, slice_by_surface, surface_side, PlaneSlice};
 pub use shell::{shell, shell_face_at_point, ShellError};
+pub use slice::{slice_by_plane, slice_by_surface, surface_side, PlaneSlice};
 pub use sweep::{
     extrude, extrude_region, extrude_surface, extrude_surface_region, revolve, revolve_region,
     revolve_surface, revolve_surface_region, sweep_along, sweep_along_deformed,
@@ -91,9 +93,9 @@ pub use sweep::{
 };
 pub(crate) use sweep_path::reversed_path_curves;
 pub use sweep_path::{
-    sweep_corner_refusal, sweep_path, sweep_path_has_corner, sweep_polyline_base, sweep_spatial_polyline, SweepRefusal, sweep_path_start, sweep_path_tangent, sweep_profile_base, sweep_profile_base_from,
-    sweep_profile_group_base,
-    sweep_profile_placement, SweepOptions, SweepPath,
+    sweep_corner_refusal, sweep_path, sweep_path_has_corner, sweep_path_start, sweep_path_tangent,
+    sweep_polyline_base, sweep_profile_base, sweep_profile_base_from, sweep_profile_group_base,
+    sweep_profile_placement, sweep_spatial_polyline, SweepOptions, SweepPath, SweepRefusal,
 };
 pub use thicken::{thicken, ThickenError};
 pub use topology::{

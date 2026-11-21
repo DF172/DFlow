@@ -587,7 +587,7 @@ fn audit_ascii_dxf_references(path: &std::path::Path) -> Result<Value, String> {
     }
     let text = String::from_utf8_lossy(&bytes).replace("\r\n", "\n");
     let lines: Vec<&str> = text.lines().collect();
-    if lines.len() % 2 != 0 {
+    if !lines.len().is_multiple_of(2) {
         return Ok(
             json!({"ok":false,"malformed_pairs":true,"duplicate_handles":[],"dangling_handles":[]}),
         );
@@ -598,7 +598,7 @@ fn audit_ascii_dxf_references(path: &std::path::Path) -> Result<Value, String> {
     let mut pairs = Vec::new();
     let mut version = None;
     let mut variable = None;
-    for pair in lines.chunks_exact(2) {
+    for pair in lines.as_chunks::<2>().0 {
         let Ok(code) = pair[0].trim().parse::<i32>() else {
             return Ok(
                 json!({"ok":false,"malformed_pairs":true,"duplicate_handles":[],"dangling_handles":[]}),
@@ -1254,6 +1254,9 @@ impl DraftFlowCAD {
         if !matches!(detail, "summary" | "geometry" | "full") {
             return err("query detail must be summary, geometry or full");
         }
+        // The source-text guard in both_where_op_sites_share_one_reader pins the
+        // borrow form, so keep it explicit and silence the mechanical lint here.
+        #[allow(clippy::needless_borrow)]
         let (offset, limit) = match page_window(&req) {
             Ok(window) => window,
             Err(error) => return err(error),

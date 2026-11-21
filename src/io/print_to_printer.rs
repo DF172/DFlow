@@ -963,7 +963,7 @@ fn gdi_raster_print(
 
         // BGRA, top-down — what StretchDIBits expects for BI_RGB 32bpp.
         let mut bgra = page.pixels.as_ref().clone();
-        for px in bgra.chunks_exact_mut(4) {
+        for px in bgra.as_chunks_mut::<4>().0 {
             px.swap(0, 2);
         }
 
@@ -1009,7 +1009,7 @@ fn gdi_raster_print(
             }));
         }
         unsafe { SetStretchBltMode(hdc, COLORONCOLOR) };
-        let mut bmi = BITMAPINFO {
+        let bmi = BITMAPINFO {
             bmiHeader: BITMAPINFOHEADER {
                 biSize: std::mem::size_of::<BITMAPINFOHEADER>() as u32,
                 biWidth: src_w as i32,
@@ -1043,7 +1043,7 @@ fn gdi_raster_print(
                     src_w as i32,
                     src_h as i32,
                     bgra.as_ptr().cast(),
-                    &mut bmi,
+                    &bmi,
                     DIB_RGB_COLORS,
                     SRCCOPY,
                 )

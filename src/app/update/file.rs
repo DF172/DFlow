@@ -679,7 +679,9 @@ impl DraftFlowCAD {
                     return Vec::new();
                 };
                 mesh.edge_verts
-                    .chunks_exact(2)
+                    .as_chunks::<2>()
+                    .0
+                    .iter()
                     .enumerate()
                     .map(|(index, points)| {
                         let first_low = mesh
@@ -4510,11 +4512,9 @@ impl DraftFlowCAD {
             self.plot_dialog.scale_lw = false;
         }
         // A model-space plot cannot use the paper-only Layout area.
-        if cur == "Model" {
-            if self.plot_dialog.area == "Layout" {
-                self.plot_dialog.area = "Window".into();
-                self.normalize_common_plot_dialog();
-            }
+        if cur == "Model" && self.plot_dialog.area == "Layout" {
+            self.plot_dialog.area = "Window".into();
+            self.normalize_common_plot_dialog();
         }
         self.open_modal(crate::app::ModalKind::Plot);
         // Loading printer capabilities is informational when Plot merely

@@ -54,6 +54,12 @@ impl DimBreakCommand {
     }
 }
 
+impl Default for DimBreakCommand {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CadCommand for DimBreakCommand {
     fn name(&self) -> &'static str {
         "DIMBREAK"

@@ -345,7 +345,7 @@ fn emit_wire(
         wire.world_width as f64 * s
     } else {
         let physical = if options.object_lineweights {
-            lw_override_mm.unwrap_or_else(|| wire.line_weight_px as f64 * PX_TO_MM)
+            lw_override_mm.unwrap_or(wire.line_weight_px as f64 * PX_TO_MM)
         } else {
             0.1 * PT_TO_MM
         }
@@ -440,7 +440,7 @@ fn emit_wire_fills(
         [r, g, b] = plotted_color([r, g, b], a, screening, options);
     }
     let mut d = String::new();
-    for (ti, tri) in wire.fill_tris.chunks_exact(3).enumerate() {
+    for (ti, tri) in wire.fill_tris.as_chunks::<3>().0.iter().enumerate() {
         let mut pts = Vec::with_capacity(3);
         let mut ok = true;
         for (pi, &[x, y, _]) in tri.iter().enumerate() {
@@ -539,7 +539,7 @@ fn emit_hatch(
     if matches!(hatch.pattern, HatchPattern::Pattern(_)) {
         let s = map.scale;
         let physical = if options.object_lineweights {
-            lw_override_mm.unwrap_or_else(|| hatch.line_weight_px as f64 * PX_TO_MM)
+            lw_override_mm.unwrap_or(hatch.line_weight_px as f64 * PX_TO_MM)
         } else {
             0.1 * PT_TO_MM
         }
@@ -729,7 +729,7 @@ fn emit_image(
     if image.width == 0 || image.height == 0 || expected != Some(image.pixels.len()) {
         return Err("Cannot plot bitmap: dimensions do not match its RGBA pixels.".into());
     }
-    if image.verts.len() < 3 || image.verts.len() % 3 != 0 {
+    if image.verts.len() < 3 || !image.verts.len().is_multiple_of(3) {
         return Err("Cannot plot bitmap: incomplete triangle geometry.".into());
     }
     if options.transparency && image.opacity <= 0.0 {
@@ -761,7 +761,10 @@ fn emit_image(
 
     let mut rgba: Vec<u8> = image.pixels.as_ref().clone();
     if !image.use_alpha {
-        rgba.chunks_exact_mut(4).for_each(|px| px[3] = 255);
+        rgba.as_chunks_mut::<4>()
+            .0
+            .iter_mut()
+            .for_each(|px| px[3] = 255);
     }
     let png = {
         let img = image::RgbaImage::from_raw(image.width, image.height, rgba)

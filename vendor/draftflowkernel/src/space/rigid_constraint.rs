@@ -108,7 +108,10 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(translations, vec![[6.0, 0.0, 0.0], [4.0, 0.0, 0.0], [0.0; 3]]);
+        assert_eq!(
+            translations,
+            vec![[6.0, 0.0, 0.0], [4.0, 0.0, 0.0], [0.0; 3]]
+        );
     }
 
     #[test]

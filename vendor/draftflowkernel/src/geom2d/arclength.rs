@@ -142,11 +142,9 @@ impl Curve {
         match self {
             // The proportional cases, where a fraction of the parameter is
             // the same fraction of the length.
-            Self::Line(_)
-            | Self::Circle(_)
-            | Self::Arc(_)
-            | Self::Ray(_)
-            | Self::XLine(_) => self.length() * (to - from),
+            Self::Line(_) | Self::Circle(_) | Self::Arc(_) | Self::Ray(_) | Self::XLine(_) => {
+                self.length() * (to - from)
+            }
             Self::Polyline(polyline) => {
                 let table = polyline_lengths(self, polyline);
                 table.at(to) - table.at(from)
@@ -228,9 +226,7 @@ fn integrate_speed(curve: &Curve, from: f64, to: f64) -> f64 {
     let middle = 0.5 * (to + from);
     half * NODES
         .iter()
-        .map(|(node, weight)| {
-            weight * Vec2::from(curve.tangent_at(middle + half * node)).length()
-        })
+        .map(|(node, weight)| weight * Vec2::from(curve.tangent_at(middle + half * node)).length())
         .sum::<f64>()
 }
 
@@ -496,7 +492,10 @@ mod tests {
         });
         assert!((polyline.length() - 70.0).abs() < 1e-12);
         let corner = polyline.point_at_distance(30.0);
-        assert!((corner[0] - 30.0).abs() < 1e-9 && corner[1].abs() < 1e-9, "{corner:?}");
+        assert!(
+            (corner[0] - 30.0).abs() < 1e-9 && corner[1].abs() < 1e-9,
+            "{corner:?}"
+        );
         let end = polyline.point_at_distance(70.0);
         assert!((end[1] - 40.0).abs() < 1e-9, "{end:?}");
     }

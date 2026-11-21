@@ -288,7 +288,7 @@ impl DraftFlowCAD {
         let cloned: Vec<codec::EntityType> = handles
             .iter()
             .filter_map(|handle| self.tabs[source_index].scene.document.get_entity(*handle))
-            .map(|entity| entity.clone())
+            .cloned()
             .collect();
 
         // Copy the referenced layer definitions out of the source before the

@@ -2,13 +2,13 @@
 //!
 //! Records are allocated before their circular topology pointers are filled.
 
-use draftflowcodec::entities::acis::types::{SatDocument, SatPointer, SatRecord, SatToken};
 use crate::brep::{
     Body, CoedgeKey, Curve3, CurveKey, EdgeKey, FaceKey, LoopKey, LumpKey, ShellKey, Surface,
     SurfaceKey, VertexKey,
 };
 use crate::geom2d::Curve as Curve2;
 use crate::space::Vec3;
+use draftflowcodec::entities::acis::types::{SatDocument, SatPointer, SatRecord, SatToken};
 use std::collections::HashMap;
 
 /// Why a body could not be written.
@@ -55,7 +55,8 @@ pub fn append(body: &Body, document: &mut SatDocument) -> Result<Written, Unappe
     for (key, vertex) in body.vertices.iter() {
         let point = add(document, "point", vec![position(vertex.point)]);
         ids.points.insert(key, point);
-        ids.vertices.insert(key, add(document, "vertex", Vec::new()));
+        ids.vertices
+            .insert(key, add(document, "vertex", Vec::new()));
     }
     for (key, curve) in body.curves.iter() {
         let id = add_curve(document, curve).ok_or(Unappendable::Curve)?;
@@ -85,7 +86,8 @@ pub fn append(body: &Body, document: &mut SatDocument) -> Result<Written, Unappe
             // A pcurve that cannot be put in the edge's parameterisation (a
             // degenerate edge has no range to map onto) is written as it is,
             // as before, rather than refusing the whole body.
-            let curve = acis_pcurve(body, coedge, face.surface, curve).unwrap_or_else(|| curve.clone());
+            let curve =
+                acis_pcurve(body, coedge, face.surface, curve).unwrap_or_else(|| curve.clone());
             match add_pcurve(document, &curve, ids.surface(face.surface)) {
                 Some(id) => {
                     ids.pcurves.insert(key, id);
@@ -153,7 +155,10 @@ pub fn append(body: &Body, document: &mut SatDocument) -> Result<Written, Unappe
                 .ok_or(Unappendable::Inconsistent)?;
             let next = ring.coedges[(order + 1) % count];
             let previous = ring.coedges[(order + count - 1) % count];
-            let partner = body.radial_next(*coedge).map(|c| ids.coedge(c)).unwrap_or(NULL);
+            let partner = body
+                .radial_next(*coedge)
+                .map(|c| ids.coedge(c))
+                .unwrap_or(NULL);
             set(
                 document,
                 ids.coedge(*coedge),
@@ -169,7 +174,10 @@ pub fn append(body: &Body, document: &mut SatDocument) -> Result<Written, Unappe
                 ],
             );
         }
-        let face = body.faces.get(ring.owner).ok_or(Unappendable::Inconsistent)?;
+        let face = body
+            .faces
+            .get(ring.owner)
+            .ok_or(Unappendable::Inconsistent)?;
         set(
             document,
             ids.loop_(key),
@@ -183,7 +191,10 @@ pub fn append(body: &Body, document: &mut SatDocument) -> Result<Written, Unappe
     }
 
     for (key, face) in body.faces.iter() {
-        let shell = body.shells.get(face.owner).ok_or(Unappendable::Inconsistent)?;
+        let shell = body
+            .shells
+            .get(face.owner)
+            .ok_or(Unappendable::Inconsistent)?;
         set(
             document,
             ids.face(key),
@@ -203,7 +214,10 @@ pub fn append(body: &Body, document: &mut SatDocument) -> Result<Written, Unappe
     }
 
     for (key, shell) in body.shells.iter() {
-        let lump = body.lumps.get(shell.owner).ok_or(Unappendable::Inconsistent)?;
+        let lump = body
+            .lumps
+            .get(shell.owner)
+            .ok_or(Unappendable::Inconsistent)?;
         set(
             document,
             ids.shell(key),
@@ -258,11 +272,16 @@ pub fn append_polyline_wire(
         .iter()
         .map(|point| Vec3::from(*point).distance(Vec3::from(points[0])))
         .fold(0.0, f64::max);
-    let repeated = |a: [f64; 3], b: [f64; 3]| Vec3::from(a).distance(Vec3::from(b)) <= extent * 1e-12;
+    let repeated =
+        |a: [f64; 3], b: [f64; 3]| Vec3::from(a).distance(Vec3::from(b)) <= extent * 1e-12;
     if closed && points.len() > 2 && repeated(points[0], points[points.len() - 1]) {
         points.pop();
     }
-    let spans = if closed { points.len() } else { points.len().saturating_sub(1) };
+    let spans = if closed {
+        points.len()
+    } else {
+        points.len().saturating_sub(1)
+    };
     if spans == 0
         || (closed && points.len() < 3)
         || points.iter().flatten().any(|value| !value.is_finite())
@@ -279,52 +298,110 @@ pub fn append_polyline_wire(
     let mut curves = Vec::new();
     let mut lengths = Vec::new();
     for index in 0..spans {
-        let (start, end) = (Vec3::from(points[index]), Vec3::from(points[(index + 1) % points.len()]));
+        let (start, end) = (
+            Vec3::from(points[index]),
+            Vec3::from(points[(index + 1) % points.len()]),
+        );
         let length = start.distance(end);
-        let direction = (end - start).normalize().ok_or(Unappendable::Inconsistent)?;
-        let line = Curve3::Line(crate::brep::Line3 { origin: start.to_array(), direction: direction.to_array() });
+        let direction = (end - start)
+            .normalize()
+            .ok_or(Unappendable::Inconsistent)?;
+        let line = Curve3::Line(crate::brep::Line3 {
+            origin: start.to_array(),
+            direction: direction.to_array(),
+        });
         curves.push(add_curve(document, &line).ok_or(Unappendable::Curve)?);
         lengths.push(length);
     }
-    let edges = (0..spans).map(|_| add(document, "edge", Vec::new())).collect::<Vec<_>>();
-    let coedges = (0..spans).map(|_| add(document, "coedge", Vec::new())).collect::<Vec<_>>();
+    let edges = (0..spans)
+        .map(|_| add(document, "edge", Vec::new()))
+        .collect::<Vec<_>>();
+    let coedges = (0..spans)
+        .map(|_| add(document, "coedge", Vec::new()))
+        .collect::<Vec<_>>();
     let wire = add(document, "wire", Vec::new());
     let shell = add(document, "shell", Vec::new());
     let lump = add(document, "lump", Vec::new());
     let body = add(document, "body", Vec::new());
     for (index, vertex) in vertex_ids.iter().enumerate() {
         let edge = edges[index.min(spans - 1)];
-        set(document, *vertex, vec![null(), pointer(edge), pointer(point_ids[index])]);
+        set(
+            document,
+            *vertex,
+            vec![null(), pointer(edge), pointer(point_ids[index])],
+        );
     }
     for index in 0..spans {
-        set(document, edges[index], vec![
-            null(),
-            pointer(vertex_ids[index]),
-            SatToken::Float(0.0),
-            pointer(vertex_ids[(index + 1) % points.len()]),
-            SatToken::Float(lengths[index]),
-            pointer(coedges[index]),
-            pointer(curves[index]),
-            sense(true),
-        ]);
-        let next = if index + 1 < spans { coedges[index + 1] } else if closed { coedges[0] } else { coedges[index] };
-        let previous = if index > 0 { coedges[index - 1] } else if closed { coedges[spans - 1] } else { coedges[0] };
-        set(document, coedges[index], vec![
-            null(),
-            pointer(next),
-            pointer(previous),
-            null(),
-            pointer(edges[index]),
-            sense(true),
-            pointer(wire),
-            null(),
-        ]);
+        set(
+            document,
+            edges[index],
+            vec![
+                null(),
+                pointer(vertex_ids[index]),
+                SatToken::Float(0.0),
+                pointer(vertex_ids[(index + 1) % points.len()]),
+                SatToken::Float(lengths[index]),
+                pointer(coedges[index]),
+                pointer(curves[index]),
+                sense(true),
+            ],
+        );
+        let next = if index + 1 < spans {
+            coedges[index + 1]
+        } else if closed {
+            coedges[0]
+        } else {
+            coedges[index]
+        };
+        let previous = if index > 0 {
+            coedges[index - 1]
+        } else if closed {
+            coedges[spans - 1]
+        } else {
+            coedges[0]
+        };
+        set(
+            document,
+            coedges[index],
+            vec![
+                null(),
+                pointer(next),
+                pointer(previous),
+                null(),
+                pointer(edges[index]),
+                sense(true),
+                pointer(wire),
+                null(),
+            ],
+        );
     }
-    set(document, wire, vec![null(), null(), pointer(coedges[0]), pointer(shell), null(), SatToken::Ident("out".to_string())]);
-    set(document, shell, vec![null(), null(), null(), null(), pointer(wire), pointer(lump)]);
-    set(document, lump, vec![null(), null(), pointer(shell), pointer(body)]);
+    set(
+        document,
+        wire,
+        vec![
+            null(),
+            null(),
+            pointer(coedges[0]),
+            pointer(shell),
+            null(),
+            SatToken::Ident("out".to_string()),
+        ],
+    );
+    set(
+        document,
+        shell,
+        vec![null(), null(), null(), null(), pointer(wire), pointer(lump)],
+    );
+    set(
+        document,
+        lump,
+        vec![null(), null(), pointer(shell), pointer(body)],
+    );
     set(document, body, vec![null(), pointer(lump), null(), null()]);
-    Ok(Written { body, records: document.record_count() - before })
+    Ok(Written {
+        body,
+        records: document.record_count() - before,
+    })
 }
 
 const NULL: i32 = -1;
@@ -424,16 +501,12 @@ fn add_nurbs_surface(document: &mut SatDocument, surface: &crate::space::NurbsSu
     let (u_knots, v_knots) = surface.knots();
     let controls = surface.control_points();
     let weights = surface.weights();
-    let rational = weights
-        .iter()
-        .flatten()
-        .next()
-        .is_some_and(|first| {
-            weights
-                .iter()
-                .flatten()
-                .any(|weight| (*weight - *first).abs() > 1e-12)
-        });
+    let rational = weights.iter().flatten().next().is_some_and(|first| {
+        weights
+            .iter()
+            .flatten()
+            .any(|weight| (*weight - *first).abs() > 1e-12)
+    });
     let mut points = Vec::new();
     let mut flat_weights = Vec::new();
     for v in 0..controls[0].len() {
@@ -513,7 +586,12 @@ fn acis_pcurve(
 ) -> Option<Curve2> {
     use crate::geom2d::NurbsCurve;
     let nurbs = match pcurve {
-        Curve2::Line(line) => NurbsCurve::new_strict(1, vec![line.start, line.end], vec![0.0, 0.0, 1.0, 1.0], vec![1.0, 1.0])?,
+        Curve2::Line(line) => NurbsCurve::new_strict(
+            1,
+            vec![line.start, line.end],
+            vec![0.0, 0.0, 1.0, 1.0],
+            vec![1.0, 1.0],
+        )?,
         Curve2::Nurbs(curve) => curve.clone(),
         _ => return None,
     };
@@ -530,15 +608,29 @@ fn acis_pcurve(
     let (first, last) = (image(&nurbs, t0), image(&nurbs, t1));
     let along = first.distance(start) + last.distance(end);
     let against = first.distance(end) + last.distance(start);
-    let mut nurbs = if against < along { nurbs.reversed() } else { nurbs };
-    let (low, high) = if coedge.forward { (a, b) } else {
+    let mut nurbs = if against < along {
+        nurbs.reversed()
+    } else {
+        nurbs
+    };
+    let (low, high) = if coedge.forward {
+        (a, b)
+    } else {
         nurbs = nurbs.reversed();
         (-b, -a)
     };
     let (t0, t1) = nurbs.domain();
     let scale = (high - low) / (t1 - t0);
-    let knots = nurbs.knots().iter().map(|knot| low + (knot - t0) * scale).collect();
-    let controls = nurbs.control_points().iter().map(|point| acis_uv(surface, *point)).collect();
+    let knots = nurbs
+        .knots()
+        .iter()
+        .map(|knot| low + (knot - t0) * scale)
+        .collect();
+    let controls = nurbs
+        .control_points()
+        .iter()
+        .map(|point| acis_uv(surface, *point))
+        .collect();
     NurbsCurve::new_strict(nurbs.degree(), controls, knots, nurbs.weights().to_vec())
         .map(Curve2::Nurbs)
 }
@@ -566,11 +658,7 @@ pub(super) fn kernel_uv(surface: &Surface, [u, v]: [f64; 2]) -> [f64; 2] {
     }
 }
 
-fn add_pcurve(
-    document: &mut SatDocument,
-    curve: &Curve2,
-    support_surface: i32,
-) -> Option<i32> {
+fn add_pcurve(document: &mut SatDocument, curve: &Curve2, support_surface: i32) -> Option<i32> {
     let (degree, knots, controls, weights, rational, closed) = match curve {
         Curve2::Line(line) => (
             1,

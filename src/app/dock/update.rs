@@ -197,33 +197,33 @@ impl DraftFlowCAD {
                     self.dock_hover_cancel();
                 }
             }
-            DockMsg::HoverSettled(gen) => {
-                if gen == self.dock_hover_gen && self.dock_drag.is_none() {
-                    match self.dock_hover_pending.take() {
-                        Some(HoverPending::Reveal(id)) if self.dock.auto_hides(id) => {
-                            self.dock_reveal(id)
-                        }
-                        Some(HoverPending::Hide)
-                            if self.dock_peek.is_some_and(|id| self.dock.auto_hides(id)) =>
-                        {
-                            // The auto-hide edge collapsed: arm the slide key
-                            // so the next reveal animates in from nothing.
-                            if let Some(id) = self.dock_peek {
-                                if let Some((side, gi)) = self.dock.location(id) {
-                                    crate::ui::motion::set(
-                                        crate::ui::motion::indexed_key(
-                                            "dockgrp:",
-                                            side as usize * 8 + gi,
-                                        ),
-                                        0.0,
-                                        0,
-                                    );
-                                }
-                            }
-                            self.dock_peek = None;
-                        }
-                        _ => {}
+            DockMsg::HoverSettled(gen)
+                if gen == self.dock_hover_gen && self.dock_drag.is_none() =>
+            {
+                match self.dock_hover_pending.take() {
+                    Some(HoverPending::Reveal(id)) if self.dock.auto_hides(id) => {
+                        self.dock_reveal(id)
                     }
+                    Some(HoverPending::Hide)
+                        if self.dock_peek.is_some_and(|id| self.dock.auto_hides(id)) =>
+                    {
+                        // The auto-hide edge collapsed: arm the slide key
+                        // so the next reveal animates in from nothing.
+                        if let Some(id) = self.dock_peek {
+                            if let Some((side, gi)) = self.dock.location(id) {
+                                crate::ui::motion::set(
+                                    crate::ui::motion::indexed_key(
+                                        "dockgrp:",
+                                        side as usize * 8 + gi,
+                                    ),
+                                    0.0,
+                                    0,
+                                );
+                            }
+                        }
+                        self.dock_peek = None;
+                    }
+                    _ => {}
                 }
             }
             _ => {}

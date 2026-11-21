@@ -142,6 +142,12 @@ impl PerpendicularConstraintCommand {
     }
 }
 
+impl Default for PerpendicularConstraintCommand {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CadCommand for PerpendicularConstraintCommand {
     fn name(&self) -> &'static str {
         "GCPERPENDICULAR"

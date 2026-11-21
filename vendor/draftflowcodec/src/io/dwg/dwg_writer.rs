@@ -80,30 +80,29 @@ impl DwgWriter {
         // the controls, entries and handle map all agree (issue #51/#64
         // class of bug).
         let mut owned;
-        let document: &CadDocument = if document.has_null_table_entries()
-            || document.version < DxfVersion::AC1027
-        {
-            owned = document.clone();
-            if owned.has_null_table_entries() {
-                owned.assign_table_entry_handles();
-            }
-            if owned.version < DxfVersion::AC1027 {
-                // A table read from a file of this version is already valid
-                // for it, and the verbatim records copied from that file
-                // carry its class numbers: leave it as it is.
-                if owned.dwg_source_version != Some(owned.version) {
-                    prepare_legacy_classes(&mut owned);
+        let document: &CadDocument =
+            if document.has_null_table_entries() || document.version < DxfVersion::AC1027 {
+                owned = document.clone();
+                if owned.has_null_table_entries() {
+                    owned.assign_table_entry_handles();
                 }
-            }
-            if owned.version < DxfVersion::AC1027 {
-                prepare_legacy_document(&mut owned);
-                crate::objects::store_table_style_roundtrip(&mut owned);
-                crate::objects::store_visual_style_roundtrip(&mut owned);
-            }
-            &owned
-        } else {
-            document
-        };
+                if owned.version < DxfVersion::AC1027 {
+                    // A table read from a file of this version is already valid
+                    // for it, and the verbatim records copied from that file
+                    // carry its class numbers: leave it as it is.
+                    if owned.dwg_source_version != Some(owned.version) {
+                        prepare_legacy_classes(&mut owned);
+                    }
+                }
+                if owned.version < DxfVersion::AC1027 {
+                    prepare_legacy_document(&mut owned);
+                    crate::objects::store_table_style_roundtrip(&mut owned);
+                    crate::objects::store_visual_style_roundtrip(&mut owned);
+                }
+                &owned
+            } else {
+                document
+            };
 
         let result = if uses_ac21_format(version) {
             write_ac21(&mut output, document, version)
@@ -533,9 +532,10 @@ fn prepare_roundtrip_records(document: &mut std::borrow::Cow<'_, CadDocument>) {
         let is_visual_style = matches!(object, ObjectType::VisualStyle(_));
         for (name, child) in &entries.entries {
             let drop = match (name.as_str(), document.objects.get(child)) {
-                ("ACAD_ROUNDTRIP_2008_TABLESTYLE_CELLSTYLEMAP", Some(ObjectType::DataObject(_))) => {
-                    !is_visual_style
-                }
+                (
+                    "ACAD_ROUNDTRIP_2008_TABLESTYLE_CELLSTYLEMAP",
+                    Some(ObjectType::DataObject(_)),
+                ) => !is_visual_style,
                 ("ACAD_XREC_ROUNDTRIP", Some(ObjectType::XRecord(record))) => {
                     let prefix = if is_visual_style {
                         "RTVS"
@@ -547,10 +547,7 @@ fn prepare_roundtrip_records(document: &mut std::borrow::Cow<'_, CadDocument>) {
                         .iter()
                         .filter(|entry| entry.code == 102)
                         .filter_map(|entry| key_of(&entry.value))
-                        .all(|key| {
-                            key.starts_with(prefix)
-                                || (!is_visual_style && key.is_empty())
-                        })
+                        .all(|key| key.starts_with(prefix) || (!is_visual_style && key.is_empty()))
                         && record.entries.iter().any(|entry| entry.code == 102)
                 }
                 _ => false,
@@ -607,9 +604,10 @@ fn entity_class_name(entity: &crate::entities::EntityType) -> &str {
 /// record without a valid type code, so it is kept, after the profile.
 fn prepare_legacy_classes(document: &mut CadDocument) {
     let entity_classes = document.entities().map(entity_class_name);
-    let object_classes = document.objects.values().flat_map(
-        crate::io::dwg::dwg_stream_writers::object_writer::objects::object_class_names,
-    );
+    let object_classes = document
+        .objects
+        .values()
+        .flat_map(crate::io::dwg::dwg_stream_writers::object_writer::objects::object_class_names);
     // FIELD / FIELDLIST records exist from R2004 on and are written from the
     // document's field table, not from `objects`.
     let field_classes: &[&str] = if document.version >= DxfVersion::AC1018 {
@@ -617,7 +615,9 @@ fn prepare_legacy_classes(document: &mut CadDocument) {
     } else {
         &[]
     };
-    let field_classes = field_classes.iter().map(|name| std::borrow::Cow::Owned(name.to_string()));
+    let field_classes = field_classes
+        .iter()
+        .map(|name| std::borrow::Cow::Owned(name.to_string()));
     let mut seen = std::collections::HashSet::new();
     let required: Vec<_> = entity_classes
         .map(std::borrow::Cow::Borrowed)
@@ -2237,13 +2237,18 @@ mod tests {
                 ..Default::default()
             },
         ));
-        doc.objects.insert(handle, ObjectType::DynamicBlock(history));
-        let mut source = DwgReader::from_stream(Cursor::new(DwgWriter::write_to_vec(&doc).unwrap()))
-            .read()
-            .unwrap();
+        doc.objects
+            .insert(handle, ObjectType::DynamicBlock(history));
+        let mut source =
+            DwgReader::from_stream(Cursor::new(DwgWriter::write_to_vec(&doc).unwrap()))
+                .read()
+                .unwrap();
         let original = source.raw_records[&handle.value()].1.data.clone();
         source
-            .add_entity(EntityType::Line(Line::from_points(Vector3::ZERO, Vector3::UNIT_X)))
+            .add_entity(EntityType::Line(Line::from_points(
+                Vector3::ZERO,
+                Vector3::UNIT_X,
+            )))
             .unwrap();
         let saved = DwgReader::from_stream(Cursor::new(DwgWriter::write_to_vec(&source).unwrap()))
             .read()
@@ -2378,10 +2383,16 @@ mod tests {
             .read()
             .unwrap();
 
-        assert_eq!(class_names(&decoded.classes), class_names(&document.classes));
+        assert_eq!(
+            class_names(&decoded.classes),
+            class_names(&document.classes)
+        );
         for class in document.classes.iter() {
             assert_eq!(
-                decoded.classes.get_by_name(&class.dxf_name).map(|c| c.class_number),
+                decoded
+                    .classes
+                    .get_by_name(&class.dxf_name)
+                    .map(|c| c.class_number),
                 Some(class.class_number),
                 "{} was renumbered",
                 class.dxf_name

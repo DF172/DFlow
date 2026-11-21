@@ -749,7 +749,7 @@ pub fn tessellate_text_run(
     let ttf_family = face.ttf_family();
     let shaping_family = ttf_family.or_else(|| {
         crate::scene::text::web_font::requires_shaping(text)
-            .then(|| crate::scene::text::web_font::fallback_family())
+            .then(crate::scene::text::web_font::fallback_family)
     });
 
     // Render a stroke directly (LFF glyph) or per shaped contour (TTF), applying

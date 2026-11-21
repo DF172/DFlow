@@ -943,7 +943,7 @@ fn fill_picker<'a>(current: GraphicAttribute, open: bool, theme: &Theme) -> Elem
     );
     crate::ui::color_select::drop_down_below(
         picker.into(),
-        popup.into(),
+        popup,
         None,
         Length::Shrink,
         msg(GraphicAttributesMsg::CloseMenu),

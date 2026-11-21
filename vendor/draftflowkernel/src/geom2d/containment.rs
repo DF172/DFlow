@@ -56,7 +56,13 @@ pub fn closest_point(curve: &Curve, to: [f64; 2]) -> Closest {
             let interior = at(raw.clamp(0.0, 1.0));
             [interior, at(0.0), at(1.0)]
                 .into_iter()
-                .reduce(|best, next| if next.distance < best.distance { next } else { best })
+                .reduce(|best, next| {
+                    if next.distance < best.distance {
+                        next
+                    } else {
+                        best
+                    }
+                })
                 .expect("three candidates")
         }
     }
@@ -79,7 +85,13 @@ pub fn nearest_of<'a>(
         .into_iter()
         .enumerate()
         .map(|(index, curve)| (index, closest_point(curve, point)))
-        .reduce(|best, next| if next.1.distance < best.1.distance { next } else { best })
+        .reduce(|best, next| {
+            if next.1.distance < best.1.distance {
+                next
+            } else {
+                best
+            }
+        })
 }
 
 /// Directions tried when casting a containment ray, as unit vectors.
@@ -341,7 +353,10 @@ mod tests {
         assert!(contains(std::slice::from_ref(&circle), [3.0, 4.0], tol()));
         assert!(contains(std::slice::from_ref(&circle), [4.5, 4.0], tol()));
         assert!(!contains(std::slice::from_ref(&circle), [6.0, 4.0], tol()));
-        assert!(!contains(std::slice::from_ref(&circle), [-1.0, 6.0], tol()), "a tangent ray does not enter the circle");
+        assert!(
+            !contains(std::slice::from_ref(&circle), [-1.0, 6.0], tol()),
+            "a tangent ray does not enter the circle"
+        );
     }
 
     #[test]
@@ -367,10 +382,22 @@ mod tests {
             ],
             closed: true,
         });
-        assert!(contains(std::slice::from_ref(&l_shape), [2.0, 8.0], tol()), "in the arm");
-        assert!(contains(std::slice::from_ref(&l_shape), [8.0, 2.0], tol()), "in the foot");
-        assert!(!contains(std::slice::from_ref(&l_shape), [8.0, 8.0], tol()), "in the notch");
-        assert!(!contains(std::slice::from_ref(&l_shape), [-1.0, 4.0], tol()), "outside, level with the notch");
+        assert!(
+            contains(std::slice::from_ref(&l_shape), [2.0, 8.0], tol()),
+            "in the arm"
+        );
+        assert!(
+            contains(std::slice::from_ref(&l_shape), [8.0, 2.0], tol()),
+            "in the foot"
+        );
+        assert!(
+            !contains(std::slice::from_ref(&l_shape), [8.0, 8.0], tol()),
+            "in the notch"
+        );
+        assert!(
+            !contains(std::slice::from_ref(&l_shape), [-1.0, 4.0], tol()),
+            "outside, level with the notch"
+        );
     }
 
     #[test]
@@ -390,7 +417,15 @@ mod tests {
             ],
             closed: true,
         });
-        assert!(contains(std::slice::from_ref(&far), [origin[0] + 5.0, origin[1] + 3.0], tol()));
-        assert!(!contains(std::slice::from_ref(&far), [origin[0] - 5.0, origin[1] + 3.0], tol()));
+        assert!(contains(
+            std::slice::from_ref(&far),
+            [origin[0] + 5.0, origin[1] + 3.0],
+            tol()
+        ));
+        assert!(!contains(
+            std::slice::from_ref(&far),
+            [origin[0] - 5.0, origin[1] + 3.0],
+            tol()
+        ));
     }
 }

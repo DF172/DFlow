@@ -476,6 +476,12 @@ impl PlineCommand {
     }
 }
 
+impl Default for PlineCommand {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 // ── Arc geometry helpers ───────────────────────────────────────────────────
 
 /// Sign for an arc whose direction is not fixed by its definition

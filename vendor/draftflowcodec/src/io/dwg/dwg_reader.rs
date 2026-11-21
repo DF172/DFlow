@@ -721,15 +721,29 @@ fn decode_field_xdata(document: &mut crate::document::CadDocument) {
         .eed_by_handle
         .keys()
         .copied()
-        .filter(|h| matches!(document.objects.get(h), Some(crate::objects::ObjectType::Field(_))))
+        .filter(|h| {
+            matches!(
+                document.objects.get(h),
+                Some(crate::objects::ObjectType::Field(_))
+            )
+        })
         .collect();
     for h in fields {
-        let Some(blocks) = document.eed_by_handle.remove(&h) else { continue };
+        let Some(blocks) = document.eed_by_handle.remove(&h) else {
+            continue;
+        };
         let mut kept = Vec::new();
         let mut xdata = crate::xdata::ExtendedData::new();
         for (app, bytes) in blocks {
-            let name = document.app_ids.iter().find(|a| a.handle.value() == app).map(|a| a.name.clone());
-            match (name, crate::io::dwg::eed_codec::decode_values(&bytes, wide, |_| None)) {
+            let name = document
+                .app_ids
+                .iter()
+                .find(|a| a.handle.value() == app)
+                .map(|a| a.name.clone());
+            match (
+                name,
+                crate::io::dwg::eed_codec::decode_values(&bytes, wide, |_| None),
+            ) {
                 (Some(name), Some(values)) => {
                     let mut rec = crate::xdata::ExtendedDataRecord::new(name);
                     rec.values = values;
@@ -758,7 +772,9 @@ fn decode_block_units_xdata(document: &mut crate::document::CadDocument) {
         return;
     };
     for record in document.block_records.iter_mut() {
-        let Some(blocks) = document.eed_by_handle.get_mut(&record.handle) else { continue };
+        let Some(blocks) = document.eed_by_handle.get_mut(&record.handle) else {
+            continue;
+        };
         blocks.retain(|(app, bytes)| {
             let units = (*app == acad)
                 .then(|| crate::io::dwg::eed_codec::decode_values(bytes, false, |_| None))
@@ -953,7 +969,12 @@ impl<R: Read + Seek> DwgReader<R> {
         &mut self,
     ) -> std::result::Result<crate::io::read::ReadOutcome, DxfError> {
         self.read_with_optional_visitor(
-            None::<&mut dyn FnMut(&crate::document::CadDocument, crate::entities::EntityType) -> Option<crate::entities::EntityType>>,
+            None::<
+                &mut dyn FnMut(
+                    &crate::document::CadDocument,
+                    crate::entities::EntityType,
+                ) -> Option<crate::entities::EntityType>,
+            >,
         )
     }
 

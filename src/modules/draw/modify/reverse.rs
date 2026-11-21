@@ -81,6 +81,12 @@ impl ReverseCommand {
     }
 }
 
+impl Default for ReverseCommand {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// Reverse an LwPolyline, reconciling per-segment bulges.
 ///
 /// Bulge semantics: `vertices[k].bulge` is the bulge of the segment that

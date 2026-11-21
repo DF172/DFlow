@@ -669,8 +669,15 @@ pub(crate) fn sphere_in_octants(centre: [f64; 3], radius: f64) -> Option<Body> {
     for axis in 0..3 {
         let (along, towards) = ((axis + 1) % 3, (axis + 2) % 3);
         let plane = Plane::orthonormal(centre, axes[along].to_array(), axes[axis].to_array())?;
-        let curve = body.curves.insert(Curve3::Circle(Circle3 { plane, radius }));
-        let round = [(along, true), (towards, true), (along, false), (towards, false)];
+        let curve = body
+            .curves
+            .insert(Curve3::Circle(Circle3 { plane, radius }));
+        let round = [
+            (along, true),
+            (towards, true),
+            (along, false),
+            (towards, false),
+        ];
         for quarter in 0..4 {
             let start = corners[&round[quarter]];
             let end = corners[&round[(quarter + 1) % 4]];

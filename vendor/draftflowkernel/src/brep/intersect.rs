@@ -69,9 +69,7 @@ pub fn surfaces(a: &Surface, b: &Surface, tolerance: f64) -> Meeting {
         }
         (Surface::Plane(plane), Surface::Cone(cone))
         | (Surface::Cone(cone), Surface::Plane(plane)) => plane_cone(plane, cone, tolerance),
-        (Surface::Cylinder(one), Surface::Cylinder(other)) => {
-            cylinders(one, other, tolerance)
-        }
+        (Surface::Cylinder(one), Surface::Cylinder(other)) => cylinders(one, other, tolerance),
         (Surface::Sphere(sphere), Surface::Cylinder(cylinder))
         | (Surface::Cylinder(cylinder), Surface::Sphere(sphere)) => {
             sphere_cylinder(sphere, cylinder, tolerance)
@@ -86,12 +84,22 @@ pub fn surfaces(a: &Surface, b: &Surface, tolerance: f64) -> Meeting {
         }
         (Surface::Cone(cone), Surface::Cylinder(cylinder))
         | (Surface::Cylinder(cylinder), Surface::Cone(cone)) => coaxial_conics(
-            &cone.base, cone.radius, cone.half_angle.tan(),
-            &cylinder.base, cylinder.radius, 0.0, tolerance,
+            &cone.base,
+            cone.radius,
+            cone.half_angle.tan(),
+            &cylinder.base,
+            cylinder.radius,
+            0.0,
+            tolerance,
         ),
         (Surface::Cone(one), Surface::Cone(other)) => coaxial_conics(
-            &one.base, one.radius, one.half_angle.tan(),
-            &other.base, other.radius, other.half_angle.tan(), tolerance,
+            &one.base,
+            one.radius,
+            one.half_angle.tan(),
+            &other.base,
+            other.radius,
+            other.half_angle.tan(),
+            tolerance,
         ),
         _ => coaxial_revolutions(a, b, tolerance)
             .or_else(|| apart(a, b, tolerance))
@@ -103,8 +111,14 @@ pub fn surfaces(a: &Surface, b: &Surface, tolerance: f64) -> Meeting {
 /// axis and height along it, mirrored across the axis so a cone's two nappes
 /// and a torus's two sides are one set of lines and circles.
 enum Profile {
-    Line { point: [f64; 2], direction: [f64; 2] },
-    Circle { centre: [f64; 2], radius: f64 },
+    Line {
+        point: [f64; 2],
+        direction: [f64; 2],
+    },
+    Circle {
+        centre: [f64; 2],
+        radius: f64,
+    },
 }
 
 /// `surface`'s meridian about the line through `origin` along `axis`, when it
@@ -132,22 +146,37 @@ fn revolution_profile(
                 return None;
             }
             let height = height_of(plane.origin);
-            vec![Profile::Line { point: [0.0, height], direction: [1.0, 0.0] }]
+            vec![Profile::Line {
+                point: [0.0, height],
+                direction: [1.0, 0.0],
+            }]
         }
         Surface::Cylinder(cylinder) => {
             aligned(&cylinder.base)?;
             let radius = cylinder.radius;
             vec![
-                Profile::Line { point: [radius, 0.0], direction: [0.0, 1.0] },
-                Profile::Line { point: [-radius, 0.0], direction: [0.0, 1.0] },
+                Profile::Line {
+                    point: [radius, 0.0],
+                    direction: [0.0, 1.0],
+                },
+                Profile::Line {
+                    point: [-radius, 0.0],
+                    direction: [0.0, 1.0],
+                },
             ]
         }
         Surface::Cone(cone) => {
             let sense = aligned(&cone.base)?;
             let (height, slope) = (height_of(cone.base.origin), cone.half_angle.tan() * sense);
             vec![
-                Profile::Line { point: [cone.radius, height], direction: [-slope, 1.0] },
-                Profile::Line { point: [-cone.radius, height], direction: [slope, 1.0] },
+                Profile::Line {
+                    point: [cone.radius, height],
+                    direction: [-slope, 1.0],
+                },
+                Profile::Line {
+                    point: [-cone.radius, height],
+                    direction: [slope, 1.0],
+                },
             ]
         }
         Surface::Sphere(sphere) => {
@@ -164,8 +193,14 @@ fn revolution_profile(
             let (major, minor) = (torus.major_radius.abs(), torus.minor_radius.abs());
             let height = height_of(torus.frame.origin);
             vec![
-                Profile::Circle { centre: [major, height], radius: minor },
-                Profile::Circle { centre: [-major, height], radius: minor },
+                Profile::Circle {
+                    centre: [major, height],
+                    radius: minor,
+                },
+                Profile::Circle {
+                    centre: [-major, height],
+                    radius: minor,
+                },
             ]
         }
         Surface::Nurbs(_) => return None,
@@ -206,7 +241,8 @@ fn coaxial_revolutions(a: &Surface, b: &Surface, tolerance: f64) -> Option<Meeti
             for point in profile_crossings(first, second, tolerance)? {
                 let point = [point[0].abs(), point[1]];
                 if !crossings.iter().any(|seen| {
-                    (seen[0] - point[0]).abs() <= tolerance && (seen[1] - point[1]).abs() <= tolerance
+                    (seen[0] - point[0]).abs() <= tolerance
+                        && (seen[1] - point[1]).abs() <= tolerance
                 }) {
                     crossings.push(point);
                 }
@@ -224,7 +260,11 @@ fn coaxial_revolutions(a: &Surface, b: &Surface, tolerance: f64) -> Option<Meeti
             _ => return Some(Meeting::Unknown),
         }
     }
-    Some(if curves.is_empty() { Meeting::Points(points) } else { Meeting::Curves(curves) })
+    Some(if curves.is_empty() {
+        Meeting::Points(points)
+    } else {
+        Meeting::Curves(curves)
+    })
 }
 
 /// Where two meridians cross. `None` where they coincide over a stretch,
@@ -234,7 +274,10 @@ fn profile_crossings(one: &Profile, other: &Profile, tolerance: f64) -> Option<V
     Some(match (one, other) {
         (
             Profile::Line { point, direction },
-            Profile::Line { point: other_point, direction: other_direction },
+            Profile::Line {
+                point: other_point,
+                direction: other_direction,
+            },
         ) => {
             let denominator = cross(*direction, *other_direction);
             let gap = [other_point[0] - point[0], other_point[1] - point[1]];
@@ -272,7 +315,10 @@ fn profile_crossings(one: &Profile, other: &Profile, tolerance: f64) -> Option<V
         }
         (
             Profile::Circle { centre, radius },
-            Profile::Circle { centre: other_centre, radius: other_radius },
+            Profile::Circle {
+                centre: other_centre,
+                radius: other_radius,
+            },
         ) => {
             let span = [other_centre[0] - centre[0], other_centre[1] - centre[1]];
             let distance = span[0].hypot(span[1]);
@@ -433,14 +479,28 @@ fn torus_cylinder(torus: &Torus, cylinder: &Cylinder, tolerance: f64) -> Meeting
 /// Coaxial cones and cylinders share exact circles, even when the two
 /// parameter axes point in opposite directions. Both cone nappes are kept;
 /// the faces' trims decide which circle belongs to the bounded solid.
-fn coaxial_conics(one: &Plane, radius_one: f64, slope_one: f64, other: &Plane, radius_other: f64, slope_other: f64, tolerance: f64) -> Meeting {
-    let (Some(axis), Some(other_axis)) = (one.normal(), other.normal()) else { return Meeting::Unknown; };
+fn coaxial_conics(
+    one: &Plane,
+    radius_one: f64,
+    slope_one: f64,
+    other: &Plane,
+    radius_other: f64,
+    slope_other: f64,
+    tolerance: f64,
+) -> Meeting {
+    let (Some(axis), Some(other_axis)) = (one.normal(), other.normal()) else {
+        return Meeting::Unknown;
+    };
     let axis = Vec3::from(axis);
     let other_axis = Vec3::from(other_axis);
-    if axis.cross(other_axis).length() > 1e-9 { return Meeting::Unknown; }
+    if axis.cross(other_axis).length() > 1e-9 {
+        return Meeting::Unknown;
+    }
     let delta = Vec3::from(other.origin) - Vec3::from(one.origin);
     let shift = delta.dot(axis);
-    if (delta - axis * shift).length() > tolerance { return Meeting::Unknown; }
+    if (delta - axis * shift).length() > tolerance {
+        return Meeting::Unknown;
+    }
     let slope_other = slope_other * axis.dot(other_axis);
     let other_at_origin = radius_other + slope_other * shift;
     let mut curves = Vec::new();
@@ -448,18 +508,26 @@ fn coaxial_conics(one: &Plane, radius_one: f64, slope_one: f64, other: &Plane, r
         let denominator = slope_one - sign * slope_other;
         let numerator = radius_one - sign * other_at_origin;
         if denominator.abs() <= 1e-12 {
-            if numerator.abs() <= tolerance { return Meeting::Coincident; }
+            if numerator.abs() <= tolerance {
+                return Meeting::Coincident;
+            }
             continue;
         }
         let height = numerator / denominator;
         let radius = (radius_one - slope_one * height).abs();
-        if radius <= tolerance { continue; }
+        if radius <= tolerance {
+            continue;
+        }
         let mut plane = *one;
         plane.origin = (Vec3::from(one.origin) + axis * height).to_array();
         if curves.iter().any(|curve: &Curve3| matches!(curve, Curve3::Circle(circle) if Vec3::from(circle.plane.origin).distance(Vec3::from(plane.origin)) <= tolerance)) { continue; }
         curves.push(Curve3::Circle(Circle3 { plane, radius }));
     }
-    if curves.is_empty() { Meeting::None } else { Meeting::Curves(curves) }
+    if curves.is_empty() {
+        Meeting::None
+    } else {
+        Meeting::Curves(curves)
+    }
 }
 
 /// Two planes: a line, nothing, or the same plane.
@@ -489,10 +557,7 @@ fn planes(one: &Plane, other: &Plane, tolerance: f64) -> Meeting {
     let origin = first * scale_first + second * scale_second;
     Meeting::Curves(vec![Curve3::Line(Line3 {
         origin: origin.to_array(),
-        direction: along
-            .normalize()
-            .map_or(along, |unit| unit)
-            .to_array(),
+        direction: along.normalize().map_or(along, |unit| unit).to_array(),
     })])
 }
 
@@ -512,7 +577,9 @@ fn plane_sphere(plane: &Plane, sphere: &Sphere, tolerance: f64) -> Meeting {
     if gap.abs() <= tolerance {
         return Meeting::Points(vec![centre.to_array()]);
     }
-    let radius = (sphere.radius * sphere.radius - offset * offset).max(0.0).sqrt();
+    let radius = (sphere.radius * sphere.radius - offset * offset)
+        .max(0.0)
+        .sqrt();
     circle_on(centre, Vec3::from(normal), radius, tolerance)
 }
 
@@ -681,8 +748,14 @@ fn slanted_cone_ellipse(
     let k = 1.0 + slope * slope;
     let offset = Vec3::from(plane.origin) - apex;
     let (a1, a2, c0) = (first.dot(axis), second.dot(axis), offset.dot(axis));
-    let quadratic = [[1.0 - k * a1 * a1, -k * a1 * a2], [-k * a1 * a2, 1.0 - k * a2 * a2]];
-    let linear = [offset.dot(first) - k * c0 * a1, offset.dot(second) - k * c0 * a2];
+    let quadratic = [
+        [1.0 - k * a1 * a1, -k * a1 * a2],
+        [-k * a1 * a2, 1.0 - k * a2 * a2],
+    ];
+    let linear = [
+        offset.dot(first) - k * c0 * a1,
+        offset.dot(second) - k * c0 * a2,
+    ];
     let constant = offset.dot(offset) - k * c0 * c0;
     let det = quadratic[0][0] * quadratic[1][1] - quadratic[0][1] * quadratic[1][0];
     if det <= 1e-12 {
@@ -703,9 +776,8 @@ fn slanted_cone_ellipse(
     let (minor, major) = ((-level / large).sqrt(), (-level / small).sqrt());
     if !(minor.is_finite() && major.is_finite()) || minor <= tolerance {
         // Through the apex: the section closes to it.
-        return (level.abs() <= tolerance * tolerance.max(1.0)).then(|| {
-            Meeting::Points(vec![point.to_array()])
-        });
+        return (level.abs() <= tolerance * tolerance.max(1.0))
+            .then(|| Meeting::Points(vec![point.to_array()]));
     }
     // The major axis runs along the eigenvector of the smaller eigenvalue.
     let along = if quadratic[0][1].abs() > f64::EPSILON {
@@ -1160,7 +1232,10 @@ mod tests {
             })
             .collect();
         radii.sort_by(f64::total_cmp);
-        assert!((radii[0] - 8.0).abs() < 1e-9 && (radii[1] - 12.0).abs() < 1e-9, "{radii:?}");
+        assert!(
+            (radii[0] - 8.0).abs() < 1e-9 && (radii[1] - 12.0).abs() < 1e-9,
+            "{radii:?}"
+        );
         // A tilted section is a quartic and stays unknown.
         let tilted = Surface::Plane(plane_at([0.0; 3], [0.0, 1.0, 1.0]));
         assert_eq!(surfaces(&torus, &tilted, TOL), Meeting::Unknown);

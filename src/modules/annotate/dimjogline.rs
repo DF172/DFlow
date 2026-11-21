@@ -97,6 +97,12 @@ impl DimJogLineCommand {
     }
 }
 
+impl Default for DimJogLineCommand {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CadCommand for DimJogLineCommand {
     fn name(&self) -> &'static str {
         "DIMJOGLINE"

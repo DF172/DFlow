@@ -117,7 +117,7 @@ impl SplineditCommand {
                 let elevation =
                     kernel::space::Vec3::from(points[0]).dot(kernel::space::Vec3::from(normal));
                 let normal = Vector3::new(normal[0], normal[1], normal[2]);
-                let plane = crate::entities::curve::ocs_plane(normal.clone(), elevation);
+                let plane = crate::entities::curve::ocs_plane(normal, elevation);
                 let mut polyline = codec::LwPolyline::new();
                 polyline.common = source.common.clone();
                 polyline.elevation = elevation;
@@ -409,6 +409,12 @@ impl SplineditCommand {
         result.flags.rational = curve.is_rational();
         result.flags.planar = crate::entities::curve::spline_is_planar(&result);
         Some(result)
+    }
+}
+
+impl Default for SplineditCommand {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

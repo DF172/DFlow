@@ -33,7 +33,7 @@ const TOP_RESERVE: f32 = 200.0;
 /// passes the empty track: `motion::value_or` answers with its default and the
 /// paints stay at full strength. When the canvas learns a key, this is the only
 /// place to change.
-const NO_TRACK: &'static str = "";
+const NO_TRACK: &str = "";
 
 fn icon_el(icon: IconKind) -> Element<'static, Message> {
     match icon {

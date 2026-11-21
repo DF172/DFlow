@@ -52,6 +52,12 @@ impl Poly3dCommand {
     }
 }
 
+impl Default for Poly3dCommand {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CadCommand for Poly3dCommand {
     fn name(&self) -> &'static str {
         "3DPOLY"

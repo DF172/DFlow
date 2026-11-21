@@ -52,10 +52,26 @@ pub enum Containment {
 /// small integer triple normalised, so none lands on a ratio a box is likely
 /// to share.
 const CASTS: [[f64; 3]; 4] = [
-    [0.577_350_269_189_626, 0.577_350_269_189_626, 0.577_350_269_189_626],
-    [-0.801_783_725_737_273, 0.267_261_241_912_424, 0.534_522_483_824_849],
-    [0.358_057_437_019_716, -0.501_280_411_827_603, 0.787_726_361_443_376],
-    [0.132_453_235_530_744, 0.794_719_413_184_463, -0.592_363_112_251_313],
+    [
+        0.577_350_269_189_626,
+        0.577_350_269_189_626,
+        0.577_350_269_189_626,
+    ],
+    [
+        -0.801_783_725_737_273,
+        0.267_261_241_912_424,
+        0.534_522_483_824_849,
+    ],
+    [
+        0.358_057_437_019_716,
+        -0.501_280_411_827_603,
+        0.787_726_361_443_376,
+    ],
+    [
+        0.132_453_235_530_744,
+        0.794_719_413_184_463,
+        -0.592_363_112_251_313,
+    ],
 ];
 
 /// Where `point` stands relative to `body`.
@@ -144,11 +160,12 @@ fn face_hits(
         };
         // A planar edge hit can survive only one adjacent face's trim test.
         // Retry the ray before rounding makes that single hit a crossing.
-        if distance >= -tolerance && matches!(surface, super::Surface::Plane(_))
+        if distance >= -tolerance
+            && matches!(surface, super::Surface::Plane(_))
             && boundary.iter().any(|edge| {
                 let closest = crate::geom2d::closest_point(edge, [u, v]).point;
-                Vec3::from(surface.point_at(closest[0], closest[1]))
-                    .distance(Vec3::from(point)) <= tolerance
+                Vec3::from(surface.point_at(closest[0], closest[1])).distance(Vec3::from(point))
+                    <= tolerance
             })
         {
             return None;
@@ -268,9 +285,18 @@ mod tests {
     #[test]
     fn a_cylinder_uses_its_periodic_face_boundary() {
         let body = crate::brep::make::cylinder([10.0, 5.0, -2.0], 3.0, 14.0).unwrap();
-        assert_eq!(contains_point(&body, [10.0, 5.0, 5.0], TOL), Containment::Inside);
-        assert_eq!(contains_point(&body, [5.0, 0.0, 5.0], TOL), Containment::Outside);
-        assert_eq!(contains_point(&body, [13.0, 5.0, 5.0], TOL), Containment::OnBoundary);
+        assert_eq!(
+            contains_point(&body, [10.0, 5.0, 5.0], TOL),
+            Containment::Inside
+        );
+        assert_eq!(
+            contains_point(&body, [5.0, 0.0, 5.0], TOL),
+            Containment::Outside
+        );
+        assert_eq!(
+            contains_point(&body, [13.0, 5.0, 5.0], TOL),
+            Containment::OnBoundary
+        );
     }
 
     #[test]

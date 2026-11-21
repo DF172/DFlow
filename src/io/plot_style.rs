@@ -357,7 +357,7 @@ impl PlotStyleTable {
                         .eq_ignore_ascii_case(name)
                 })
                 .map(|entry| entry.path());
-            return match matched {
+            match matched {
                 Some(path) => Self::load(&path),
                 None => Self::builtin(name).map_err(|_| {
                     // Not a built-in either: say where a copy would be found.
@@ -365,7 +365,7 @@ impl PlotStyleTable {
                     crate::tf!("{name} was not found in the plot styles folder ({folder}).")
                         .into_owned()
                 }),
-            };
+            }
         }
     }
 

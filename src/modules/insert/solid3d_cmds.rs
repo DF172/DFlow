@@ -2080,18 +2080,12 @@ impl CadCommand for SweepCommand {
                 }
             }
             SweepStep::ReferenceLength => {
-                if let Some(length) = crate::entities::common::parse_typed_length(value) {
-                    self.set_reference_length(length);
-                } else {
-                    return None;
-                }
+                let length = crate::entities::common::parse_typed_length(value)?;
+                self.set_reference_length(length);
             }
             SweepStep::NewLength => {
-                if let Some(length) = crate::entities::common::parse_typed_length(value) {
-                    self.set_end_length(length);
-                } else {
-                    return None;
-                }
+                let length = crate::entities::common::parse_typed_length(value)?;
+                self.set_end_length(length);
             }
             SweepStep::ScaleExpression | SweepStep::TwistExpression => {
                 let Some(value) = self.evaluate(value) else {

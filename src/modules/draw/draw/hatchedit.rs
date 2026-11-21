@@ -242,6 +242,12 @@ impl HatcheditCommand {
     }
 }
 
+impl Default for HatcheditCommand {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CadCommand for HatcheditCommand {
     fn name(&self) -> &'static str {
         "HATCHEDIT"

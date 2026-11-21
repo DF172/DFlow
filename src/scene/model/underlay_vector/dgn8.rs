@@ -93,10 +93,12 @@ impl<'a> Cfb<'a> {
             entries: Vec::new(),
         };
         let dir = cfb.chain(u32_at(b, 48)?, None);
-        for e in dir.chunks_exact(128) {
+        for e in dir.as_chunks::<128>().0 {
             let len = u16::from_le_bytes([e[64], e[65]]) as usize;
             let name16: Vec<u16> = e[..len.saturating_sub(2).min(64)]
-                .chunks_exact(2)
+                .as_chunks::<2>()
+                .0
+                .iter()
                 .map(|c| u16::from_le_bytes([c[0], c[1]]))
                 .collect();
             cfb.entries.push(Entry {
@@ -114,7 +116,9 @@ impl<'a> Cfb<'a> {
         cfb.mini = cfb.chain(root_start, Some(root_size as usize));
         let mini_fat = cfb.chain(u32_at(b, 60)?, None);
         cfb.mini_fat = mini_fat
-            .chunks_exact(4)
+            .as_chunks::<4>()
+            .0
+            .iter()
             .map(|c| u32::from_le_bytes([c[0], c[1], c[2], c[3]]))
             .collect();
         Some(cfb)
@@ -318,7 +322,7 @@ fn extended_colors(cfb: &Cfb) -> Vec<[u8; 3]> {
     for at in 0..attrs.len().saturating_sub(2) {
         // A zlib header: deflate, and a check value divisible by 31.
         let (a, b) = (attrs[at], attrs[at + 1]);
-        if a & 0x0f != 8 || ((a as u16) << 8 | b as u16) % 31 != 0 {
+        if a & 0x0f != 8 || !((a as u16) << 8 | b as u16).is_multiple_of(31) {
             continue;
         }
         // The record is a short XML list; the cap keeps a stream that
@@ -334,7 +338,9 @@ fn extended_colors(cfb: &Cfb) -> Vec<[u8; 3]> {
             continue;
         }
         let units: Vec<u16> = out
-            .chunks_exact(2)
+            .as_chunks::<2>()
+            .0
+            .iter()
             .map(|c| u16::from_le_bytes([c[0], c[1]]))
             .collect();
         let text = String::from_utf16_lossy(&units);

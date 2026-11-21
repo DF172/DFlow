@@ -826,7 +826,7 @@ impl DraftFlowCAD {
                                 if vp.id > 1 && vp.common.owner_handle == layout_block {
                                     Some((
                                         vp.id,
-                                        vp.center.clone(),
+                                        vp.center,
                                         vp.width,
                                         vp.height,
                                         crate::scene::vp_effective_scale(

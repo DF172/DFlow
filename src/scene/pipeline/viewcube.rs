@@ -1078,7 +1078,7 @@ fn region_outline_lines(vertices: &[CubeVertex], indices: &[u32]) -> Vec<LineVer
 
     let mut edges: HashMap<EdgeKey, ([f32; 3], [f32; 3], Vec<(FaceKey, [f32; 3])>)> =
         HashMap::new();
-    for triangle in indices.chunks_exact(3) {
+    for triangle in indices.as_chunks::<3>().0 {
         let head = vertices[triangle[0] as usize];
         let face = (head.region_f.to_bits(), normal_key(head.normal));
         for (a_index, b_index) in [
@@ -1817,7 +1817,7 @@ fn create_resolve_texture(
 
 fn round_up_viewcube_texture(value: u32) -> u32 {
     const GRID: u32 = 128;
-    ((value.max(1) + GRID - 1) / GRID) * GRID
+    value.max(1).div_ceil(GRID) * GRID
 }
 
 // ── Hit test ──────────────────────────────────────────────────────────────

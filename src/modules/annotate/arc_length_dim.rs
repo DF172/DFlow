@@ -266,6 +266,12 @@ impl ArcLengthDimensionCommand {
     }
 }
 
+impl Default for ArcLengthDimensionCommand {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CadCommand for ArcLengthDimensionCommand {
     fn set_working_plane(&mut self, _plane: WorkingPlane) {}
 

@@ -21,10 +21,10 @@ use super::bounds::{face_bounds, Aabb};
 use super::geometry::{Curve3, Surface};
 use super::intersect::{surfaces, Meeting};
 use super::split::{split_edge, split_face};
-use super::Provenance;
 use super::topology::{
     Body, Coedge, CoedgeKey, Edge, Face, FaceKey, Loop, LoopKey, Vertex, VertexKey,
 };
+use super::Provenance;
 use crate::space::{NurbsCurve3, Parameterization, Vec3};
 use std::collections::{HashMap, HashSet};
 
@@ -81,12 +81,17 @@ pub(super) fn imprint_reaching(
     // first made rather than beside it.
     let mut islands: Vec<(bool, FaceKey, LoopKey, f64)> = Vec::new();
     for (into_a, face, _, ring) in meetings.iter().flat_map(|meeting| &meeting.islands) {
-        if islands.iter().any(|(side, _, seen, _)| side == into_a && seen == ring) {
+        if islands
+            .iter()
+            .any(|(side, _, seen, _)| side == into_a && seen == ring)
+        {
             continue;
         }
         let from: &Body = if *into_a { b } else { a };
         let size = loop_walk(from, *ring, 4).map_or(0.0, |walk| {
-            walk.iter().map(|(point, _)| point.distance(walk[0].0)).fold(0.0, f64::max)
+            walk.iter()
+                .map(|(point, _)| point.distance(walk[0].0))
+                .fold(0.0, f64::max)
         });
         islands.push((*into_a, *face, *ring, size));
     }
@@ -120,7 +125,10 @@ pub(super) fn imprint_reaching(
     let mut found: Vec<[Option<Aabb>; 2]> = Vec::new();
     for meeting in &meetings {
         for curve in &meeting.curves {
-            match curves.iter().position(|seen| same_curve(seen, curve, tolerance)) {
+            match curves
+                .iter()
+                .position(|seen| same_curve(seen, curve, tolerance))
+            {
                 Some(index) => {
                     for side in 0..2 {
                         found[index][side] = match (found[index][side], meeting.boxes[side]) {
@@ -372,9 +380,17 @@ fn lens_round_seam(
     [p1, q1, q2, p2]: [usize; 4],
     tolerance: f64,
 ) -> Option<FaceKey> {
-    let lens: Vec<CoedgeKey> = coedges[p1..q1].iter().chain(&coedges[q2..p2]).copied().collect();
+    let lens: Vec<CoedgeKey> = coedges[p1..q1]
+        .iter()
+        .chain(&coedges[q2..p2])
+        .copied()
+        .collect();
     let inner: Vec<CoedgeKey> = coedges[q1..q2].to_vec();
-    let outer: Vec<CoedgeKey> = coedges[p2..].iter().chain(&coedges[..p1]).copied().collect();
+    let outer: Vec<CoedgeKey> = coedges[p2..]
+        .iter()
+        .chain(&coedges[..p1])
+        .copied()
+        .collect();
     let edge_of = |coedge: &CoedgeKey| body.coedges.get(*coedge).map(|coedge| coedge.edge);
     // The seam: one edge, used once in each run.
     let (outer_at, inner_at) = outer.iter().enumerate().find_map(|(index, coedge)| {
@@ -439,8 +455,11 @@ fn split_lobe(
     tolerance: f64,
 ) -> Option<FaceKey> {
     let lobe: Vec<CoedgeKey> = coedges[first..second].to_vec();
-    let rest: Vec<CoedgeKey> =
-        coedges[second..].iter().chain(&coedges[..first]).copied().collect();
+    let rest: Vec<CoedgeKey> = coedges[second..]
+        .iter()
+        .chain(&coedges[..first])
+        .copied()
+        .collect();
     let owner = node.owner;
     body.shells.get(owner)?;
     let other = body.faces.insert(Face {
@@ -473,7 +492,10 @@ fn split_lobe(
         })
     };
     let closes = |face: FaceKey| {
-        let Some(surface) = body.faces.get(face).and_then(|f| body.surfaces.get(f.surface))
+        let Some(surface) = body
+            .faces
+            .get(face)
+            .and_then(|f| body.surfaces.get(f.surface))
         else {
             return false;
         };
@@ -536,8 +558,7 @@ fn collapse_lenses(body: &mut Body, tolerance: f64) {
             continue;
         };
         let ends = |edge: &Edge| [edge.start, edge.end];
-        let same_ends = ends(kept) == ends(dropped)
-            || ends(kept) == [dropped.end, dropped.start];
+        let same_ends = ends(kept) == ends(dropped) || ends(kept) == [dropped.end, dropped.start];
         if keep == drop || !same_ends || kept.coedges.len() != 2 || dropped.coedges.len() != 2 {
             continue;
         }
@@ -680,7 +701,11 @@ fn fuse_cut_vertices(body: &mut Body, tolerance: f64, reach: f64) {
         if !made(body, *key) || into.contains_key(key) {
             continue;
         }
-        let Some(here) = body.vertices.get(*key).map(|vertex| Vec3::from(vertex.point)) else {
+        let Some(here) = body
+            .vertices
+            .get(*key)
+            .map(|vertex| Vec3::from(vertex.point))
+        else {
             continue;
         };
         // A source corner first, if one is near; otherwise another made one.
@@ -725,12 +750,14 @@ fn fuse_cut_vertices(body: &mut Body, tolerance: f64, reach: f64) {
         // other piece was the hair between the two corners merged.
         let (corner, curve) = (edge.start, edge.curve);
         let middle = 0.5 * (edge.start_parameter + edge.end_parameter);
-        let runs_off = body.curves.get(curve).zip(body.vertices.get(corner)).is_some_and(
-            |(curve, corner)| {
+        let runs_off = body
+            .curves
+            .get(curve)
+            .zip(body.vertices.get(corner))
+            .is_some_and(|(curve, corner)| {
                 Vec3::from(curve.point_at(middle)).distance(Vec3::from(corner.point))
                     > reach.max(tolerance) * 4.0
-            },
-        );
+            });
         if runs_off {
             continue;
         }
@@ -764,7 +791,11 @@ fn fuse_cut_vertices(body: &mut Body, tolerance: f64, reach: f64) {
             .iter()
             .copied()
             .filter(|ring| emptied.contains(ring))
-            .filter(|ring| body.loops.get(*ring).is_none_or(|ring| ring.coedges.is_empty()))
+            .filter(|ring| {
+                body.loops
+                    .get(*ring)
+                    .is_none_or(|ring| ring.coedges.is_empty())
+            })
             .collect();
         if empty.is_empty() {
             continue;
@@ -793,12 +824,18 @@ pub(super) fn align_edge_vertices(source: &Body, target: &mut Body, tolerance: f
 /// [`align_edge_vertices`]; a corner ending a spline moves onto a point only
 /// once `settled`, with no cut left to land on where the spline ends.
 fn align_corners(source: &Body, target: &mut Body, tolerance: f64, settled: bool) {
-    let points: Vec<[f64; 3]> = source.vertices.iter().map(|(_, vertex)| vertex.point).collect();
+    let points: Vec<[f64; 3]> = source
+        .vertices
+        .iter()
+        .map(|(_, vertex)| vertex.point)
+        .collect();
     // Each point is offered only to the edges whose box holds it: the
     // nearest-point search on a spline is the costly part, and every vertex
     // against every edge made it most of a boolean between filleted parts.
-    let mut boxes: Vec<(super::topology::EdgeKey, Option<EdgeReach>)> =
-        target.edge_keys().map(|key| (key, edge_reach(target, key, tolerance))).collect();
+    let mut boxes: Vec<(super::topology::EdgeKey, Option<EdgeReach>)> = target
+        .edge_keys()
+        .map(|key| (key, edge_reach(target, key, tolerance)))
+        .collect();
     for &point in &points {
         let edges: Vec<super::topology::EdgeKey> = boxes
             .iter()
@@ -816,8 +853,7 @@ fn align_corners(source: &Body, target: &mut Body, tolerance: f64, settled: bool
                 target.coedges.get(*coedge).is_some_and(|coedge| {
                     matches!(
                         coedge.pcurve.as_ref(),
-                        None
-                            | Some(&crate::geom2d::Curve::Line(_))
+                        None | Some(&crate::geom2d::Curve::Line(_))
                             | Some(&crate::geom2d::Curve::Circle(_))
                             | Some(&crate::geom2d::Curve::Arc(_))
                             | Some(&crate::geom2d::Curve::Ellipse(_))
@@ -862,7 +898,9 @@ fn align_corners(source: &Body, target: &mut Body, tolerance: f64, settled: bool
             };
             let corner = [edge.start, edge.end].into_iter().find(|corner| {
                 near(*corner, &point)
-                    && !points.iter().any(|other| *other != point && near(*corner, other))
+                    && !points
+                        .iter()
+                        .any(|other| *other != point && near(*corner, other))
             });
             if let Some(corner) = corner {
                 let spline_end = !settled
@@ -1002,13 +1040,7 @@ fn shrunk(bounds: Aabb, by: f64) -> Aabb {
 /// Compared by their corners rather than by area: two rings enclosing the
 /// same area can be different shapes, and what matters here is that neither
 /// face has any part the other does not.
-pub fn same_ground(
-    a: &Body,
-    one: FaceKey,
-    b: &Body,
-    other: FaceKey,
-    tolerance: f64,
-) -> bool {
+pub fn same_ground(a: &Body, one: FaceKey, b: &Body, other: FaceKey, tolerance: f64) -> bool {
     let corners = |body: &Body, face: FaceKey| -> Vec<Vec3> {
         body.face_coedges(face)
             .iter()
@@ -1021,13 +1053,11 @@ pub fn same_ground(
     if near.is_empty() || near.len() != far.len() {
         return false;
     }
-    near.iter().all(|point| {
-        far.iter()
-            .any(|other| point.distance(*other) <= tolerance)
-    }) && far.iter().all(|point| {
-        near.iter()
-            .any(|other| point.distance(*other) <= tolerance)
-    })
+    near.iter()
+        .all(|point| far.iter().any(|other| point.distance(*other) <= tolerance))
+        && far
+            .iter()
+            .all(|point| near.iter().any(|other| point.distance(*other) <= tolerance))
 }
 
 /// Curves shared by a pair of faces.
@@ -1061,7 +1091,10 @@ fn loop_curves(
 ) -> Vec<Curve3> {
     const STEPS: usize = 64;
     let spline_edge = |coedge: &CoedgeKey| {
-        let edge = body.coedges.get(*coedge).and_then(|coedge| body.edges.get(coedge.edge));
+        let edge = body
+            .coedges
+            .get(*coedge)
+            .and_then(|coedge| body.edges.get(coedge.edge));
         edge.and_then(|edge| body.curves.get(edge.curve))
             .is_some_and(|curve| matches!(curve, Curve3::Nurbs(_)))
     };
@@ -1071,7 +1104,11 @@ fn loop_curves(
     };
     // Start the walk past a spline run, so no run is split in two by
     // where the loop happens to begin.
-    let start = ring.coedges.iter().position(|coedge| !spline_edge(coedge)).unwrap_or(0);
+    let start = ring
+        .coedges
+        .iter()
+        .position(|coedge| !spline_edge(coedge))
+        .unwrap_or(0);
     let walk = ring.coedges[start..].iter().chain(&ring.coedges[..start]);
     // A loop of splines only comes back round to where it began.
     let closed = ring.coedges.iter().all(spline_edge);
@@ -1088,8 +1125,8 @@ fn loop_curves(
         for (index, point) in run.iter().enumerate() {
             let last = index + 1 == run.len();
             match even.last() {
-                Some(kept)
-                    if !last && Vec3::from(*kept).distance(Vec3::from(*point)) < spacing => {}
+                Some(kept) if !last && Vec3::from(*kept).distance(Vec3::from(*point)) < spacing => {
+                }
                 Some(kept)
                     if last
                         && even.len() > 1
@@ -1137,9 +1174,10 @@ fn loop_curves(
             (edge.end_parameter, edge.start_parameter)
         };
         let skip = usize::from(!run.is_empty());
-        run.extend((skip..=STEPS).map(|step| {
-            curve.point_at(from + (to - from) * step as f64 / STEPS as f64)
-        }));
+        run.extend(
+            (skip..=STEPS)
+                .map(|step| curve.point_at(from + (to - from) * step as f64 / STEPS as f64)),
+        );
     }
     flush(&mut run, &mut out);
     out
@@ -1175,7 +1213,11 @@ fn loop_walk_of(
 /// edge.
 fn loop_walk(body: &Body, ring: LoopKey, samples: usize) -> Option<Vec<(Vec3, Vec3)>> {
     let walk = loop_walk_of(body, &body.loops.get(ring)?.coedges, samples)?;
-    Some(walk.into_iter().map(|(_, point, along)| (point, along)).collect())
+    Some(
+        walk.into_iter()
+            .map(|(_, point, along)| (point, along))
+            .collect(),
+    )
 }
 
 /// Whether a loop of one face lies wholly inside another face on the same
@@ -1185,7 +1227,10 @@ fn island_fits(from: &Body, ring: LoopKey, into: &Body, face: FaceKey, tolerance
     let Some(walk) = loop_walk(from, ring, 8) else {
         return false;
     };
-    let Some(surface) = into.faces.get(face).and_then(|node| into.surfaces.get(node.surface))
+    let Some(surface) = into
+        .faces
+        .get(face)
+        .and_then(|node| into.surfaces.get(node.surface))
     else {
         return false;
     };
@@ -1234,8 +1279,7 @@ fn island_fits(from: &Body, ring: LoopKey, into: &Body, face: FaceKey, tolerance
                     .map(|step| {
                         Vec3::from(curve.point_at(
                             edge.start_parameter
-                                + (edge.end_parameter - edge.start_parameter) * step as f64
-                                    / 64.0,
+                                + (edge.end_parameter - edge.start_parameter) * step as f64 / 64.0,
                         ))
                     })
                     .collect(),
@@ -1289,7 +1333,10 @@ fn edges_reaching(
     let Some(walk) = loop_walk_of(from, &ring.coedges, 8) else {
         return out;
     };
-    let points: Vec<(Vec3, Vec3)> = walk.iter().map(|(_, point, along)| (*point, *along)).collect();
+    let points: Vec<(Vec3, Vec3)> = walk
+        .iter()
+        .map(|(_, point, along)| (*point, *along))
+        .collect();
     let fit = loop_fit(&points, tolerance);
     let edges = edge_samples(into, face);
     for (coedge, point, _) in walk {
@@ -1321,8 +1368,7 @@ fn edge_samples(body: &Body, face: FaceKey) -> Vec<Vec<Vec3>> {
                     .map(|step| {
                         Vec3::from(curve.point_at(
                             edge.start_parameter
-                                + (edge.end_parameter - edge.start_parameter) * step as f64
-                                    / 16.0,
+                                + (edge.end_parameter - edge.start_parameter) * step as f64 / 16.0,
                         ))
                     })
                     .collect(),
@@ -1345,19 +1391,16 @@ fn loop_fit(walk: &[(Vec3, Vec3)], tolerance: f64) -> f64 {
 /// Copies a loop of `from` into `face` of `body` as an island: the loop
 /// becomes a hole in the face and the boundary of a new face inside it, on
 /// the same surface, wound so each keeps its own side.
-fn copy_island(
-    body: &mut Body,
-    face: FaceKey,
-    from: &Body,
-    ring: LoopKey,
-) -> Option<FaceKey> {
+fn copy_island(body: &mut Body, face: FaceKey, from: &Body, ring: LoopKey) -> Option<FaceKey> {
     let node = body.faces.get(face)?.clone();
     let surface = body.surfaces.get(node.surface)?.clone();
     let walk = loop_walk(from, ring, 4)?;
     // Which way round the loop runs about the face's own normal: inward on
     // the left of its way is an outer boundary's sense.
     let count = walk.len() as f64;
-    let centre = walk.iter().fold(Vec3::new(0.0, 0.0, 0.0), |sum, (point, _)| sum + *point)
+    let centre = walk
+        .iter()
+        .fold(Vec3::new(0.0, 0.0, 0.0), |sum, (point, _)| sum + *point)
         * (1.0 / count);
     let sense = if node.forward { 1.0 } else { -1.0 };
     let turning: f64 = walk
@@ -1464,7 +1507,10 @@ fn copy_island(
     for ring in &inner {
         body.loops.get_mut(*ring)?.owner = island;
     }
-    body.faces.get_mut(island)?.loops.extend(inner.iter().copied());
+    body.faces
+        .get_mut(island)?
+        .loops
+        .extend(inner.iter().copied());
     let kept = body.faces.get_mut(face)?;
     kept.loops.retain(|ring| !inner.contains(ring));
     kept.loops.push(hole_ring);
@@ -1496,16 +1542,25 @@ fn clipped_line(line: &super::geometry::Line3, near: &Aabb, far: &Aabb) -> Optio
         return None;
     }
     let at = |t: f64| (Vec3::from(line.origin) + Vec3::from(line.direction) * t).to_array();
-    NurbsCurve3::new_strict(1, vec![at(from), at(to)], vec![from, from, to, to], vec![1.0, 1.0])
-        .map(Curve3::Nurbs)
+    NurbsCurve3::new_strict(
+        1,
+        vec![at(from), at(to)],
+        vec![from, from, to, to],
+        vec![1.0, 1.0],
+    )
+    .map(Curve3::Nurbs)
 }
 
 /// Every curve the two bodies' faces share.
 fn shared_curves(a: &Body, b: &Body, tolerance: f64, reach: bool) -> Result<Vec<Shared>, Snag> {
-    let near: Vec<(FaceKey, Option<Aabb>)> =
-        a.face_keys().map(|key| (key, face_bounds(a, key))).collect();
-    let far: Vec<(FaceKey, Option<Aabb>)> =
-        b.face_keys().map(|key| (key, face_bounds(b, key))).collect();
+    let near: Vec<(FaceKey, Option<Aabb>)> = a
+        .face_keys()
+        .map(|key| (key, face_bounds(a, key)))
+        .collect();
+    let far: Vec<(FaceKey, Option<Aabb>)> = b
+        .face_keys()
+        .map(|key| (key, face_bounds(b, key)))
+        .collect();
 
     let mut out = Vec::new();
     let mut soups = None;
@@ -1524,10 +1579,17 @@ fn shared_curves(a: &Body, b: &Body, tolerance: f64, reach: bool) -> Result<Vec<
                 false => first.max[i].max(second.max[i]),
             }));
             let margin = tolerance + low.distance(high) * 1e-3;
-            (low - Vec3::new(margin, margin, margin), high + Vec3::new(margin, margin, margin))
+            (
+                low - Vec3::new(margin, margin, margin),
+                high + Vec3::new(margin, margin, margin),
+            )
         }),
-        _ => [(Vec3::new(f64::MIN, f64::MIN, f64::MIN), Vec3::new(f64::MAX, f64::MAX, f64::MAX));
-            2],
+        _ => {
+            [(
+                Vec3::new(f64::MIN, f64::MIN, f64::MIN),
+                Vec3::new(f64::MAX, f64::MAX, f64::MAX),
+            ); 2]
+        }
     };
     for (one, one_box) in &near {
         for (other, other_box) in &far {
@@ -1582,12 +1644,15 @@ fn shared_curves(a: &Body, b: &Body, tolerance: f64, reach: bool) -> Result<Vec<
                             }
                             (Curve3::Line(line), Some(near), Some(far), true, true) => {
                                 let empty = Some(Aabb::EMPTY);
-                                let sides =
-                                    [(near, [empty, *other_box]), (far, [*one_box, empty])];
+                                let sides = [(near, [empty, *other_box]), (far, [*one_box, empty])];
                                 for (own, boxes) in sides {
                                     if let Some(piece) = clipped_line(line, own, own) {
                                         let curves = vec![piece];
-                                        out.push(Shared { curves, boxes, islands: Vec::new() });
+                                        out.push(Shared {
+                                            curves,
+                                            boxes,
+                                            islands: Vec::new(),
+                                        });
                                     }
                                 }
                             }
@@ -1595,7 +1660,11 @@ fn shared_curves(a: &Body, b: &Body, tolerance: f64, reach: bool) -> Result<Vec<
                         }
                     }
                     let boxes = [*one_box, *other_box];
-                    out.push(Shared { curves: kept, boxes, islands: Vec::new() });
+                    out.push(Shared {
+                        curves: kept,
+                        boxes,
+                        islands: Vec::new(),
+                    });
                 }
                 // Two faces on one surface. Where they cover exactly the same
                 // ground there is nothing to imprint — the boolean decides
@@ -1624,9 +1693,10 @@ fn shared_curves(a: &Body, b: &Body, tolerance: f64, reach: bool) -> Result<Vec<
                         // lines and loops running on far past the opening.
                         let mut curves = Vec::new();
                         let mut islands = Vec::new();
-                        for (from, from_face, into, into_face, into_a) in
-                            [(&*a, *one, &*b, *other, false), (&*b, *other, &*a, *one, true)]
-                        {
+                        for (from, from_face, into, into_face, into_a) in [
+                            (&*a, *one, &*b, *other, false),
+                            (&*b, *other, &*a, *one, true),
+                        ] {
                             let rings = from
                                 .faces
                                 .get(from_face)
@@ -1643,7 +1713,9 @@ fn shared_curves(a: &Body, b: &Body, tolerance: f64, reach: bool) -> Result<Vec<
                             }
                         }
                         let loopless = [(&*a, *one), (&*b, *other)].iter().all(|(body, face)| {
-                            body.faces.get(*face).is_some_and(|node| node.loops.is_empty())
+                            body.faces
+                                .get(*face)
+                                .is_some_and(|node| node.loops.is_empty())
                         });
                         if loopless {
                             return Err(Snag::Coincident);
@@ -1651,7 +1723,11 @@ fn shared_curves(a: &Body, b: &Body, tolerance: f64, reach: bool) -> Result<Vec<
                         // Boxes that overlap round faces that do not: nothing
                         // of either reaches the other.
                         if !curves.is_empty() || !islands.is_empty() {
-                            out.push(Shared { curves, boxes: [*one_box, *other_box], islands });
+                            out.push(Shared {
+                                curves,
+                                boxes: [*one_box, *other_box],
+                                islands,
+                            });
                         }
                     }
                 }
@@ -1671,15 +1747,10 @@ fn shared_curves(a: &Body, b: &Body, tolerance: f64, reach: bool) -> Result<Vec<
                     let known = match marched.iter().position(|(s, t, _)| {
                         same_surface(s, one_surface, tolerance)
                             && same_surface(t, other_surface, tolerance)
-                    })
-                    {
+                    }) {
                         Some(index) => index,
                         None => {
-                            marched.push((
-                                one_surface.clone(),
-                                other_surface.clone(),
-                                Vec::new(),
-                            ));
+                            marched.push((one_surface.clone(), other_surface.clone(), Vec::new()));
                             marched.len() - 1
                         }
                     };
@@ -1714,7 +1785,11 @@ fn shared_curves(a: &Body, b: &Body, tolerance: f64, reach: bool) -> Result<Vec<
                                 .unwrap_or_else(|| vec![curve])
                         })
                         .collect();
-                    out.push(Shared { curves, boxes: [*one_box, *other_box], islands: Vec::new() });
+                    out.push(Shared {
+                        curves,
+                        boxes: [*one_box, *other_box],
+                        islands: Vec::new(),
+                    });
                 }
             }
         }
@@ -1820,12 +1895,18 @@ fn curve_bounds(curve: &Curve3) -> Option<Aabb> {
         Curve3::Circle(circle) => {
             let r = circle.radius.abs();
             let c = circle.plane.origin;
-            Aabb::around([[c[0] - r, c[1] - r, c[2] - r], [c[0] + r, c[1] + r, c[2] + r]])
+            Aabb::around([
+                [c[0] - r, c[1] - r, c[2] - r],
+                [c[0] + r, c[1] + r, c[2] + r],
+            ])
         }
         Curve3::Ellipse(ellipse) => {
             let r = ellipse.major_radius.abs().max(ellipse.minor_radius.abs());
             let c = ellipse.plane.origin;
-            Aabb::around([[c[0] - r, c[1] - r, c[2] - r], [c[0] + r, c[1] + r, c[2] + r]])
+            Aabb::around([
+                [c[0] - r, c[1] - r, c[2] - r],
+                [c[0] + r, c[1] + r, c[2] + r],
+            ])
         }
         // Positive weights keep a spline inside its control hull.
         Curve3::Nurbs(spline) if spline.weights().iter().all(|weight| *weight > 0.0) => {
@@ -1874,7 +1955,12 @@ fn cut_along(
         let faces: Vec<(FaceKey, Option<Aabb>)> = body
             .face_keys()
             .filter(|face| only.is_none_or(|only| only.contains(face)))
-            .map(|face| (face, *boxes.entry(face).or_insert_with(|| face_bounds(body, face))))
+            .map(|face| {
+                (
+                    face,
+                    *boxes.entry(face).or_insert_with(|| face_bounds(body, face)),
+                )
+            })
             .collect();
         // And only a face whose surface the curve lies on: a meeting curve
         // is on both surfaces it came from and crosses any other at points,
@@ -2067,12 +2153,11 @@ mod tests {
         // the planes either side still cut.
         let face = b.face_keys().next().unwrap();
         let surface = b.faces.get(face).unwrap().surface;
-        *b.surfaces.get_mut(surface).unwrap() =
-            crate::brep::Surface::Torus(crate::brep::Torus {
-                frame: crate::space::Plane::XY,
-                major_radius: 4.0,
-                minor_radius: 1.0,
-            });
+        *b.surfaces.get_mut(surface).unwrap() = crate::brep::Surface::Torus(crate::brep::Torus {
+            frame: crate::space::Plane::XY,
+            major_radius: 4.0,
+            minor_radius: 1.0,
+        });
         assert!(imprint(&mut a, &mut b, TOL).is_ok_and(|report| report.cuts > 0));
     }
 

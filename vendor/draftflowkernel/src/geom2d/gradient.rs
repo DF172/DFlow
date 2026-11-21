@@ -57,9 +57,7 @@ pub fn gradient_frame(
 
     Some(GradientFrame {
         center,
-        projection_min: projection_min
-            + offset[0] * direction[0]
-            + offset[1] * direction[1],
+        projection_min: projection_min + offset[0] * direction[0] + offset[1] * direction[1],
         projection_span: (projection_max - projection_min).max(tolerance.linear()),
         radius,
     })

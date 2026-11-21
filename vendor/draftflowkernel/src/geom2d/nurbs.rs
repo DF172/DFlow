@@ -15,9 +15,9 @@
 //! off. Weights are carried here and applied in homogeneous coordinates.
 
 use super::vec::Vec2;
-use crate::space::spline::{de_boor_by, interpolate_periodic};
 /// Fit-point spacing shared with space curves.
 pub use crate::space::spline::{clamped_uniform_knots, Parameterization};
+use crate::space::spline::{de_boor_by, interpolate_periodic};
 
 /// A non-uniform rational B-spline curve in the plane.
 #[derive(Debug, Clone, PartialEq)]
@@ -79,8 +79,13 @@ impl NurbsCurve {
             || !knots.iter().all(|value| value.is_finite())
             || !knots.windows(2).all(|pair| pair[0] <= pair[1])
             || knots.first() >= knots.last()
-            || !control_points.iter().flatten().all(|value| value.is_finite())
-            || !weights.iter().all(|weight| weight.is_finite() && *weight > 0.0)
+            || !control_points
+                .iter()
+                .flatten()
+                .all(|value| value.is_finite())
+            || !weights
+                .iter()
+                .all(|weight| weight.is_finite() && *weight > 0.0)
         {
             return None;
         }
@@ -252,8 +257,9 @@ impl NurbsCurve {
         let point = Vec2::from(point);
         let distance_at = |t: f64| Vec2::from(self.point_at(t)).distance_squared(point);
 
-        let samples: Vec<f64> =
-            (0..=coarse).map(|i| distance_at(i as f64 / coarse as f64)).collect();
+        let samples: Vec<f64> = (0..=coarse)
+            .map(|i| distance_at(i as f64 / coarse as f64))
+            .collect();
 
         // Narrow within the neighbouring samples. Bisection on the bracket
         // rather than Newton: it needs no derivative and cannot diverge where
@@ -473,11 +479,7 @@ impl NurbsCurve {
             let mut elevated: Vec<[f64; 3]> = Vec::with_capacity(raised + 1);
             for i in 0..=raised {
                 let alpha = i as f64 / raised as f64;
-                let before = if i == 0 {
-                    [0.0; 3]
-                } else {
-                    segment[i - 1]
-                };
+                let before = if i == 0 { [0.0; 3] } else { segment[i - 1] };
                 let after = if i > degree { [0.0; 3] } else { segment[i] };
                 elevated.push([
                     before[0] * alpha + after[0] * (1.0 - alpha),
@@ -488,7 +490,11 @@ impl NurbsCurve {
             // Neighbouring segments share an endpoint.
             let skip = usize::from(!control.is_empty());
             for point in &elevated[skip..] {
-                let w = if point[2].abs() < 1e-15 { 1.0 } else { point[2] };
+                let w = if point[2].abs() < 1e-15 {
+                    1.0
+                } else {
+                    point[2]
+                };
                 control.push([point[0] / w, point[1] / w]);
                 weights.push(w);
             }
@@ -578,17 +584,18 @@ impl NurbsCurve {
         }
 
         let mut work = self.clone();
-        let existing = work.knots.iter().filter(|k| (**k - u).abs() < 1e-12).count();
+        let existing = work
+            .knots
+            .iter()
+            .filter(|k| (**k - u).abs() < 1e-12)
+            .count();
         for _ in existing..self.degree {
             work.insert_knot(u);
         }
 
         // With the knot at full multiplicity the control points divide at the
         // last one that carries it.
-        let cut = work
-            .knots
-            .iter()
-            .rposition(|k| (*k - u).abs() < 1e-12)?;
+        let cut = work.knots.iter().rposition(|k| (*k - u).abs() < 1e-12)?;
         let degree = self.degree;
         let left_count = cut - degree + 1;
 
@@ -715,9 +722,7 @@ impl NurbsCurve {
             .map(|i| (knots_at[i + 1] - knots_at[i]).max(1e-9))
             .collect();
 
-        let usable = |t: Option<[f64; 2]>| {
-            t.filter(|v| v[0] * v[0] + v[1] * v[1] > 1e-18)
-        };
+        let usable = |t: Option<[f64; 2]>| t.filter(|v| v[0] * v[0] + v[1] * v[1] > 1e-18);
         let start_tangent = usable(start_tangent);
         let end_tangent = usable(end_tangent);
 
@@ -726,8 +731,7 @@ impl NurbsCurve {
         // or the natural condition.
         let mut slopes = [vec![0.0f64; count], vec![0.0f64; count]];
         for (axis, slope) in slopes.iter_mut().enumerate() {
-            let segment_slope =
-                |i: usize| (points[i + 1][axis] - points[i][axis]) / spans[i];
+            let segment_slope = |i: usize| (points[i + 1][axis] - points[i][axis]) / spans[i];
             let mut sub = vec![0.0; count];
             let mut main = vec![0.0; count];
             let mut sup = vec![0.0; count];
@@ -748,8 +752,7 @@ impl NurbsCurve {
                 sub[i] = spans[i];
                 main[i] = 2.0 * (spans[i - 1] + spans[i]);
                 sup[i] = spans[i - 1];
-                rhs[i] = 3.0
-                    * (spans[i] * segment_slope(i - 1) + spans[i - 1] * segment_slope(i));
+                rhs[i] = 3.0 * (spans[i] * segment_slope(i - 1) + spans[i - 1] * segment_slope(i));
             }
             match end_tangent {
                 Some(t) => {
@@ -936,7 +939,12 @@ fn rounded_polyline(points: &[[f64; 2]], allowance: f64) -> Option<NurbsCurve> {
         parameter += segment.1;
     }
     knots.extend([parameter; 4]);
-    NurbsCurve::new_strict(3, control_points.clone(), knots, vec![1.0; control_points.len()])
+    NurbsCurve::new_strict(
+        3,
+        control_points.clone(),
+        knots,
+        vec![1.0; control_points.len()],
+    )
 }
 
 /// In-place Thomas solve for a tridiagonal system: `a` sub-diagonal, `b` main,
@@ -955,7 +963,6 @@ fn solve_tridiagonal(a: &[f64], b: &[f64], c: &[f64], d: &mut [f64]) {
         d[i] -= scratch[i] * d[i + 1];
     }
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -1016,10 +1023,19 @@ mod tests {
         let circle = NurbsCurve::new(
             2,
             vec![
-                [1.0, 0.0], [1.0, -1.0], [0.0, -1.0], [-1.0, -1.0], [-1.0, 0.0],
-                [-1.0, 1.0], [0.0, 1.0], [1.0, 1.0], [1.0, 0.0],
+                [1.0, 0.0],
+                [1.0, -1.0],
+                [0.0, -1.0],
+                [-1.0, -1.0],
+                [-1.0, 0.0],
+                [-1.0, 1.0],
+                [0.0, 1.0],
+                [1.0, 1.0],
+                [1.0, 0.0],
             ],
-            vec![0.0, 0.0, 0.0, 0.25, 0.25, 0.5, 0.5, 0.75, 0.75, 1.0, 1.0, 1.0],
+            vec![
+                0.0, 0.0, 0.0, 0.25, 0.25, 0.5, 0.5, 0.75, 0.75, 1.0, 1.0, 1.0,
+            ],
             Some(vec![1.0, w, 1.0, w, 1.0, w, 1.0, w, 1.0]),
         )
         .unwrap();
@@ -1036,10 +1052,7 @@ mod tests {
         for point in curve.tessellate(32) {
             let distance = source
                 .windows(2)
-                .map(|pair| {
-                    Vec2::from(point)
-                        .distance_to_segment(pair[0].into(), pair[1].into())
-                })
+                .map(|pair| Vec2::from(point).distance_to_segment(pair[0].into(), pair[1].into()))
                 .fold(f64::INFINITY, f64::min);
             assert!(distance <= tolerance + 1e-9);
         }
@@ -1293,9 +1306,13 @@ mod tests {
         let control = vec![[1.0, 0.0], [1.0, 1.0], [0.0, 1.0]];
         let knots = vec![0.0, 0.0, 0.0, 1.0, 1.0, 1.0];
 
-        let rational =
-            NurbsCurve::new(2, control.clone(), knots.clone(), Some(vec![1.0, weight, 1.0]))
-                .unwrap();
+        let rational = NurbsCurve::new(
+            2,
+            control.clone(),
+            knots.clone(),
+            Some(vec![1.0, weight, 1.0]),
+        )
+        .unwrap();
         assert!(rational.is_rational());
         for i in 0..=20 {
             let p = rational.point_at(i as f64 / 20.0);
@@ -1426,11 +1443,17 @@ mod tests {
 
         let mut inserted = curve.clone();
         inserted.insert_knot(0.37);
-        assert_eq!(inserted.control_points().len(), curve.control_points().len() + 1);
+        assert_eq!(
+            inserted.control_points().len(),
+            curve.control_points().len() + 1
+        );
 
         for (i, expected) in before.iter().enumerate() {
             let got = inserted.point_at(i as f64 / 40.0);
-            assert!(close(got, *expected, 1e-9), "moved at {i}: {got:?} vs {expected:?}");
+            assert!(
+                close(got, *expected, 1e-9),
+                "moved at {i}: {got:?} vs {expected:?}"
+            );
         }
     }
 
@@ -1498,8 +1521,7 @@ mod tests {
     #[test]
     fn an_interpolated_curve_passes_through_every_fit_point() {
         let fit = [[0.0, 0.0], [1.0, 2.0], [3.0, 1.0], [5.0, 4.0]];
-        let curve =
-            NurbsCurve::interpolate(&fit, None, None, Parameterization::Chord).unwrap();
+        let curve = NurbsCurve::interpolate(&fit, None, None, Parameterization::Chord).unwrap();
         // Each fit point sits at the knot value its parameterisation gave it,
         // and the joins carry multiplicity 3, so they are knots in the vector.
         let (start, end) = curve.domain();
@@ -1549,7 +1571,10 @@ mod tests {
         let a = curve.point_at(0.0);
         let b = curve.point_at(0.001);
         let leaving = (b[1] - a[1]) / (b[0] - a[0]);
-        assert!((leaving - 2.0).abs() < 0.05, "left along {leaving}, wanted 2");
+        assert!(
+            (leaving - 2.0).abs() < 0.05,
+            "left along {leaving}, wanted 2"
+        );
 
         let c = curve.point_at(0.999);
         let d = curve.point_at(1.0);
@@ -1568,7 +1593,10 @@ mod tests {
             let curve = NurbsCurve::interpolate(&fit, None, None, mode).unwrap();
             for target in fit {
                 let t = curve.parameter_at(target);
-                assert!(close(curve.point_at(t), target, 1e-6), "{mode:?} missed {target:?}");
+                assert!(
+                    close(curve.point_at(t), target, 1e-6),
+                    "{mode:?} missed {target:?}"
+                );
             }
         }
     }
@@ -1576,8 +1604,7 @@ mod tests {
     #[test]
     fn an_interpolated_curve_can_be_split_like_any_other() {
         let fit = [[0.0, 0.0], [1.0, 2.0], [3.0, 1.0], [5.0, 4.0]];
-        let curve =
-            NurbsCurve::interpolate(&fit, None, None, Parameterization::Chord).unwrap();
+        let curve = NurbsCurve::interpolate(&fit, None, None, Parameterization::Chord).unwrap();
         let (left, right) = curve.split_at(0.45).expect("should split");
         assert!(close(left.point_at(1.0), right.point_at(0.0), 1e-9));
         for i in 0..=10 {
@@ -1590,8 +1617,7 @@ mod tests {
     fn fewer_than_two_fit_points_is_not_a_curve() {
         assert!(NurbsCurve::interpolate(&[], None, None, Parameterization::Chord).is_none());
         assert!(
-            NurbsCurve::interpolate(&[[1.0, 1.0]], None, None, Parameterization::Chord)
-                .is_none()
+            NurbsCurve::interpolate(&[[1.0, 1.0]], None, None, Parameterization::Chord).is_none()
         );
     }
 

@@ -259,36 +259,40 @@ fn move_surface(surface: &Surface, place: &Placement, scale: f64) -> Option<Surf
 }
 
 fn move_nurbs_curve(curve: &NurbsCurve3, place: &Placement) -> Option<NurbsCurve3> {
-    Some(NurbsCurve3::new(
-        curve.degree(),
-        curve
-            .control_points()
-            .iter()
-            .map(|point| place.point(*point))
-            .collect(),
-        curve.knots().to_vec(),
-        Some(curve.weights().to_vec()),
-    )?
-    .with_periodicity(curve.periodicity()))
+    Some(
+        NurbsCurve3::new(
+            curve.degree(),
+            curve
+                .control_points()
+                .iter()
+                .map(|point| place.point(*point))
+                .collect(),
+            curve.knots().to_vec(),
+            Some(curve.weights().to_vec()),
+        )?
+        .with_periodicity(curve.periodicity()),
+    )
 }
 
 fn move_nurbs_surface(surface: &NurbsSurface3, place: &Placement) -> Option<NurbsSurface3> {
     let (u_degree, v_degree) = surface.degrees();
     let (u_knots, v_knots) = surface.knots();
-    Some(NurbsSurface3::new(
-        u_degree,
-        v_degree,
-        surface
-            .control_points()
-            .iter()
-            .map(|row| row.iter().map(|point| place.point(*point)).collect())
-            .collect(),
-        u_knots.to_vec(),
-        v_knots.to_vec(),
-        Some(surface.weights().to_vec()),
-    )?
-    .with_periodicity(surface.periodicity()[0], surface.periodicity()[1])
-    .with_v_reversed(surface.v_reversed()))
+    Some(
+        NurbsSurface3::new(
+            u_degree,
+            v_degree,
+            surface
+                .control_points()
+                .iter()
+                .map(|row| row.iter().map(|point| place.point(*point)).collect())
+                .collect(),
+            u_knots.to_vec(),
+            v_knots.to_vec(),
+            Some(surface.weights().to_vec()),
+        )?
+        .with_periodicity(surface.periodicity()[0], surface.periodicity()[1])
+        .with_v_reversed(surface.v_reversed()),
+    )
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -467,7 +471,10 @@ mod tests {
         )
         .expect("a bigger cylinder");
         assert!(doubled.validate().is_empty());
-        assert!(doubled.worst_vertex_gap() < 1e-9, "vertices left their edges");
+        assert!(
+            doubled.worst_vertex_gap() < 1e-9,
+            "vertices left their edges"
+        );
         let expected = std::f64::consts::PI * 36.0 * 12.0;
         assert!(volume(&doubled) > 0.98 * expected, "{}", volume(&doubled));
         assert!(volume(&doubled) <= expected, "{}", volume(&doubled));
@@ -555,7 +562,10 @@ mod tests {
             .map(|points| points.len())
             .max()
             .unwrap();
-        assert!(longest > 20, "a rim of radius five needs more than {longest}");
+        assert!(
+            longest > 20,
+            "a rim of radius five needs more than {longest}"
+        );
         // And the points really are on the rim rather than near it.
         for polyline in edge_polylines(&round, 0.05) {
             for point in polyline {

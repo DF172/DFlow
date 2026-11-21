@@ -94,7 +94,8 @@ impl Graph {
 
     /// Removes a node and every link touching it.
     pub fn remove(&mut self, id: NodeId) -> Option<Node> {
-        self.links.retain(|link| link.from.node != id && link.to.node != id);
+        self.links
+            .retain(|link| link.from.node != id && link.to.node != id);
         let index = self.nodes.iter().position(|node| node.id == id)?;
         Some(self.nodes.remove(index))
     }
@@ -229,8 +230,13 @@ impl Graph {
             };
             graph.next_id = id - 1;
             graph.add(kind);
-            if let (Some(node), Some(params)) = (graph.nodes.last_mut(), node["params"].as_object()) {
-                node.params.extend(params.iter().map(|(name, value)| (name.clone(), value.clone())));
+            if let (Some(node), Some(params)) = (graph.nodes.last_mut(), node["params"].as_object())
+            {
+                node.params.extend(
+                    params
+                        .iter()
+                        .map(|(name, value)| (name.clone(), value.clone())),
+                );
             }
             graph.next_id = graph.nodes.iter().map(|node| node.id).max().unwrap_or(0);
         }
@@ -240,7 +246,11 @@ impl Graph {
                 field: value["field"].as_str()?.to_owned(),
             })
         };
-        for link in value["links"].as_array().map(Vec::as_slice).unwrap_or_default() {
+        for link in value["links"]
+            .as_array()
+            .map(Vec::as_slice)
+            .unwrap_or_default()
+        {
             if let (Some(from), Some(to)) = (port(&link["from"]), port(&link["to"])) {
                 if graph.node(from.node).is_some() && graph.node(to.node).is_some() {
                     graph.connect(from, to);
@@ -266,11 +276,21 @@ impl Graph {
         }
     }
 
-    fn evaluate_op(&self, id: NodeId, spec: &'static Spec, host: &dyn Host) -> BTreeMap<String, Value> {
+    fn evaluate_op(
+        &self,
+        id: NodeId,
+        spec: &'static Spec,
+        host: &dyn Host,
+    ) -> BTreeMap<String, Value> {
         let args: Vec<Value> = spec
             .inputs
             .iter()
-            .map(|input| self.input(&Port { node: id, field: input.name.to_owned() }))
+            .map(|input| {
+                self.input(&Port {
+                    node: id,
+                    field: input.name.to_owned(),
+                })
+            })
             .collect();
         let scalar: Vec<bool> = spec.inputs.iter().map(|input| !input.list).collect();
         let values = value::lace(&args, &scalar, spec.outputs.len(), &mut |args| {
@@ -283,7 +303,12 @@ impl Graph {
             .collect()
     }
 
-    fn evaluate_object(&self, id: NodeId, kind: &str, host: &mut dyn Host) -> BTreeMap<String, Value> {
+    fn evaluate_object(
+        &self,
+        id: NodeId,
+        kind: &str,
+        host: &mut dyn Host,
+    ) -> BTreeMap<String, Value> {
         let linked: Vec<(String, Value)> = self
             .links
             .iter()
@@ -303,7 +328,9 @@ impl Graph {
                 linked
                     .iter()
                     .filter_map(|(field, value)| match value {
-                        Value::Array(items) => items.get(k).map(|item| (field.clone(), item.clone())),
+                        Value::Array(items) => {
+                            items.get(k).map(|item| (field.clone(), item.clone()))
+                        }
                         other => Some((field.clone(), other.clone())),
                     })
                     .collect()
@@ -311,13 +338,19 @@ impl Graph {
             .collect();
         let results = host.objects(id, kind, &instances);
         if results.len() == 1 {
-            return results.into_iter().next().unwrap_or_default().into_iter().collect();
+            return results
+                .into_iter()
+                .next()
+                .unwrap_or_default()
+                .into_iter()
+                .collect();
         }
         let mut outputs: BTreeMap<String, Value> = BTreeMap::new();
         for instance in results {
             for (field, value) in instance {
-                if let Value::Array(items) =
-                    outputs.entry(field).or_insert_with(|| Value::Array(Vec::new()))
+                if let Value::Array(items) = outputs
+                    .entry(field)
+                    .or_insert_with(|| Value::Array(Vec::new()))
                 {
                     items.push(value);
                 }

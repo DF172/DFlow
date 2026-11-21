@@ -772,7 +772,6 @@ pub(super) fn render_small<'a>(
                 tokens::GAP_CONTROL,
                 theme,
             )
-            .into()
         }
 
         RibbonItem::LabeledTool(t) => {
@@ -812,7 +811,6 @@ pub(super) fn render_small<'a>(
                 tokens::GAP_CONTROL,
                 theme,
             )
-            .into()
         }
 
         RibbonItem::Dropdown {
@@ -863,8 +861,8 @@ pub(super) fn render_small<'a>(
             // Split control: face and arrow share one hover track, so the
             // pointer lights the whole control; the face's glow reads both
             // the dropdown id and the item that actually activated.
-            let hover_key = crate::ui::motion::hover_key(*id);
-            let dd_glow = crate::ui::motion::glow_key(*id);
+            let hover_key = crate::ui::motion::hover_key(id);
+            let dd_glow = crate::ui::motion::glow_key(id);
             let last_glow = crate::ui::motion::glow_key(last);
             let icon_btn = plain_button(make_icon(cur_icon, SMALL_ICON))
                 .on_press(Message::RibbonToolClick {
@@ -922,7 +920,7 @@ pub(super) fn render_small<'a>(
             );
 
             PosReport::new(
-                *id,
+                id,
                 row![icon_with_tip, arr_with_tip]
                     .spacing(tokens::GAP_NONE)
                     .height(SMALL_H),
@@ -971,8 +969,8 @@ pub(super) fn render_small<'a>(
             ]
             .spacing(tokens::GAP_TIGHT)
             .align_y(iced::Center);
-            let hover_key = crate::ui::motion::hover_key(*id);
-            let dd_glow = crate::ui::motion::glow_key(*id);
+            let hover_key = crate::ui::motion::hover_key(id);
+            let dd_glow = crate::ui::motion::glow_key(id);
             let last_glow = crate::ui::motion::glow_key(last);
             // A state that is only shown (not chosen) opens the list instead.
             let face_btn = plain_button(face)
@@ -1019,7 +1017,7 @@ pub(super) fn render_small<'a>(
             let face_tip = tool_tip_text(&localized_label, last);
             let arrow_tip = format!("{} {}", localized_label, t!("options"));
             PosReport::new(
-                *id,
+                id,
                 row![
                     ribbon_tip(
                         hover_tracked(hover_key, face_btn),
@@ -1270,9 +1268,7 @@ pub(super) fn render_strip_more<'a>(
     // The catalog's entry is "More…"; the trailing ellipsis marks a menu in
     // dialog copy. On a strip cell it reads as a truncation of the tool's own
     // name, so the label is the bare word here.
-    let more_label = t!("More…")
-        .trim_end_matches(|c: char| c == '…' || c == '.')
-        .to_owned();
+    let more_label = t!("More…").trim_end_matches(['…', '.']).to_owned();
     let face = plain_button(
         column![
             container(icons::themed(icons::MORE, STRIP_ICON))
@@ -1462,8 +1458,7 @@ pub(super) fn render_large_dropdown<'a>(
         iced::widget::stack![face, mark]
             .width(Fill)
             .height(Length::Fixed(LARGE_H)),
-    )
-    .into();
+    );
 
     PosReport::new(id, automatic_large_button(label, content)).into()
 }
@@ -1589,13 +1584,12 @@ pub(super) fn render_large<'a>(item: &RibbonItem, ctx: &RenderCtx<'_>) -> Elemen
                 left: tokens::GAP_HAIRLINE,
             });
             ribbon_tip(
-                automatic_large_button(label, hover_tracked(hover_key, btn).into()),
+                automatic_large_button(label, hover_tracked(hover_key, btn)),
                 tip_text,
                 TipPos::Right,
                 tokens::GAP_CONTROL,
                 theme,
             )
-            .into()
         }
 
         RibbonItem::LargeDropdown {
@@ -1604,7 +1598,7 @@ pub(super) fn render_large<'a>(item: &RibbonItem, ctx: &RenderCtx<'_>) -> Elemen
             icon,
             items,
             default,
-        } => render_large_dropdown(*id, *icon, Some(*label), items, *default, ctx),
+        } => render_large_dropdown(id, *icon, Some(*label), items, default, ctx),
 
         RibbonItem::LabeledDropdown {
             id,
@@ -1612,7 +1606,7 @@ pub(super) fn render_large<'a>(item: &RibbonItem, ctx: &RenderCtx<'_>) -> Elemen
             icon,
             items,
             default,
-        } => render_large_dropdown(*id, *icon, Some(*label), items, *default, ctx),
+        } => render_large_dropdown(id, *icon, Some(*label), items, default, ctx),
 
         RibbonItem::ToolGrid { columns } => columns
             .iter()
@@ -1649,7 +1643,7 @@ pub(super) fn render_large<'a>(item: &RibbonItem, ctx: &RenderCtx<'_>) -> Elemen
             icon,
             items,
             default,
-        } => render_large_dropdown(*id, *icon, None, items, *default, ctx),
+        } => render_large_dropdown(id, *icon, None, items, default, ctx),
 
         RibbonItem::LayerComboGroup { row2, row3 } => {
             const TOOL_BUTTON_W: f32 = 26.0;
@@ -1849,7 +1843,7 @@ pub(super) fn render_large<'a>(item: &RibbonItem, ctx: &RenderCtx<'_>) -> Elemen
             // ribbon-row height — matching the Draw-tab dropdowns. (#153) It is
             // not a child of this row, so the row carries only its button.
             let mut col_items: Vec<Element<Message>> = vec![container(
-                row![PosReport::new(*combo_id, combo_btn)].spacing(tokens::GAP_NONE),
+                row![PosReport::new(combo_id, combo_btn)].spacing(tokens::GAP_NONE),
             )
             .width(Fill)
             .into()];
@@ -1948,7 +1942,6 @@ pub(super) fn quick_access_btn_msg<'a>(
         tokens::GAP_CONTROL,
         theme,
     )
-    .into()
 }
 
 pub(super) fn render_history_control<'a>(

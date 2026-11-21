@@ -370,11 +370,9 @@ impl DraftFlowCAD {
             PdfDialogMsg::MapApply => {
                 self.apply_point_cloud_color_map(i);
             }
-            PdfDialogMsg::MapOk => {
-                if self.apply_point_cloud_color_map(i) {
-                    self.point_cloud_color_map = None;
-                    self.close_modal_now();
-                }
+            PdfDialogMsg::MapOk if self.apply_point_cloud_color_map(i) => {
+                self.point_cloud_color_map = None;
+                self.close_modal_now();
             }
             _ => {}
         }

@@ -8,12 +8,7 @@ use std::f64::consts::TAU;
 const ANGLE_EPSILON: f64 = 1.0e-9;
 
 /// A non-degenerate bounded arc from centre, radius and angles.
-pub fn bounded_arc(
-    centre: [f64; 2],
-    radius: f64,
-    start_angle: f64,
-    end_angle: f64,
-) -> Option<Arc> {
+pub fn bounded_arc(centre: [f64; 2], radius: f64, start_angle: f64, end_angle: f64) -> Option<Arc> {
     let sweep = (end_angle - start_angle).rem_euclid(TAU);
     if !radius.is_finite()
         || !start_angle.is_finite()
@@ -47,16 +42,9 @@ fn stored_arc(start: [f64; 2], end: [f64; 2], bulge: f64) -> Option<Arc> {
 }
 
 /// Arc through two endpoints with a signed included angle.
-pub fn arc_from_endpoints_angle(
-    start: [f64; 2],
-    end: [f64; 2],
-    included: f64,
-) -> Option<Arc> {
+pub fn arc_from_endpoints_angle(start: [f64; 2], end: [f64; 2], included: f64) -> Option<Arc> {
     let sweep = included.abs();
-    if !included.is_finite()
-        || sweep <= ANGLE_EPSILON
-        || sweep >= TAU - ANGLE_EPSILON
-    {
+    if !included.is_finite() || sweep <= ANGLE_EPSILON || sweep >= TAU - ANGLE_EPSILON {
         return None;
     }
     stored_arc(start, end, (included * 0.25).tan())
@@ -79,11 +67,7 @@ pub fn arc_from_endpoints_radius(
 }
 
 /// Arc through two endpoints with a signed sagitta.
-pub fn arc_from_sagitta(
-    start: [f64; 2],
-    end: [f64; 2],
-    sagitta: f64,
-) -> Option<Arc> {
+pub fn arc_from_sagitta(start: [f64; 2], end: [f64; 2], sagitta: f64) -> Option<Arc> {
     let chord = Vec2::from(start).distance(Vec2::from(end));
     if !sagitta.is_finite() || chord <= ANGLE_EPSILON {
         return None;
@@ -131,11 +115,7 @@ pub fn arc_from_start_tangent(
 }
 
 /// Arc through three ordered points.
-pub fn arc_through_points(
-    start: [f64; 2],
-    middle: [f64; 2],
-    end: [f64; 2],
-) -> Option<Arc> {
+pub fn arc_through_points(start: [f64; 2], middle: [f64; 2], end: [f64; 2]) -> Option<Arc> {
     let start = Vec2::from(start);
     let middle = Vec2::from(middle);
     let end = Vec2::from(end);

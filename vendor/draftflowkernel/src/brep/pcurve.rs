@@ -107,9 +107,8 @@ pub fn project(surface: &Surface, curve: &Curve3, tolerance: f64) -> Option<Curv
                 if !plane_normal.is_parallel_to(axis, tolerance) {
                     return None;
                 }
-                let height = (Vec3::from(circle.plane.origin)
-                    - Vec3::from(cylinder.base.origin))
-                .dot(axis);
+                let height =
+                    (Vec3::from(circle.plane.origin) - Vec3::from(cylinder.base.origin)).dot(axis);
                 Some(band_at(height))
             }
             Curve3::Line(line) => {
@@ -117,10 +116,7 @@ pub fn project(surface: &Surface, curve: &Curve3, tolerance: f64) -> Option<Curv
                 if !Vec3::from(line.direction).is_parallel_to(axis, tolerance) {
                     return None;
                 }
-                Some(generator_at(angle_about(
-                    &cylinder.base,
-                    line.origin,
-                )?))
+                Some(generator_at(angle_about(&cylinder.base, line.origin)?))
             }
             _ => sampled_closed_conic(surface, curve),
         },
@@ -205,9 +201,7 @@ pub fn project(surface: &Surface, curve: &Curve3, tolerance: f64) -> Option<Curv
                     if height.abs() > sphere.radius + tolerance {
                         return None;
                     }
-                    return Some(band_at(
-                        (height / sphere.radius).clamp(-1.0, 1.0).asin(),
-                    ));
+                    return Some(band_at((height / sphere.radius).clamp(-1.0, 1.0).asin()));
                 }
                 let centred = Vec3::from(circle.plane.origin)
                     .distance(Vec3::from(sphere.frame.origin))
@@ -341,10 +335,7 @@ fn sampled_closed_conic(surface: &Surface, curve: &Curve3) -> Option<Curve> {
         points.push(last);
     }
     Some(Curve::Polyline(Polyline {
-        vertices: points
-            .into_iter()
-            .map(PolylineVertex::straight)
-            .collect(),
+        vertices: points.into_iter().map(PolylineVertex::straight).collect(),
         closed,
     }))
 }
@@ -451,7 +442,11 @@ fn chain_round(pieces: &mut [Curve], periods: [Option<f64>; 2]) {
     let mut head = pieces[0].point_at(1.0);
     let mut behind = [pieces[0].point_at(0.0), head, pieces[0].point_at(0.5)];
     for piece in pieces.iter_mut().skip(1) {
-        let (start, end, middle) = (piece.point_at(0.0), piece.point_at(1.0), piece.point_at(0.5));
+        let (start, end, middle) = (
+            piece.point_at(0.0),
+            piece.point_at(1.0),
+            piece.point_at(0.5),
+        );
         let mut best = (f64::INFINITY, [0.0, 0.0]);
         for across in turns(periods[0]) {
             for along in turns(periods[1]) {
@@ -471,7 +466,10 @@ fn chain_round(pieces: &mut [Curve], periods: [Option<f64>; 2]) {
                     [end[0] + shift[0], end[1] + shift[1]],
                     [middle[0] + shift[0], middle[1] + shift[1]],
                 ];
-                if near(moved[0], behind[1]) && near(moved[1], behind[0]) && near(moved[2], behind[2]) {
+                if near(moved[0], behind[1])
+                    && near(moved[1], behind[0])
+                    && near(moved[2], behind[2])
+                {
                     continue;
                 }
                 let gap = (moved[0][0] - head[0]).hypot(moved[0][1] - head[1]);
@@ -483,7 +481,11 @@ fn chain_round(pieces: &mut [Curve], periods: [Option<f64>; 2]) {
         if best.1 != [0.0, 0.0] {
             slide(piece, best.1);
         }
-        behind = [piece.point_at(0.0), piece.point_at(1.0), piece.point_at(0.5)];
+        behind = [
+            piece.point_at(0.0),
+            piece.point_at(1.0),
+            piece.point_at(0.5),
+        ];
         head = behind[1];
     }
 }
@@ -538,12 +540,7 @@ const SAMPLED_WALK: usize = 256;
 /// endpoints do not say enough: an arc covering three quarters of a turn has
 /// the same pair of ends as the quarter left over, and on a closed surface
 /// they do not even say which way round the edge went.
-fn trim_to(
-    surface: &Surface,
-    curve: &Curve3,
-    span: (f64, f64),
-    flat: Curve,
-) -> Option<Curve> {
+fn trim_to(surface: &Surface, curve: &Curve3, span: (f64, f64), flat: Curve) -> Option<Curve> {
     // A parameter that wraps reads a walk across the seam as a jump
     // backwards unless it is unwound. One that does not wrap must be left
     // alone: unwinding a plane's coordinates would move the curve.
@@ -551,7 +548,9 @@ fn trim_to(
     // A sampled projection is kept as the walk itself, so it walks finely:
     // evenly round the turn, so a short arc is not sampled like a whole one.
     let steps = if matches!(flat, Curve::Polyline(_)) {
-        ((span.1 - span.0).abs() / TAU * SAMPLED_WALK as f64).ceil().clamp(16.0, SAMPLED_WALK as f64) as usize
+        ((span.1 - span.0).abs() / TAU * SAMPLED_WALK as f64)
+            .ceil()
+            .clamp(16.0, SAMPLED_WALK as f64) as usize
     } else {
         WALK
     };
@@ -614,7 +613,11 @@ fn trim_to(
         // A span's ends sit on the domain's only to rounding.
         let at = |knot: f64| {
             let t = (knot - start) / (end - start);
-            if (-1e-9..=1.0 + 1e-9).contains(&t) { t.clamp(0.0, 1.0) } else { t }
+            if (-1e-9..=1.0 + 1e-9).contains(&t) {
+                t.clamp(0.0, 1.0)
+            } else {
+                t
+            }
         };
         if let Some(piece) = image.trimmed(at(span.0), at(span.1)) {
             return Some(Curve::Nurbs(piece));
@@ -623,7 +626,9 @@ fn trim_to(
         let walk = (0..=steps)
             .map(|step| {
                 let t = span.0 + (span.1 - span.0) * step as f64 / steps as f64;
-                surface.parameters_at(curve.point_at(t)).map(|(u, v)| [u, v])
+                surface
+                    .parameters_at(curve.point_at(t))
+                    .map(|(u, v)| [u, v])
             })
             .collect::<Option<Vec<_>>>()?;
         return Some(Curve::Polyline(Polyline {
@@ -647,14 +652,24 @@ fn trim_to(
             let positive = if (to - from).abs() >= TAU - 1e-9 {
                 Curve::Circle(circle)
             } else {
-                Curve::Arc(Arc { centre: circle.centre, radius: circle.radius,
-                    start_angle: from.min(to), end_angle: from.max(to) })
+                Curve::Arc(Arc {
+                    centre: circle.centre,
+                    radius: circle.radius,
+                    start_angle: from.min(to),
+                    end_angle: from.max(to),
+                })
             };
             // Circle and Arc represent positive traversal only. Retain a
             // clockwise coedge as an exact reversed rational conic instead.
             if to < from {
-                Curve::Nurbs(super::nurbs_builder::RationalCurve2::from_curve(&positive)?.reversed().curve()?)
-            } else { positive }
+                Curve::Nurbs(
+                    super::nurbs_builder::RationalCurve2::from_curve(&positive)?
+                        .reversed()
+                        .curve()?,
+                )
+            } else {
+                positive
+            }
         }
         Curve::Ellipse(whole) => {
             let (from, to) = swept(&walk, [0.0, 0.0], |point, _| {
@@ -663,12 +678,21 @@ fn trim_to(
             let positive = if (to - from).abs() >= TAU - 1e-9 {
                 Curve::Ellipse(whole)
             } else {
-                Curve::Ellipse(EllipseArc { ellipse: whole.ellipse,
-                    start_parameter: from.min(to), end_parameter: from.max(to) })
+                Curve::Ellipse(EllipseArc {
+                    ellipse: whole.ellipse,
+                    start_parameter: from.min(to),
+                    end_parameter: from.max(to),
+                })
             };
             if to < from {
-                Curve::Nurbs(super::nurbs_builder::RationalCurve2::from_curve(&positive)?.reversed().curve()?)
-            } else { positive }
+                Curve::Nurbs(
+                    super::nurbs_builder::RationalCurve2::from_curve(&positive)?
+                        .reversed()
+                        .curve()?,
+                )
+            } else {
+                positive
+            }
         }
         // A sampled circle covers the whole turn; the edge is the walk.
         Curve::Polyline(_) => Curve::Polyline(Polyline {
@@ -789,8 +813,7 @@ pub(crate) fn contains_parameter(
     }
     // Two full-turn loops bound a band without forming a plane polygon.
     periodic_band_levels(surface, boundary, tolerance.linear()).is_some_and(|levels| {
-        point[1] >= levels[0] - tolerance.linear()
-            && point[1] <= levels[1] + tolerance.linear()
+        point[1] >= levels[0] - tolerance.linear() && point[1] <= levels[1] + tolerance.linear()
     })
 }
 
@@ -802,17 +825,15 @@ fn boundary_box(boundary: &[Curve]) -> Option<([f64; 2], [f64; 2])> {
     let mut high = [f64::NEG_INFINITY; 2];
     for curve in boundary {
         let (from, to) = match curve {
-            Curve::Nurbs(spline) => {
-                spline.control_points().iter().fold(
-                    ([f64::INFINITY; 2], [f64::NEG_INFINITY; 2]),
-                    |(from, to), point| {
-                        (
-                            [from[0].min(point[0]), from[1].min(point[1])],
-                            [to[0].max(point[0]), to[1].max(point[1])],
-                        )
-                    },
-                )
-            }
+            Curve::Nurbs(spline) => spline.control_points().iter().fold(
+                ([f64::INFINITY; 2], [f64::NEG_INFINITY; 2]),
+                |(from, to), point| {
+                    (
+                        [from[0].min(point[0]), from[1].min(point[1])],
+                        [to[0].max(point[0]), to[1].max(point[1])],
+                    )
+                },
+            ),
             other => crate::geom2d::analytic_curve_bounds(std::slice::from_ref(other))?,
         };
         for axis in 0..2 {
@@ -820,7 +841,10 @@ fn boundary_box(boundary: &[Curve]) -> Option<([f64; 2], [f64; 2])> {
             high[axis] = high[axis].max(to[axis]);
         }
     }
-    low.iter().chain(&high).all(|value| value.is_finite()).then_some((low, high))
+    low.iter()
+        .chain(&high)
+        .all(|value| value.is_finite())
+        .then_some((low, high))
 }
 
 /// [`contains_parameter`] for a face whose loops run as `forward` says: a
@@ -853,13 +877,15 @@ fn tube_band_side(
     };
     // Loops end where the next piece does not take up; a rim's ends are a
     // turn of `v` apart.
-    let joined =
-        |a: [f64; 2], b: [f64; 2]| (a[0] - b[0]).hypot(a[1] - b[1]) <= u_period * 1e-3;
+    let joined = |a: [f64; 2], b: [f64; 2]| (a[0] - b[0]).hypot(a[1] - b[1]) <= u_period * 1e-3;
     let mut rims = 0;
     let mut loop_start = 0;
     for (index, curve) in boundary.iter().enumerate() {
         let end = curve.point_at(1.0);
-        if boundary.get(index + 1).is_some_and(|next| joined(next.point_at(0.0), end)) {
+        if boundary
+            .get(index + 1)
+            .is_some_and(|next| joined(next.point_at(0.0), end))
+        {
             continue;
         }
         let start = boundary[loop_start].point_at(0.0);
@@ -874,7 +900,10 @@ fn tube_band_side(
     if rims < 2 {
         return None;
     }
-    let ray = Curve::Line(Line { start: point, end: [point[0] + u_period, point[1]] });
+    let ray = Curve::Line(Line {
+        start: point,
+        end: [point[0] + u_period, point[1]],
+    });
     let mut nearest: Option<(f64, bool)> = None;
     for curve in boundary {
         // A piece's box from samples, grown for what bulges between them:
@@ -905,7 +934,9 @@ fn tube_band_side(
                     [p[0] + shift[0], p[1] + shift[1]]
                 };
                 let by = crate::geom2d::Transform::translation(shift);
-                let Some(image) = curve.transformed(&by) else { continue };
+                let Some(image) = curve.transformed(&by) else {
+                    continue;
+                };
                 for crossing in crate::geom2d::intersect(&ray, &image, tolerance) {
                     let along = crossing.point[0] - point[0];
                     if along <= tolerance.linear() {
@@ -948,7 +979,9 @@ pub(super) fn apex_closed(
     }
     let slack = |apex: f64| tolerance.linear().max(apex.abs() * 1e-9);
     let pole = |point: [f64; 2]| {
-        apexes.iter().position(|apex| (point[1] - apex).abs() <= slack(*apex))
+        apexes
+            .iter()
+            .position(|apex| (point[1] - apex).abs() <= slack(*apex))
     };
     let same_apex = |a: [f64; 2], b: [f64; 2]| pole(a).is_some() && pole(a) == pole(b);
     let joined = |a: [f64; 2], b: [f64; 2]| (a[0] - b[0]).hypot(a[1] - b[1]) <= TAU * 1e-3;
@@ -986,7 +1019,11 @@ pub(super) fn apex_closed(
     if let ([(at, start, end)], [apex]) = (&wrapping[..], &apexes[..]) {
         let (at, start, end, apex) = (*at, *start, *end, *apex);
         let (over_end, over_start) = ([end[0], apex], [start[0], apex]);
-        let closing = [line(end, over_end), line(over_end, over_start), line(over_start, start)];
+        let closing = [
+            line(end, over_end),
+            line(over_end, over_start),
+            line(over_start, start),
+        ];
         out.splice(at..at, closing);
         changed = true;
     }
@@ -1013,14 +1050,12 @@ fn band_parity(
     // wrapping loop the face is the polygon test's. One wrapping loop alone
     // — a cone's rim, its face running up to the apex — bounds a side only
     // the apex decides, not a band.
-    let near =
-        |a: [f64; 2], b: [f64; 2]| (a[0] - b[0]).hypot(a[1] - b[1]) <= tolerance.linear();
+    let near = |a: [f64; 2], b: [f64; 2]| (a[0] - b[0]).hypot(a[1] - b[1]) <= tolerance.linear();
     // The boundary lists each loop's pieces in order; a loop ends where the
     // next piece does not take up from it. Pieces walked from a spline meet
     // only to the walk's accuracy, and a wrap leaves a whole turn between
     // the loop's two ends.
-    let joined =
-        |a: [f64; 2], b: [f64; 2]| (a[0] - b[0]).hypot(a[1] - b[1]) <= period * 1e-3;
+    let joined = |a: [f64; 2], b: [f64; 2]| (a[0] - b[0]).hypot(a[1] - b[1]) <= period * 1e-3;
     let mut wrapping = 0;
     let mut loop_start = 0;
     for (index, curve) in boundary.iter().enumerate() {
@@ -1044,13 +1079,14 @@ fn band_parity(
         .collect();
     let (low, high, top) = samples.iter().fold(
         (f64::INFINITY, f64::NEG_INFINITY, f64::NEG_INFINITY),
-        |(low, high, top), sample| {
-            (low.min(sample[0]), high.max(sample[0]), top.max(sample[1]))
-        },
+        |(low, high, top), sample| (low.min(sample[0]), high.max(sample[0]), top.max(sample[1])),
     );
     let mut point = point;
     if let Some(v_period) = v_period {
-        let bottom = samples.iter().map(|sample| sample[1]).fold(f64::INFINITY, f64::min);
+        let bottom = samples
+            .iter()
+            .map(|sample| sample[1])
+            .fold(f64::INFINITY, f64::min);
         if top - bottom >= v_period * (1.0 - 1e-6) {
             return None;
         }
@@ -1072,9 +1108,15 @@ fn band_parity(
                 Curve::Polyline(polyline)
                     if polyline.vertices.iter().all(|vertex| vertex.bulge == 0.0) =>
                 {
-                    polyline.vertices.iter().map(|vertex| vertex.position).collect()
+                    polyline
+                        .vertices
+                        .iter()
+                        .map(|vertex| vertex.position)
+                        .collect()
                 }
-                _ => (0..=16).map(|step| curve.point_at(step as f64 / 16.0)).collect(),
+                _ => (0..=16)
+                    .map(|step| curve.point_at(step as f64 / 16.0))
+                    .collect(),
             };
             let mut low = [f64::INFINITY; 2];
             let mut high = [f64::NEG_INFINITY; 2];
@@ -1129,11 +1171,7 @@ pub(crate) fn periodic_band_point(
     Some(surface.point_at(u, 0.5 * (levels[0] + levels[1])))
 }
 
-fn periodic_band_levels(
-    surface: &Surface,
-    boundary: &[Curve],
-    tolerance: f64,
-) -> Option<[f64; 2]> {
+fn periodic_band_levels(surface: &Surface, boundary: &[Curve], tolerance: f64) -> Option<[f64; 2]> {
     let period = periods(surface)[0]?;
     let mut levels: Vec<(f64, f64)> = Vec::new();
     for curve in boundary {
@@ -1159,11 +1197,7 @@ fn periodic_band_levels(
     // Coverage is an angle, the tolerance a length: on a small cylinder the
     // pieces of a cut rim meet a few nano-radians apart and still close.
     let slack = tolerance.max(period * 1e-6);
-    if levels.len() != 2
-        || levels
-            .iter()
-            .any(|(_, covered)| *covered < period - slack)
-    {
+    if levels.len() != 2 || levels.iter().any(|(_, covered)| *covered < period - slack) {
         return None;
     }
     levels.sort_by(|a, b| a.0.total_cmp(&b.0));
@@ -1206,19 +1240,16 @@ fn lies_on(surface: &Surface, curve: &Curve3, tolerance: f64) -> bool {
         })
         .collect();
     let allowance = fit_allowance(surface, curve, &points, tolerance);
-    points.into_iter().all(|point| surface.distance_to(point).abs() <= allowance)
+    points
+        .into_iter()
+        .all(|point| surface.distance_to(point).abs() <= allowance)
 }
 
 /// How far a curve may stand off a surface and still be on it. A spline in a
 /// file is a fit to the true intersection or surface, within the fit's own
 /// tolerance — up to a thousandth of the curve, many times the
 /// modelling tolerance — so a spline on either side is held to that.
-fn fit_allowance(
-    surface: &Surface,
-    curve: &Curve3,
-    points: &[[f64; 3]],
-    tolerance: f64,
-) -> f64 {
+fn fit_allowance(surface: &Surface, curve: &Curve3, points: &[[f64; 3]], tolerance: f64) -> f64 {
     if !matches!(curve, Curve3::Nurbs(_)) && !matches!(surface, Surface::Nurbs(_)) {
         return tolerance;
     }
@@ -1240,7 +1271,9 @@ fn span_on(surface: &Surface, curve: &Curve3, span: (f64, f64), tolerance: f64) 
         })
         .collect();
     let allowance = fit_allowance(surface, curve, &points, tolerance);
-    points.into_iter().all(|point| surface.distance_to(point).abs() <= allowance)
+    points
+        .into_iter()
+        .all(|point| surface.distance_to(point).abs() <= allowance)
 }
 
 #[cfg(test)]
@@ -1327,7 +1360,11 @@ mod tests {
             panic!("expected an ellipse, got {flat:?}");
         };
         assert!((arc.ellipse.major_radius - 6.0).abs() < 1e-12);
-        assert!((arc.ellipse.major_axis[1] - 1.0).abs() < 1e-12, "{:?}", arc.ellipse.major_axis);
+        assert!(
+            (arc.ellipse.major_axis[1] - 1.0).abs() < 1e-12,
+            "{:?}",
+            arc.ellipse.major_axis
+        );
         assert_round_trips(&surface, &curve, &flat, (0.0, 1.0));
     }
 
@@ -1499,7 +1536,10 @@ mod tests {
                 .get(body.faces.get(face).unwrap().surface)
                 .unwrap();
             for coedge in body.face_coedges(face) {
-                let edge = body.edges.get(body.coedges.get(coedge).unwrap().edge).unwrap();
+                let edge = body
+                    .edges
+                    .get(body.coedges.get(coedge).unwrap().edge)
+                    .unwrap();
                 let curve = body.curves.get(edge.curve).unwrap();
                 let flat = project(surface, curve, 1e-9)
                     .expect("a box's edge lies on the faces it bounds");
@@ -1516,7 +1556,10 @@ mod tests {
         let plane = plane_at(origin, [0.0, 0.0, 1.0]);
         let surface = Surface::Plane(plane);
         let curve = Curve3::Circle(Circle3 {
-            plane: plane_at([origin[0] + 1.0, origin[1] + 2.0, origin[2]], [0.0, 0.0, 1.0]),
+            plane: plane_at(
+                [origin[0] + 1.0, origin[1] + 2.0, origin[2]],
+                [0.0, 0.0, 1.0],
+            ),
             radius: 4.0,
         });
         let flat = project(&surface, &curve, 1e-6).expect("still on its plane");
@@ -1531,10 +1574,7 @@ mod tests {
     fn clockwise_circle_spans_keep_their_direction() {
         let plane = plane_at([0.0; 3], [0.0, 0.0, 1.0]);
         let surface = Surface::Plane(plane);
-        let curve = Curve3::Circle(Circle3 {
-            plane,
-            radius: 2.0,
-        });
+        let curve = Curve3::Circle(Circle3 { plane, radius: 2.0 });
         let flat = Curve::Circle(crate::geom2d::Circle {
             centre: [0.0, 0.0],
             radius: 2.0,
@@ -1558,7 +1598,10 @@ mod tests {
         // Rims round the tube at u = -π (going up v) and u = 2.4 (going
         // down): the forward face is u from 2.4 on to π, not back to -π.
         let line = |start, end| Curve::Line(Line { start, end });
-        let boundary = [line([-PI, -1.0], [-PI, TAU - 1.0]), line([2.4, 0.0], [2.4, -TAU])];
+        let boundary = [
+            line([-PI, -1.0], [-PI, TAU - 1.0]),
+            line([2.4, 0.0], [2.4, -TAU]),
+        ];
         let periods = [Some(TAU), Some(TAU)];
         let tolerance = crate::geom2d::Tolerance::new(1e-9);
         let side =

@@ -636,7 +636,7 @@ pub fn readout_style(theme: &Theme, status: button::Status) -> button::Style {
     };
     let hovered = matches!(status, button::Status::Hovered | button::Status::Pressed);
     button::Style {
-        background: hovered.then(|| Background::Color(colors.hover)),
+        background: hovered.then_some(Background::Color(colors.hover)),
         text_color: if hovered { colors.ink } else { colors.muted },
         border: iced::Border {
             color: Color::TRANSPARENT,

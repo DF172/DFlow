@@ -50,12 +50,12 @@ struct Registry {
 }
 
 thread_local! {
-    static REGISTRY: RefCell<Registry> = RefCell::new(Registry {
+    static REGISTRY: RefCell<Registry> = const { RefCell::new(Registry {
         entries: Vec::new(),
         scope: Scope::Chrome,
         current: None,
         modality: Modality::Pointer,
-    });
+    }) };
     /// The stop that opened the dialog now on top, captured by [`remember`].
     static RECALL: Cell<Option<&'static str>> = const { Cell::new(None) };
     /// A stop waiting to be reapplied, with the pass it belongs to. The frame

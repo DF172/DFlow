@@ -110,7 +110,7 @@ mod pointer {
             unsafe { RegCloseKey(key) };
             return None;
         }
-        let mut buffer = vec![0u16; (bytes as usize + 1) / 2 + 1];
+        let mut buffer = vec![0u16; (bytes as usize).div_ceil(2) + 1];
         let mut written = bytes;
         let rc = unsafe {
             RegQueryValueExW(

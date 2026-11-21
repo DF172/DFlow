@@ -213,6 +213,12 @@ impl HorizontalConstraintCommand {
     }
 }
 
+impl Default for HorizontalConstraintCommand {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CadCommand for HorizontalConstraintCommand {
     fn name(&self) -> &'static str {
         match self.kind {

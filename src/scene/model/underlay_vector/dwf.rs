@@ -412,7 +412,9 @@ fn font_family(font: &[u8]) -> Option<String> {
             // Windows: UTF-16 big endian.
             3 | 0 => {
                 let units: Vec<u16> = raw
-                    .chunks_exact(2)
+                    .as_chunks::<2>()
+                    .0
+                    .iter()
                     .map(|c| u16::from_be_bytes([c[0], c[1]]))
                     .collect();
                 return Some(String::from_utf16_lossy(&units));
@@ -873,7 +875,9 @@ mod w2d {
             let n = r.count()?;
             let units: Vec<u16> =
                 r.b.get(r.i..r.i + n * 2)?
-                    .chunks_exact(2)
+                    .as_chunks::<2>()
+                    .0
+                    .iter()
                     .map(|c| u16::from_le_bytes([c[0], c[1]]))
                     .collect();
             r.i += n * 2;
@@ -1304,10 +1308,7 @@ mod xps {
         let cy1 = -coef * ry * x1 / rx;
         let cx = c * cx1 - s * cy1 + (p0[0] + p1[0]) / 2.0;
         let cy = s * cx1 + c * cy1 + (p0[1] + p1[1]) / 2.0;
-        let ang = |ux: f64, uy: f64, vx: f64, vy: f64| {
-            let a = (ux * vy - uy * vx).atan2(ux * vx + uy * vy);
-            a
-        };
+        let ang = |ux: f64, uy: f64, vx: f64, vy: f64| (ux * vy - uy * vx).atan2(ux * vx + uy * vy);
         let t1 = ang(1.0, 0.0, (x1 - cx1) / rx, (y1 - cy1) / ry);
         let mut dt = ang(
             (x1 - cx1) / rx,

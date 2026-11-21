@@ -78,9 +78,10 @@ pub fn polygon_frame(input: &[[f64; 2]], tolerance: super::Tolerance) -> Option<
     let limit = tolerance.linear();
     let mut points = Vec::with_capacity(input.len());
     for &point in input {
-        if points.last().is_none_or(|previous| {
-            Vec2::from(*previous).distance(Vec2::from(point)) > limit
-        }) {
+        if points
+            .last()
+            .is_none_or(|previous| Vec2::from(*previous).distance(Vec2::from(point)) > limit)
+        {
             points.push(point);
         }
     }
@@ -207,8 +208,8 @@ pub fn rings(input: &[Vec<[f64; 2]>]) -> (Vec<[f64; 2]>, Vec<[usize; 3]>) {
     for index in 0..valid.len() {
         parent[index] = (0..valid.len())
             .filter(|other| {
-                    *other != index
-                        && valid[*other].area > valid[index].area
+                *other != index
+                    && valid[*other].area > valid[index].area
                     && ring_strictly_contains(&valid[*other].points, &valid[index].points)
             })
             .min_by(|a, b| valid[*a].area.total_cmp(&valid[*b].area));
@@ -234,7 +235,11 @@ pub fn rings(input: &[Vec<[f64; 2]>]) -> (Vec<[f64; 2]>, Vec<[usize; 3]>) {
         let mut component_points = Vec::new();
         let mut component_triangles = Vec::new();
         let mut complete = true;
-        for outer in members.iter().copied().filter(|index| depth[*index] % 2 == 0) {
+        for outer in members
+            .iter()
+            .copied()
+            .filter(|index| depth[*index] % 2 == 0)
+        {
             let holes: Vec<Vec<[f64; 2]>> = members
                 .iter()
                 .copied()
@@ -242,7 +247,10 @@ pub fn rings(input: &[Vec<[f64; 2]>]) -> (Vec<[f64; 2]>, Vec<[usize; 3]>) {
                 .map(|index| valid[index].points.clone())
                 .collect();
             let expected = valid[outer].area
-                - holes.iter().map(|hole| signed_area_arrays(hole).abs()).sum::<f64>();
+                - holes
+                    .iter()
+                    .map(|hole| signed_area_arrays(hole).abs())
+                    .sum::<f64>();
             let (local_points, local_triangles) = polygon(&valid[outer].points, &holes);
             if !triangulation_matches(&local_points, &local_triangles, expected) {
                 complete = false;
@@ -250,16 +258,20 @@ pub fn rings(input: &[Vec<[f64; 2]>]) -> (Vec<[f64; 2]>, Vec<[usize; 3]>) {
             }
             let base = component_points.len();
             component_points.extend(local_points);
-            component_triangles.extend(local_triangles.into_iter().map(|triangle| {
-                [triangle[0] + base, triangle[1] + base, triangle[2] + base]
-            }));
+            component_triangles.extend(
+                local_triangles
+                    .into_iter()
+                    .map(|triangle| [triangle[0] + base, triangle[1] + base, triangle[2] + base]),
+            );
         }
         if complete {
             let base = points.len();
             points.extend(component_points);
-            triangles.extend(component_triangles.into_iter().map(|triangle| {
-                [triangle[0] + base, triangle[1] + base, triangle[2] + base]
-            }));
+            triangles.extend(
+                component_triangles
+                    .into_iter()
+                    .map(|triangle| [triangle[0] + base, triangle[1] + base, triangle[2] + base]),
+            );
         }
     }
     (points, triangles)
@@ -323,9 +335,9 @@ fn simple(ring: &[[f64; 2]], tolerance: f64) -> bool {
         return false;
     }
     for first in 0..ring.len() {
-        if (first + 1..ring.len()).any(|second| {
-            Vec2::from(ring[first]).distance(Vec2::from(ring[second])) <= tolerance
-        }) {
+        if (first + 1..ring.len())
+            .any(|second| Vec2::from(ring[first]).distance(Vec2::from(ring[second])) <= tolerance)
+        {
             return false;
         }
     }
@@ -392,10 +404,12 @@ fn segments_properly_cross(a: [f64; 2], b: [f64; 2], c: [f64; 2], d: [f64; 2]) -
     let (a, b, c, d) = (Vec2::from(a), Vec2::from(b), Vec2::from(c), Vec2::from(d));
     let turn = |p: Vec2, q: Vec2, r: Vec2| (q - p).cross(r - p);
     let values = [turn(a, b, c), turn(a, b, d), turn(c, d, a), turn(c, d, b)];
-    let scale = (b - a).length_squared().max((d - c).length_squared()).max(1.0);
+    let scale = (b - a)
+        .length_squared()
+        .max((d - c).length_squared())
+        .max(1.0);
     let epsilon = 64.0 * f64::EPSILON * scale;
-    (values[0] > epsilon && values[1] < -epsilon
-        || values[0] < -epsilon && values[1] > epsilon)
+    (values[0] > epsilon && values[1] < -epsilon || values[0] < -epsilon && values[1] > epsilon)
         && (values[2] > epsilon && values[3] < -epsilon
             || values[2] < -epsilon && values[3] > epsilon)
 }
@@ -423,8 +437,7 @@ fn segments_intersect_with_tolerance(
             && r.y >= p.y.min(q.y) - tolerance
             && r.y <= p.y.max(q.y) + tolerance
     };
-    (values[0] > epsilon && values[1] < -epsilon
-        || values[0] < -epsilon && values[1] > epsilon)
+    (values[0] > epsilon && values[1] < -epsilon || values[0] < -epsilon && values[1] > epsilon)
         && (values[2] > epsilon && values[3] < -epsilon
             || values[2] < -epsilon && values[3] > epsilon)
         || on(a, b, c, values[0])
@@ -441,8 +454,7 @@ fn ring_contains(ring: &[[f64; 2]], point: [f64; 2]) -> bool {
             inside
                 ^ ((from[1] > point[1]) != (to[1] > point[1])
                     && point[0]
-                        < (to[0] - from[0]) * (point[1] - from[1]) / (to[1] - from[1])
-                            + from[0])
+                        < (to[0] - from[0]) * (point[1] - from[1]) / (to[1] - from[1]) + from[0])
         })
 }
 
@@ -480,11 +492,7 @@ fn root_of(mut index: usize, parent: &[Option<usize>]) -> usize {
     index
 }
 
-fn triangulation_matches(
-    points: &[[f64; 2]],
-    triangles: &[[usize; 3]],
-    expected: f64,
-) -> bool {
+fn triangulation_matches(points: &[[f64; 2]], triangles: &[[usize; 3]], expected: f64) -> bool {
     if triangles.is_empty() || !expected.is_finite() || expected <= 0.0 {
         return false;
     }
@@ -936,7 +944,10 @@ mod tests {
             (0..24)
                 .map(|step| {
                     let angle = std::f64::consts::TAU * step as f64 / 24.0;
-                    [centre[0] + 0.08 * angle.cos(), centre[1] + 0.08 * angle.sin()]
+                    [
+                        centre[0] + 0.08 * angle.cos(),
+                        centre[1] + 0.08 * angle.sin(),
+                    ]
                 })
                 .collect::<Vec<_>>()
         };
@@ -972,8 +983,8 @@ mod tests {
                 + Vec2::from(points[triangle[1]])
                 + Vec2::from(points[triangle[2]]))
                 / 3.0;
-            let inside_l = (centre.x <= 10.0 && centre.y <= 4.0)
-                || (centre.x <= 4.0 && centre.y <= 10.0);
+            let inside_l =
+                (centre.x <= 10.0 && centre.y <= 4.0) || (centre.x <= 4.0 && centre.y <= 10.0);
             assert!(inside_l && centre.x >= 0.0 && centre.y >= 0.0, "{centre:?}");
         }
     }

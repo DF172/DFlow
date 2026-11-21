@@ -125,7 +125,7 @@ fn draw_line(
     let stroke = canvas::Stroke::default()
         .with_color(aci_color(&border.color, fallback))
         .with_width(border_width(&border.weight));
-    frame.stroke(&canvas::Path::line(a, b), stroke.clone());
+    frame.stroke(&canvas::Path::line(a, b), stroke);
     if border.double {
         let spacing = border
             .spacing
@@ -638,7 +638,7 @@ pub fn view_window<'a>(
                 crate::ui::kit::themed_pick_list(
                     Some(EnumChoice {
                         code: format!("{:?}", style.flow_direction),
-                        label: crate::i18n::translate(&format!("{:?}", style.flow_direction))
+                        label: crate::i18n::translate(format!("{:?}", style.flow_direction))
                     }),
                     choices(&[("Down", "Top to bottom"), ("Up", "Bottom to top")]),
                     |value| value.to_string(),

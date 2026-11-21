@@ -88,6 +88,12 @@ impl BlockEditPickCommand {
     }
 }
 
+impl Default for BlockEditPickCommand {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CadCommand for BlockEditPickCommand {
     fn name(&self) -> &'static str {
         "BEDIT"

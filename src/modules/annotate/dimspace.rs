@@ -43,6 +43,12 @@ impl DimSpaceCommand {
     }
 }
 
+impl Default for DimSpaceCommand {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CadCommand for DimSpaceCommand {
     fn name(&self) -> &'static str {
         "DIMSPACE"

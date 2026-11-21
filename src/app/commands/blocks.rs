@@ -109,7 +109,7 @@ impl DraftFlowCAD {
                     self.tabs[i].active_cmd = Some(Box::new(c));
                 } else {
                     let nums: Vec<f64> = rest
-                        .split(|ch| ch == ' ' || ch == ',')
+                        .split([' ', ','])
                         .filter(|s| !s.is_empty())
                         .filter_map(|s| s.parse::<f64>().ok())
                         .collect();
@@ -947,8 +947,8 @@ impl DraftFlowCAD {
                 // (modern CAD opens the palette on `XREF`); bare `XREF` keeps
                 // this repo's legacy list output for compatibility.
                 let rest = cmd
-                    .splitn(2, char::is_whitespace)
-                    .nth(1)
+                    .split_once(char::is_whitespace)
+                    .map(|x| x.1)
                     .unwrap_or("")
                     .trim();
                 let mut parts = rest.split_whitespace();
@@ -1642,7 +1642,7 @@ impl DraftFlowCAD {
                         }
                         let (infos, _dropped) = crate::io::xref::resolve_xrefs(
                             &mut self.tabs[i].scene.document,
-                            &base_dir,
+                            base_dir,
                         );
                         // `resolve_xrefs` re-merges ALL references — refresh stat
                         // baselines for every currently-Loaded entry so no row

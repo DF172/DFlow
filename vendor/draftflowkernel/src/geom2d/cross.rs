@@ -35,7 +35,9 @@
 //! having to test containment for itself.
 
 use super::curve::{Curve, Extent};
-use super::intersect::{circle_circle_points, ellipse_circle, line_circle, line_ellipse, line_line};
+use super::intersect::{
+    circle_circle_points, ellipse_circle, line_circle, line_ellipse, line_line,
+};
 use super::vec::Vec2;
 use super::Tolerance;
 
@@ -92,8 +94,13 @@ fn intersect_local(a: &Curve, b: &Curve, tolerance: Tolerance) -> Vec<Crossing> 
         })
         .collect();
 
-    crossings.sort_by(|x, y| x.t_a.partial_cmp(&y.t_a).unwrap_or(std::cmp::Ordering::Equal));
-    crossings.dedup_by(|x, y| Vec2::from(x.point).distance(Vec2::from(y.point)) <= tolerance.linear());
+    crossings.sort_by(|x, y| {
+        x.t_a
+            .partial_cmp(&y.t_a)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
+    crossings
+        .dedup_by(|x, y| Vec2::from(x.point).distance(Vec2::from(y.point)) <= tolerance.linear());
     crossings
 }
 
@@ -189,9 +196,10 @@ fn candidates(a: &Curve, b: &Curve, tolerance: Tolerance) -> Vec<[f64; 2]> {
             a.segments()
                 .iter()
                 .filter(|piece| {
-                    let (Some((low, high)), Some((from, to))) =
-                        (near, super::bounds::analytic_curve_bounds(std::slice::from_ref(*piece)))
-                    else {
+                    let (Some((low, high)), Some((from, to))) = (
+                        near,
+                        super::bounds::analytic_curve_bounds(std::slice::from_ref(*piece)),
+                    ) else {
                         return true;
                     };
                     (0..2).all(|axis| {
@@ -244,7 +252,8 @@ impl Piece {
         let mut high = [start[0].max(end[0]), start[1].max(end[1])];
         for step in 1..4 {
             let point = curve.point_at(from + (to - from) * step as f64 / 4.0);
-            bow = bow.max(Vec2::from(point).distance_to_segment(Vec2::from(start), Vec2::from(end)));
+            bow =
+                bow.max(Vec2::from(point).distance_to_segment(Vec2::from(start), Vec2::from(end)));
             low = [low[0].min(point[0]), low[1].min(point[1])];
             high = [high[0].max(point[0]), high[1].max(point[1])];
         }
@@ -458,7 +467,10 @@ fn refine(a: &Curve, b: &Curve, guess: f64, tolerance: Tolerance) -> Option<[f64
             return None;
         }
     }
-    (distance(a.point_at(a.parameter_at(point)), b.point_at(b.parameter_at(point))) <= limit)
+    (distance(
+        a.point_at(a.parameter_at(point)),
+        b.point_at(b.parameter_at(point)),
+    ) <= limit)
         .then_some(point)
 }
 
@@ -520,7 +532,11 @@ mod tests {
 
     #[test]
     fn a_segment_through_a_circle_meets_it_twice_in_order() {
-        let hits = intersect(&segment([-10.0, 0.0], [10.0, 0.0]), &circle([0.0, 0.0], 5.0), tol());
+        let hits = intersect(
+            &segment([-10.0, 0.0], [10.0, 0.0]),
+            &circle([0.0, 0.0], 5.0),
+            tol(),
+        );
         assert_eq!(hits.len(), 2);
         assert!(hits[0].t_a < hits[1].t_a);
         assert!((hits[0].point[0] + 5.0).abs() < 1e-6);
@@ -625,7 +641,11 @@ mod tests {
     fn two_ellipses_cross_where_they_should() {
         // Crossed 5x2 and 2x5 ellipses meet at four points, symmetric about
         // both axes.
-        let hits = intersect(&ellipse([0.0, 0.0], 5.0, 2.0), &ellipse([0.0, 0.0], 2.0, 5.0), tol());
+        let hits = intersect(
+            &ellipse([0.0, 0.0], 5.0, 2.0),
+            &ellipse([0.0, 0.0], 2.0, 5.0),
+            tol(),
+        );
         assert_eq!(hits.len(), 4, "got {hits:?}");
         for hit in &hits {
             assert!(
@@ -661,7 +681,10 @@ mod tests {
         };
         let loose = error(Tolerance::new(1e-3));
         let tight = error(Tolerance::new(1e-10));
-        assert!(tight <= loose, "tightening made it worse: {tight} vs {loose}");
+        assert!(
+            tight <= loose,
+            "tightening made it worse: {tight} vs {loose}"
+        );
         assert!(tight < 1e-9, "tight tolerance did not converge: {tight}");
     }
 
@@ -696,8 +719,12 @@ mod tests {
             tol()
         )
         .is_empty());
-        assert!(intersect(&ellipse([0.0, 0.0], 1.0, 1.0), &ellipse([50.0, 0.0], 1.0, 1.0), tol())
-            .is_empty());
+        assert!(intersect(
+            &ellipse([0.0, 0.0], 1.0, 1.0),
+            &ellipse([50.0, 0.0], 1.0, 1.0),
+            tol()
+        )
+        .is_empty());
     }
 
     #[test]
@@ -712,7 +739,11 @@ mod tests {
 
     #[test]
     fn a_tangent_line_touches_once_rather_than_twice() {
-        let hits = intersect(&segment([-10.0, 5.0], [10.0, 5.0]), &circle([0.0, 0.0], 5.0), tol());
+        let hits = intersect(
+            &segment([-10.0, 5.0], [10.0, 5.0]),
+            &circle([0.0, 0.0], 5.0),
+            tol(),
+        );
         assert_eq!(hits.len(), 1, "got {hits:?}");
     }
 
@@ -756,20 +787,31 @@ mod tests {
         let behind = intersect(&line, &segment([-5.0, -1.0], [-5.0, 1.0]), tol());
         assert_eq!(ahead.len(), 1);
         assert_eq!(behind.len(), 1);
-        assert!(ahead[0].t_a > 0.0 && behind[0].t_a < 0.0, "signs should differ");
+        assert!(
+            ahead[0].t_a > 0.0 && behind[0].t_a < 0.0,
+            "signs should differ"
+        );
     }
 
     #[test]
     fn a_ray_through_a_circle_reports_only_what_is_ahead() {
         // Origin inside the circle, so one crossing is ahead and one behind.
-        let hits = intersect(&ray([0.0, 0.0], [1.0, 0.0]), &circle([0.0, 0.0], 5.0), tol());
+        let hits = intersect(
+            &ray([0.0, 0.0], [1.0, 0.0]),
+            &circle([0.0, 0.0], 5.0),
+            tol(),
+        );
         assert_eq!(hits.len(), 1, "got {hits:?}");
         assert!((hits[0].point[0] - 5.0).abs() < 1e-6);
     }
 
     #[test]
     fn an_infinite_line_through_a_circle_reports_both() {
-        let hits = intersect(&xline([0.0, 0.0], [1.0, 0.0]), &circle([0.0, 0.0], 5.0), tol());
+        let hits = intersect(
+            &xline([0.0, 0.0], [1.0, 0.0]),
+            &circle([0.0, 0.0], 5.0),
+            tol(),
+        );
         assert_eq!(hits.len(), 2);
         assert!((hits[0].point[0] + 5.0).abs() < 1e-6);
         assert!((hits[1].point[0] - 5.0).abs() < 1e-6);
@@ -837,7 +879,9 @@ mod tests {
 
     #[test]
     fn skinny_ellipse_crossing_arc_detected() {
-        use super::super::{Ellipse as KernelEllipse, EllipseArc as KernelEllipseArc, Arc as KernelArc};
+        use super::super::{
+            Arc as KernelArc, Ellipse as KernelEllipse, EllipseArc as KernelEllipseArc,
+        };
         let ell = Curve::Ellipse(KernelEllipseArc {
             ellipse: KernelEllipse {
                 centre: [0.0, 0.0],
@@ -855,6 +899,10 @@ mod tests {
             end_angle: std::f64::consts::PI,
         });
         let hits = intersect(&ell, &arc, tol());
-        assert_eq!(hits.len(), 2, "half-circle arc of radius 95 must cross upper half of skinny ellipse twice");
+        assert_eq!(
+            hits.len(),
+            2,
+            "half-circle arc of radius 95 must cross upper half of skinny ellipse twice"
+        );
     }
 }

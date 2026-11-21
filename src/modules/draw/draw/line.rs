@@ -58,6 +58,12 @@ impl LineCommand {
     }
 }
 
+impl Default for LineCommand {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CadCommand for LineCommand {
     fn name(&self) -> &'static str {
         "LINE"

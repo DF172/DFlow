@@ -1414,7 +1414,10 @@ mod tests {
         let mut ml = callout(&[Vector3::ZERO]);
         ml.arrowhead_handle = Some(Handle::NULL);
 
-        assert_eq!(solids(&EntityType::MultiLeader(Box::new(ml)).explode()).len(), 1);
+        assert_eq!(
+            solids(&EntityType::MultiLeader(Box::new(ml)).explode()).len(),
+            1
+        );
     }
 
     #[test]

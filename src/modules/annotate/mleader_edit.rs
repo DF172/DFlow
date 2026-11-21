@@ -55,6 +55,12 @@ impl MLeaderAddCommand {
     }
 }
 
+impl Default for MLeaderAddCommand {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CadCommand for MLeaderAddCommand {
     fn name(&self) -> &'static str {
         "MLEADERADD"
@@ -121,7 +127,7 @@ impl CadCommand for MLeaderAddCommand {
             pts,
         } = &mut self.step
         {
-            if pts.len() < 1 {
+            if pts.is_empty() {
                 return CmdResult::Cancel;
             }
             let h = *handle;
@@ -220,6 +226,12 @@ impl MLeaderRemoveCommand {
         Self {
             step: RemoveStep::PickMLeader,
         }
+    }
+}
+
+impl Default for MLeaderRemoveCommand {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -353,6 +365,12 @@ impl MLeaderAlignCommand {
     }
 }
 
+impl Default for MLeaderAlignCommand {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CadCommand for MLeaderAlignCommand {
     fn name(&self) -> &'static str {
         "MLEADERALIGN"
@@ -439,6 +457,12 @@ impl MLeaderCollectCommand {
         Self {
             step: CollectStep::Gathering,
         }
+    }
+}
+
+impl Default for MLeaderCollectCommand {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

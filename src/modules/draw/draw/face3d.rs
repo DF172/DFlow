@@ -99,6 +99,12 @@ impl Face3dCommand {
     }
 }
 
+impl Default for Face3dCommand {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CadCommand for Face3dCommand {
     fn name(&self) -> &'static str {
         "3DFACE"

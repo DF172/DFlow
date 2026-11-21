@@ -122,6 +122,12 @@ impl LinearDimensionCommand {
     }
 }
 
+impl Default for LinearDimensionCommand {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// A linear dimension between two points of the working plane, its
 /// dimension line through `point` along `axis` — what DIMLINEAR places and
 /// what a dynamic dimensional constraint draws.

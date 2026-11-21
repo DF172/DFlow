@@ -332,6 +332,12 @@ impl AngularDimensionCommand {
     }
 }
 
+impl Default for AngularDimensionCommand {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CadCommand for AngularDimensionCommand {
     fn set_working_plane(&mut self, plane: WorkingPlane) {
         self.plane = plane;

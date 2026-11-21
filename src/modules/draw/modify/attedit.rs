@@ -24,6 +24,12 @@ impl AtteditCommand {
     }
 }
 
+impl Default for AtteditCommand {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CadCommand for AtteditCommand {
     fn name(&self) -> &'static str {
         "ATTEDIT"

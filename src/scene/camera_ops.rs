@@ -275,9 +275,9 @@ impl Scene {
             z: 0.0,
         };
         view.target = Vector3 {
-            x: cam.target.x as f64,
-            y: cam.target.y as f64,
-            z: cam.target.z as f64,
+            x: cam.target.x,
+            y: cam.target.y,
+            z: cam.target.z,
         };
         view.direction = Vector3 {
             x: eye_dir.x as f64,
@@ -1235,9 +1235,9 @@ impl Scene {
             true
         } else {
             let target_wcs = codec::types::Vector3 {
-                x: cam.target.x as f64,
-                y: cam.target.y as f64,
-                z: cam.target.z as f64,
+                x: cam.target.x,
+                y: cam.target.y,
+                z: cam.target.z,
             };
 
             // The sheet viewport entity is the authoritative paper-space view;

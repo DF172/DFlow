@@ -51,7 +51,9 @@ pub fn area(ring: &[[f64; 3]]) -> f64 {
 /// The unit normal of the plane a ring best fits, or `None` for a ring that
 /// encloses nothing — fewer than three points, or all of them in a line.
 pub fn normal(ring: &[[f64; 3]]) -> Option<[f64; 3]> {
-    Vec3::from(area_vector(ring)).normalize().map(Vec3::to_array)
+    Vec3::from(area_vector(ring))
+        .normalize()
+        .map(Vec3::to_array)
 }
 
 /// The length once round a ring, including the closing edge.
@@ -60,9 +62,7 @@ pub fn perimeter(ring: &[[f64; 3]]) -> f64 {
         return 0.0;
     }
     (0..ring.len())
-        .map(|index| {
-            Vec3::from(ring[index]).distance(Vec3::from(ring[(index + 1) % ring.len()]))
-        })
+        .map(|index| Vec3::from(ring[index]).distance(Vec3::from(ring[(index + 1) % ring.len()])))
         .sum()
 }
 
@@ -76,10 +76,7 @@ pub fn chain_length(points: &[[f64; 3]]) -> f64 {
 
 /// Triangulate a simple planar ring into a triangle soup.
 #[cfg(feature = "geom2d")]
-pub fn triangulate(
-    input: &[[f64; 3]],
-    tolerance: crate::geom2d::Tolerance,
-) -> Vec<[f64; 3]> {
+pub fn triangulate(input: &[[f64; 3]], tolerance: crate::geom2d::Tolerance) -> Vec<[f64; 3]> {
     let mut ring = Vec::with_capacity(input.len());
     for &point in input {
         if !point.iter().all(|value| value.is_finite()) {
@@ -92,8 +89,7 @@ pub fn triangulate(
         }
     }
     if ring.len() > 1
-        && Vec3::from(ring[0]).distance(Vec3::from(*ring.last().unwrap()))
-            <= tolerance.linear()
+        && Vec3::from(ring[0]).distance(Vec3::from(*ring.last().unwrap())) <= tolerance.linear()
     {
         ring.pop();
     }
@@ -154,8 +150,7 @@ pub fn triangulate_rings(
             }
         }
         if ring.len() > 1
-            && Vec3::from(ring[0]).distance(Vec3::from(*ring.last().unwrap()))
-                <= tolerance.linear()
+            && Vec3::from(ring[0]).distance(Vec3::from(*ring.last().unwrap())) <= tolerance.linear()
         {
             ring.pop();
         }

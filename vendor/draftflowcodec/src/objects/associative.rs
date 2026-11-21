@@ -204,7 +204,10 @@ impl AssociativeData {
             Self::Variable(value) => {
                 action_references(&value.action, target)
                     || eval_references(&value.value, target)
-                    || value.dependencies.iter().any(|item| item.dependency == target)
+                    || value
+                        .dependencies
+                        .iter()
+                        .any(|item| item.dependency == target)
             }
             Self::CompoundActionParam(value)
             | Self::PointRefActionParam(value)

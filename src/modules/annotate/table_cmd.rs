@@ -365,6 +365,12 @@ impl TableCommand {
     }
 }
 
+impl Default for TableCommand {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CadCommand for TableCommand {
     fn set_working_plane(&mut self, plane: WorkingPlane) {
         self.plane = plane;

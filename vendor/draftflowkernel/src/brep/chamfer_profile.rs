@@ -30,15 +30,14 @@ pub(super) fn chamfer_profile(
         let Some(next_face) = segment_faces[next] else {
             return Err(ChamferError::EdgeOutsideBaseFace(*edge));
         };
-        let (previous_distance, next_distance) = if previous_face == base_face
-            && next_face != base_face
-        {
-            (base_distance, other_distance)
-        } else if next_face == base_face && previous_face != base_face {
-            (other_distance, base_distance)
-        } else {
-            return Err(ChamferError::EdgeOutsideBaseFace(*edge));
-        };
+        let (previous_distance, next_distance) =
+            if previous_face == base_face && next_face != base_face {
+                (base_distance, other_distance)
+            } else if next_face == base_face && previous_face != base_face {
+                (other_distance, base_distance)
+            } else {
+                return Err(ChamferError::EdgeOutsideBaseFace(*edge));
+            };
         trim_end[previous] = trim_end[previous].max(previous_distance);
         trim_start[next] = trim_start[next].max(next_distance);
     }
@@ -82,17 +81,11 @@ pub(super) fn chamfer_profile(
 
     for first in 0..profile.len() {
         for second in first + 1..profile.len() {
-            let adjacent = second == first + 1
-                || (first == 0 && second + 1 == profile.len());
-            for hit in intersect(
-                &profile[first],
-                &profile[second],
-                Tolerance::new(tolerance),
-            ) {
+            let adjacent = second == first + 1 || (first == 0 && second + 1 == profile.len());
+            for hit in intersect(&profile[first], &profile[second], Tolerance::new(tolerance)) {
                 let endpoint = |curve: &Curve| {
                     [0.0, 1.0].iter().any(|parameter| {
-                        Vec2::from(curve.point_at(*parameter))
-                            .distance(Vec2::from(hit.point))
+                        Vec2::from(curve.point_at(*parameter)).distance(Vec2::from(hit.point))
                             <= tolerance
                     })
                 };
@@ -113,11 +106,7 @@ fn point_from_end(curve: &Curve, distance: f64) -> [f64; 2] {
     curve.point_at(curve.parameter_at_distance(curve.length() - distance))
 }
 
-fn trim_segment(
-    curve: &Curve,
-    from_start: f64,
-    from_end: f64,
-) -> Result<Curve, ChamferError> {
+fn trim_segment(curve: &Curve, from_start: f64, from_end: f64) -> Result<Curve, ChamferError> {
     let length = curve.length();
     let start = curve.parameter_at_distance(from_start);
     let end = curve.parameter_at_distance(length - from_end);

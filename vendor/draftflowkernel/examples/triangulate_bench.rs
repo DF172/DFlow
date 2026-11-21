@@ -109,7 +109,9 @@ fn main() {
         for _ in 0..5 {
             let start = Instant::now();
             for _ in 0..repeats {
-                black_box(draftflowkernel::geom2d::triangulate_rings(black_box(&rings)));
+                black_box(draftflowkernel::geom2d::triangulate_rings(black_box(
+                    &rings,
+                )));
             }
             times.push(start.elapsed().as_nanos() as f64 / repeats as f64);
         }

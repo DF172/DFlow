@@ -33,6 +33,12 @@ impl DdeditCommand {
     }
 }
 
+impl Default for DdeditCommand {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CadCommand for DdeditCommand {
     fn name(&self) -> &'static str {
         "DDEDIT"

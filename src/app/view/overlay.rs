@@ -68,7 +68,7 @@ pub(super) fn text_inline_overlay<'a>(
         (ed.screen_anchor.x - 6.0).clamp(0.0, (cw - PANEL_W).max(0.0)),
         (ed.screen_anchor.y - 18.0).clamp(0.0, (ch - PANEL_H).max(0.0)),
     );
-    position_canvas_overlay(anchor, panel.into())
+    position_canvas_overlay(anchor, panel)
 }
 
 // Stroke-font families bundled with the renderer; see scene/lff.rs.
@@ -196,11 +196,9 @@ impl iced::widget::canvas::Program<Message> for MTextPreview {
                     }
                 }
             }
-            Event::Mouse(Me::ButtonReleased(Button::Left)) => {
-                if state.dragging {
-                    state.dragging = false;
-                    return Some(Action::capture());
-                }
+            Event::Mouse(Me::ButtonReleased(Button::Left)) if state.dragging => {
+                state.dragging = false;
+                return Some(Action::capture());
             }
             _ => {}
         }
@@ -1428,7 +1426,7 @@ pub(super) fn snap_override_overlay(pos: iced::Point, theme: &Theme) -> Element<
     .on_press(Message::SnapOverrideClose)
     .on_right_press(Message::SnapOverrideClose);
 
-    stack![catcher, position_canvas_overlay(pos, panel.into())].into()
+    stack![catcher, position_canvas_overlay(pos, panel)].into()
 }
 
 // ── Quick Select panel ─────────────────────────────────────────────────────

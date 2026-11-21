@@ -155,14 +155,14 @@ impl DraftFlowCAD {
 
     pub(super) fn on_tab_close(&mut self, idx: usize) -> Task<Message> {
         // Start tab is fixed — close requests on it are no-ops.
-        if self.tabs.get(idx).map_or(false, |t| t.is_start) {
+        if self.tabs.get(idx).is_some_and(|t| t.is_start) {
             return Task::none();
         }
         // Closing a tab shifts indices / the active tab. The attribute
         // editor holds a document-local handle into one tab, so drop it
         // now rather than risk it applying to a different tab's document.
         self.cancel_attr_editor();
-        if self.tabs.get(idx).map_or(false, |t| t.dirty) {
+        if self.tabs.get(idx).is_some_and(|t| t.dirty) {
             self.pending_close = Some(crate::app::PendingClose::Tab(self.tabs[idx].id));
             return self.open_unsaved_dialog_window();
         }
@@ -848,12 +848,10 @@ impl DraftFlowCAD {
             let raw = self.command_line.input.trim().to_string();
             let is_mtp = raw.trim_start_matches('_').eq_ignore_ascii_case("MTP")
                 || raw.trim_start_matches('_').eq_ignore_ascii_case("M2P");
-            if is_mtp {
-                if self.point_modifier_step(i) {
-                    self.command_line.input.clear();
-                    self.start_mtp_modifier(i);
-                    return self.focus_cmd_input();
-                }
+            if is_mtp && self.point_modifier_step(i) {
+                self.command_line.input.clear();
+                self.start_mtp_modifier(i);
+                return self.focus_cmd_input();
             }
             if let Some(kind) = self.typed_snap_override(i, &raw) {
                 self.command_line.input.clear();
@@ -2430,7 +2428,7 @@ impl DraftFlowCAD {
                         model.name = name.clone();
                     }
                 }
-                self.invalidate_property_targets(i, &handles);
+                self.invalidate_property_targets(i, handles);
                 self.tabs[i].dirty = true;
                 self.refresh_properties();
             }
@@ -2739,9 +2737,9 @@ impl DraftFlowCAD {
                             app.tabs[i].scene.document.get_entity_mut(handle)
                         {
                             vp.ucs_handle = ucs.handle;
-                            vp.ucs_origin = ucs.origin.clone();
-                            vp.ucs_x_axis = ucs.x_axis.clone();
-                            vp.ucs_y_axis = ucs.y_axis.clone();
+                            vp.ucs_origin = ucs.origin;
+                            vp.ucs_x_axis = ucs.x_axis;
+                            vp.ucs_y_axis = ucs.y_axis;
                             vp.ucs_per_viewport = true;
                         }
                     });
@@ -2766,8 +2764,8 @@ impl DraftFlowCAD {
                         if let Some(codec::EntityType::Viewport(vp)) =
                             app.tabs[i].scene.document.get_entity_mut(handle)
                         {
-                            vp.view_target = view.target.clone();
-                            vp.view_direction = view.direction.clone();
+                            vp.view_target = view.target;
+                            vp.view_direction = view.direction;
                             if view.height > 0.0 {
                                 vp.view_height = view.height;
                             }

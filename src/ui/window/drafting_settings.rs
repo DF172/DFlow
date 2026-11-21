@@ -494,7 +494,7 @@ pub fn view_window<'a>(
 
         // Two columns of snap modes:
         let total = ALL_SNAP_MODES.len();
-        let mid = (total + 1) / 2;
+        let mid = total.div_ceil(2);
         let (first_half, second_half) = ALL_SNAP_MODES.split_at(mid);
 
         let mut col1 = column![].spacing(tokens::GAP_CONTROL).width(Fill);

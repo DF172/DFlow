@@ -282,7 +282,7 @@ impl DraftFlowCAD {
             self.save_dialog_for_unsaved = true;
             let close = self.close_unsaved_dialog_window();
             let save = self.save_with_default_format(idx);
-            return Task::batch([close, save]);
+            Task::batch([close, save])
         }
     }
 

@@ -101,6 +101,12 @@ impl Mesh3dCommand {
     }
 }
 
+impl Default for Mesh3dCommand {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CadCommand for Mesh3dCommand {
     fn name(&self) -> &'static str {
         "3DMESH"

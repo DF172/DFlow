@@ -241,7 +241,6 @@ pub fn color_dropdown_panel<'a>(
             .into(),
         "",
     )
-    .into()
 }
 
 #[cfg(test)]

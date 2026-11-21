@@ -28,13 +28,19 @@ use super::Tolerance;
 /// Open curves keep both outside spans, independent of pick order. A single
 /// interior parameter splits an open curve without removing any geometry.
 /// Closed curves keep the directed complement, which may end beyond parameter 1.
-pub fn break_spans(curve: &Curve, first: f64, second: f64, tolerance: Tolerance) -> Option<Vec<[f64; 2]>> {
+pub fn break_spans(
+    curve: &Curve,
+    first: f64,
+    second: f64,
+    tolerance: Tolerance,
+) -> Option<Vec<[f64; 2]>> {
     if curve.extent() != Extent::Bounded || !first.is_finite() || !second.is_finite() {
         return None;
     }
     let a = first.clamp(0.0, 1.0);
     let b = second.clamp(0.0, 1.0);
-    let speed = Vec2::from(curve.tangent_at(a)).length()
+    let speed = Vec2::from(curve.tangent_at(a))
+        .length()
         .max(Vec2::from(curve.tangent_at(b)).length());
     if !speed.is_finite() || speed <= 0.0 {
         return None;
@@ -45,8 +51,12 @@ pub fn break_spans(curve: &Curve, first: f64, second: f64, tolerance: Tolerance)
         // retaining its original seam; a closed conic cannot represent this.
         if matches!(curve, Curve::Polyline(_)) && (a - b).abs() <= epsilon {
             let mut spans = Vec::with_capacity(2);
-            if a > epsilon { spans.push([0.0, a]); }
-            if 1.0 - a > epsilon { spans.push([a, 1.0]); }
+            if a > epsilon {
+                spans.push([0.0, a]);
+            }
+            if 1.0 - a > epsilon {
+                spans.push([a, 1.0]);
+            }
             return Some(spans);
         }
         let removed = (b - a).rem_euclid(1.0);
@@ -67,12 +77,7 @@ pub fn break_spans(curve: &Curve, first: f64, second: f64, tolerance: Tolerance)
 }
 
 /// Curve spans left after removing the cut interval containing `picked`.
-pub fn trim_spans(
-    curve: &Curve,
-    cuts: &[f64],
-    picked: f64,
-    tolerance: Tolerance,
-) -> Vec<[f64; 2]> {
+pub fn trim_spans(curve: &Curve, cuts: &[f64], picked: f64, tolerance: Tolerance) -> Vec<[f64; 2]> {
     let extent = curve.extent();
     if !picked.is_finite() {
         return Vec::new();
@@ -96,8 +101,7 @@ pub fn trim_spans(
 
     let mut bounds = vec![first];
     bounds.extend(
-        cuts
-            .iter()
+        cuts.iter()
             .copied()
             .filter(|cut| cut.is_finite() && extent.holds(*cut))
             .map(|cut| match extent {
@@ -154,9 +158,7 @@ pub fn inside_spans(boundary: &[Curve], curve: &Curve, tolerance: Tolerance) -> 
         // No crossings: the curve is wholly inside or wholly outside, and one
         // test settles it. Only a bounded curve can be wholly inside — an
         // infinite one always leaves.
-        if curve.extent() == Extent::Bounded
-            && contains(boundary, curve.point_at(0.5), tolerance)
-        {
+        if curve.extent() == Extent::Bounded && contains(boundary, curve.point_at(0.5), tolerance) {
             return vec![[0.0, 1.0]];
         }
         return Vec::new();
@@ -275,7 +277,10 @@ mod tests {
             .map(|piece| (piece[0][0].min(piece[1][0]), piece[0][0].max(piece[1][0])))
             .collect();
         spans.sort_by(|a, b| a.0.total_cmp(&b.0));
-        assert!((spans[0].0).abs() < 1e-6 && (spans[0].1 - 3.0).abs() < 1e-6, "{spans:?}");
+        assert!(
+            (spans[0].0).abs() < 1e-6 && (spans[0].1 - 3.0).abs() < 1e-6,
+            "{spans:?}"
+        );
         assert!((spans[1].0 - 7.0).abs() < 1e-6 && (spans[1].1 - 10.0).abs() < 1e-6);
     }
 
@@ -391,8 +396,14 @@ mod tests {
             centre: [0.0, 0.0],
             radius: 2.0,
         });
-        assert_eq!(break_spans(&curve, 0.25, 0.75, tol()), Some(vec![[0.75, 1.25]]));
-        assert_eq!(break_spans(&curve, 0.75, 0.25, tol()), Some(vec![[0.25, 0.75]]));
+        assert_eq!(
+            break_spans(&curve, 0.25, 0.75, tol()),
+            Some(vec![[0.75, 1.25]])
+        );
+        assert_eq!(
+            break_spans(&curve, 0.75, 0.25, tol()),
+            Some(vec![[0.25, 0.75]])
+        );
         assert!(break_spans(&curve, 0.25, 0.25, tol()).is_none());
         assert!(break_spans(&curve, f64::NAN, 0.5, tol()).is_none());
         assert!(break_spans(&crossing_line(0.0), 0.25, 0.75, tol()).is_none());

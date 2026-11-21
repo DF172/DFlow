@@ -28,6 +28,12 @@ impl UngroupCommand {
     }
 }
 
+impl Default for UngroupCommand {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CadCommand for UngroupCommand {
     fn name(&self) -> &'static str {
         "UNGROUP"

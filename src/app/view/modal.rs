@@ -668,11 +668,10 @@ impl DraftFlowCAD {
                             self.spacemouse_details,
                         ),
                         {
-                            let page = crate::ui::window::options::graphics::view(
+                            crate::ui::window::options::graphics::view(
                                 self.graphics_prefs,
                                 crate::gpu_backend::active_gpu(),
-                            );
-                            page
+                            )
                         },
                         &self.snap_angle_input,
                         &self.zoom_factor_input,
@@ -1047,7 +1046,7 @@ impl DraftFlowCAD {
                     })
                     .collect();
                 sized_flow(ex, 334, 356, |flow| {
-                    crate::ui::style::anno_object_scale::view_window(&label, &scales, flow)
+                    crate::ui::style::anno_object_scale::view_window(label, &scales, flow)
                 })
             }
             super::super::ModalKind::InsertTable => sized_flow(ex, 594, 668, |flow| {

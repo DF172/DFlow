@@ -85,6 +85,12 @@ impl CoincidentConstraintCommand {
     }
 }
 
+impl Default for CoincidentConstraintCommand {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CadCommand for CoincidentConstraintCommand {
     fn name(&self) -> &'static str {
         "GCCOINCIDENT"

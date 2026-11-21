@@ -491,7 +491,12 @@ impl DwgDocumentBuilder {
             .iter()
             .filter(|record| !record.block_entity_handle.is_null())
             .map(|record| {
-                (record.block_entity_handle, record.handle, record.name.clone(), record.base_point)
+                (
+                    record.block_entity_handle,
+                    record.handle,
+                    record.name.clone(),
+                    record.base_point,
+                )
             })
             .collect();
         for (handle, record, name, base_point) in records {
@@ -513,7 +518,9 @@ impl DwgDocumentBuilder {
         }
         let (_, mut reader) = self.obj_reader.read_record_at(offset).ok()?;
         std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            let _ = self.obj_reader.read_common_entity_data(&mut reader, OBJ_BLOCK);
+            let _ = self
+                .obj_reader
+                .read_common_entity_data(&mut reader, OBJ_BLOCK);
             reader.read_variable_text()
         }))
         .ok()
@@ -538,7 +545,9 @@ impl DwgDocumentBuilder {
             .filter(|handle| matches!(document.get_entity(*handle), Some(EntityType::Viewport(_))))
             .collect();
         let layout = document.objects.values().find_map(|object| match object {
-            crate::objects::ObjectType::Layout(layout) if layout.block_record == paper_handle => Some(layout),
+            crate::objects::ObjectType::Layout(layout) if layout.block_record == paper_handle => {
+                Some(layout)
+            }
             _ => None,
         });
         let overall = layout
@@ -548,9 +557,12 @@ impl DwgDocumentBuilder {
                     .find(|handle| viewports.contains(handle))
             })
             .or_else(|| viewports.first().copied());
-        let order = overall
-            .into_iter()
-            .chain(viewports.iter().copied().filter(|handle| Some(*handle) != overall));
+        let order = overall.into_iter().chain(
+            viewports
+                .iter()
+                .copied()
+                .filter(|handle| Some(*handle) != overall),
+        );
         for (index, handle) in order.enumerate() {
             if let Some(EntityType::Viewport(viewport)) = document.get_entity_mut(handle) {
                 if viewport.id == 0 {
@@ -2631,7 +2643,9 @@ impl DwgDocumentBuilder {
                 .map(|(handle, _)| *handle)
                 .filter(|handle| {
                     document.eed_by_handle.get(handle).is_some_and(|blocks| {
-                        blocks.iter().any(|(app, bytes)| *app == acad && is_noload(bytes))
+                        blocks
+                            .iter()
+                            .any(|(app, bytes)| *app == acad && is_noload(bytes))
                     })
                 })
                 .collect();
@@ -4083,10 +4097,9 @@ impl DwgDocumentBuilder {
                     e.flags.closed = (data.closed_flag & 1) != 0;
                     // smooth_type was decoded by the reader but the builder used
                     // to drop it (spline/curve-fit 3D polylines lost their fit).
-                    e.smooth_type =
-                        crate::entities::polyline3d::SmoothSurfaceType::from_dwg_code(
-                            data.smooth_type,
-                        );
+                    e.smooth_type = crate::entities::polyline3d::SmoothSurfaceType::from_dwg_code(
+                        data.smooth_type,
+                    );
                     e.flags.spline_fit = data.smooth_type != 0;
                     let h = e.common.handle.value();
                     pending.polylines.push((h, EntityType::Polyline3D(e)));
@@ -7783,7 +7796,12 @@ mod layer_handle_tests {
     }
 
     fn map(layer_handle: u64, maps: &HandleMaps) -> crate::entities::EntityCommon {
-        map_entity_common(&entity_on_layer(layer_handle), maps, Handle::new(0x1F), Handle::new(0x1B))
+        map_entity_common(
+            &entity_on_layer(layer_handle),
+            maps,
+            Handle::new(0x1F),
+            Handle::new(0x1B),
+        )
     }
 
     #[test]
@@ -7799,7 +7817,9 @@ mod layer_handle_tests {
         let dangling = map(0x99, &maps);
         assert_eq!(dangling.layer, "0");
         assert_eq!(dangling.layer_handle, Some(Handle::new(0x99)));
-        assert!(!maps.layers.contains_key(&dangling.layer_handle.unwrap().value()));
+        assert!(!maps
+            .layers
+            .contains_key(&dangling.layer_handle.unwrap().value()));
 
         assert_eq!(map(0, &maps).layer_handle, None);
     }

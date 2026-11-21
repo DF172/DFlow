@@ -326,7 +326,7 @@ impl Scene {
         if !(aperture_px.is_finite() && aperture_px > 0.0) {
             return None;
         }
-        let perp_base = want_perp.then(|| base).flatten();
+        let perp_base = want_perp.then_some(base).flatten();
         let project = |world: glam::DVec3| {
             let ndc = view_rot.project_point3((world - eye).as_vec3());
             [
@@ -530,7 +530,7 @@ fn build_mesh_face_index(
         let Some(lod) = set.geometry_lods().first() else {
             continue;
         };
-        for (tri_index, tri) in lod.indices.chunks_exact(3).enumerate() {
+        for (tri_index, tri) in lod.indices.as_chunks::<3>().0.iter().enumerate() {
             let mut v = [glam::DVec3::ZERO; 3];
             let mut ok = true;
             for (slot, index) in v.iter_mut().zip(tri.iter()) {
@@ -3238,7 +3238,7 @@ impl Scene {
         }
         // Complex-linetype glyphs ride the host entity's wire.
         let lt = crate::scene::view::render::linetype_name_for(&self.document, entity);
-        crate::io::linetypes::resolve_complex_lt(&self.document, &lt).is_some()
+        crate::io::linetypes::resolve_complex_lt(&self.document, lt).is_some()
     }
 
     /// Stage the cache categories an entity belongs to before erase removes the
@@ -3651,7 +3651,7 @@ impl Scene {
             // A host inside a block definition is drawn by every reference
             // to that block, and a table by its own block of cell texts.
             if let Some(index) = self.dependency_index_cache.borrow().as_ref() {
-                if let Some(users) = index.block_roots.get(&record_handle) {
+                if let Some(users) = index.block_roots.get(record_handle) {
                     targets.render_handles.extend(users.iter().copied());
                 }
             }
@@ -4131,7 +4131,7 @@ impl Scene {
         }
         self.nav_changed_at
             .get()
-            .map_or(false, |t| t.elapsed().as_millis() < Self::NAV_SETTLE_MS)
+            .is_some_and(|t| t.elapsed().as_millis() < Self::NAV_SETTLE_MS)
     }
 
     pub(crate) fn record_nav_perf(&self, op: NavPerfOp, started: iced::time::Instant) {
@@ -4184,9 +4184,9 @@ impl Scene {
     /// (hatched) frame actually renders after the cursor stops, even when no
     /// input event would otherwise trigger a redraw. Read-only (no side effect).
     pub fn is_settling(&self) -> bool {
-        self.nav_changed_at.get().map_or(false, |t| {
-            t.elapsed().as_millis() < Self::NAV_SETTLE_MS + 130
-        })
+        self.nav_changed_at
+            .get()
+            .is_some_and(|t| t.elapsed().as_millis() < Self::NAV_SETTLE_MS + 130)
     }
 
     /// Prepare display geometry without changing the entity or resident caches.
@@ -9079,10 +9079,10 @@ impl Scene {
                         self.document
                             .layers
                             .get(&common.layer)
-                            .map(|layer| layer.color.clone())
-                            .unwrap_or(common.color.clone())
+                            .map(|layer| layer.color)
+                            .unwrap_or(common.color)
                     } else {
-                        common.color.clone()
+                        common.color
                     };
                     let object_color = color.rgb().map_or([255; 3], |(r, g, b)| [r, g, b]);
                     clouds.extend(point_cloud::placed(
@@ -9148,10 +9148,10 @@ impl Scene {
                 self.document
                     .layers
                     .get(&common.layer)
-                    .map(|layer| layer.color.clone())
-                    .unwrap_or(common.color.clone())
+                    .map(|layer| layer.color)
+                    .unwrap_or(common.color)
             } else {
-                common.color.clone()
+                common.color
             };
             let (r, g, b) = color.rgb().unwrap_or((255, 255, 255));
             wires.push(WireModel::solid_f64(
@@ -11849,10 +11849,7 @@ vis_index={:.1} visible_probe={:.1}",
         // capable of declaring ownership, so an unknown-owner entity is
         // an orphan (typically a block-defn entity whose owner was lost on
         // round-trip) and must not leak into the queried block.
-        if map.is_empty() {
-            return true;
-        }
-        false
+        map.is_empty()
     }
 
     /// Build (and epoch-cache) a reverse map: entity_handle → block_record_handle,

@@ -318,6 +318,12 @@ impl MLeaderCommand {
     }
 }
 
+impl Default for MLeaderCommand {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CadCommand for MLeaderCommand {
     fn name(&self) -> &'static str {
         "MLEADER"

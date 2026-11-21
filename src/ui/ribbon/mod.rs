@@ -624,34 +624,31 @@ impl Ribbon {
         };
 
         let lead = iced::widget::Row::with_children(vec![
-            quick_access_btn(crate::ui::icons::DOC_NEW, "New", "QNEW", theme).into(),
+            quick_access_btn(crate::ui::icons::DOC_NEW, "New", "QNEW", theme),
             open_btn,
-            quick_access_btn(crate::ui::icons::SAVE, "Save", "SAVE", theme).into(),
-            quick_access_btn(crate::ui::icons::FILE_EXPORT, "Save As", "SAVEAS", theme).into(),
-            quick_access_btn(crate::ui::icons::PRINT, "Print", "PRINT", theme).into(),
+            quick_access_btn(crate::ui::icons::SAVE, "Save", "SAVE", theme),
+            quick_access_btn(crate::ui::icons::FILE_EXPORT, "Save As", "SAVEAS", theme),
+            quick_access_btn(crate::ui::icons::PRINT, "Print", "PRINT", theme),
             render_history_control(
                 "Undo",
                 UNDO_HISTORY_ID,
                 undo_count,
                 &self.open_dropdown,
                 theme,
-            )
-            .into(),
+            ),
             render_history_control(
                 "Redo",
                 REDO_HISTORY_ID,
                 redo_count,
                 &self.open_dropdown,
                 theme,
-            )
-            .into(),
+            ),
             quick_access_btn(
                 crate::ui::icons::THEME_TOGGLE,
                 "Theme",
                 "COLORSCHEME TOGGLE",
                 theme,
-            )
-            .into(),
+            ),
         ])
         .spacing(TOP_HIST_GAP)
         .align_y(iced::Center)
@@ -1109,7 +1106,7 @@ impl Ribbon {
             let panel = kit::popup_plate(panel.into(), "");
 
             let (left, top) = self.dd_anchor(open_id, 170.0, win.0);
-            let positioned = position_ribbon_dropdown(panel.into(), left, top);
+            let positioned = position_ribbon_dropdown(panel, left, top);
 
             return Some(dropdown_backdrop(positioned));
         }
@@ -1144,7 +1141,7 @@ impl Ribbon {
             let panel = kit::popup_plate(panel.into(), "");
 
             let (left, top) = self.dd_anchor(open_id, W, win.0);
-            let positioned = position_ribbon_dropdown(panel.into(), left, top);
+            let positioned = position_ribbon_dropdown(panel, left, top);
             return Some(dropdown_backdrop(positioned));
         }
 
@@ -1227,7 +1224,7 @@ impl Ribbon {
                     } else {
                         kit::Press::On(Message::DropdownSelectItem {
                             dropdown_id: dd_id,
-                            cmd: *cmd,
+                            cmd,
                         })
                     },
                     "",
@@ -1256,9 +1253,7 @@ impl Ribbon {
 
         let (left, top) = self.dd_anchor(open_id, panel_w, win.0);
         Some(dropdown_backdrop(position_ribbon_dropdown(
-            panel.into(),
-            left,
-            top,
+            panel, left, top,
         )))
     }
 
@@ -1379,7 +1374,7 @@ impl Ribbon {
         let panel = kit::popup_plate(panel.into(), "");
 
         let (left, top) = self.dd_anchor(LAYER_COMBO_ID, 300.0, win.0);
-        let positioned = position_ribbon_dropdown(panel.into(), left, top);
+        let positioned = position_ribbon_dropdown(panel, left, top);
 
         Some(dropdown_backdrop(positioned))
     }
@@ -1466,9 +1461,7 @@ impl Ribbon {
 
         let (left, top) = self.dd_anchor(open_id, LARGE_W * 2.3, win.0);
         Some(dropdown_backdrop(position_ribbon_dropdown(
-            panel.into(),
-            left,
-            top,
+            panel, left, top,
         )))
     }
 
@@ -1536,11 +1529,7 @@ impl Ribbon {
         let list = kit::popup_plate(list.into(), "");
 
         let (left, top) = self.dd_anchor(PROP_LINETYPE_ID, 220.0, win.0);
-        Some(dropdown_backdrop(position_ribbon_dropdown(
-            list.into(),
-            left,
-            top,
-        )))
+        Some(dropdown_backdrop(position_ribbon_dropdown(list, left, top)))
     }
 
     fn prop_lw_overlay(&self, win: (f32, f32)) -> Option<Element<'_, Message>> {
@@ -1582,9 +1571,7 @@ impl Ribbon {
 
         let (left, top) = self.dd_anchor(dd_id, width, win.0);
         Some(dropdown_backdrop(position_ribbon_dropdown(
-            panel.into(),
-            left,
-            top,
+            panel, left, top,
         )))
     }
 }
@@ -1855,11 +1842,7 @@ fn item_id(it: &RibbonItem) -> Option<&'static str> {
 /// panel's first tool-like item.
 fn representative<'g>(group: &'g RibbonGroup, last_used: Option<&str>) -> Option<&'g RibbonItem> {
     if let Some(want) = last_used {
-        if let Some(found) = group
-            .tools
-            .iter()
-            .find(|&it| item_id(it).map_or(false, |id| id == want))
-        {
+        if let Some(found) = group.tools.iter().find(|&it| item_id(it) == Some(want)) {
             return Some(found);
         }
     }
@@ -1971,7 +1954,7 @@ fn collapse_button<'a>(
             .width(Fill)
             .padding(kit::PAD_CELL),
         );
-        return automatic_large_button(localized_title, content.into());
+        return automatic_large_button(localized_title, content);
     }
 
     // Collapsed (not yet tight): a large representative-tool face — a live button
@@ -2041,7 +2024,7 @@ fn collapse_button<'a>(
         .width(Fill)
         .padding(kit::PAD_CELL),
     );
-    let opener = automatic_large_button(localized_title, opener.into());
+    let opener = automatic_large_button(localized_title, opener);
 
     // The large face fills a fixed slot so a collapsed panel is shorter than a full
     // 3-row panel, letting `CollapsePanels` shrink the ribbon row.
@@ -2248,8 +2231,10 @@ mod tests {
         ))
         .expect("the viewport update module must be readable");
         let update = paint_side(&update);
+        // rustfmt may wrap the call across lines; compare with whitespace removed.
+        let update_flat: String = update.split_whitespace().collect();
         assert!(
-            update.contains("motion::chase(crate::ui::motion::PROGRESS"),
+            update_flat.contains("motion::chase(crate::ui::motion::PROGRESS"),
             "no update-side chase owns the progress track"
         );
         assert!(

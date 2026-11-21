@@ -790,7 +790,7 @@ bg={bg_ms:.1}ms n={view_count}"
                 let current_vertex_grip: Option<usize> = tab
                     .properties
                     .prop_vertex_indicator_active
-                    .then(|| sel_h)
+                    .then_some(sel_h)
                     .flatten()
                     .and_then(|h| {
                         let indexed = match tab.scene.document.get_entity(h) {
@@ -1859,7 +1859,7 @@ bg={bg_ms:.1}ms n={view_count}"
                     // context menu's "panel below the click point" feel.
                     let anchor = iced::Point::new(popup.anchor.x + 12.0, popup.anchor.y + 12.0);
                     viewport_stack =
-                        viewport_stack.push(position_canvas_overlay(anchor, menu_panel.into()));
+                        viewport_stack.push(position_canvas_overlay(anchor, menu_panel));
                 }
             }
 
@@ -1908,8 +1908,7 @@ bg={bg_ms:.1}ms n={view_count}"
                         "",
                     );
                     let anchor = iced::Point::new(popup.anchor.x + 12.0, popup.anchor.y + 12.0);
-                    viewport_stack =
-                        viewport_stack.push(position_canvas_overlay(anchor, panel.into()));
+                    viewport_stack = viewport_stack.push(position_canvas_overlay(anchor, panel));
                 }
             }
 
@@ -2149,13 +2148,13 @@ bg={bg_ms:.1}ms n={view_count}"
                 // mouse_interaction). While the menu is open the track is
                 // rising or held at 1; after it closes the track falls to 0 and
                 // menu_scrim() returns None — no reader, no blur pass.
-                if !thumbnail_capture_clean && !self.layout_settling {
-                    if ctx_pos.is_some()
-                        || crate::ui::motion::value_or(crate::ui::motion::MENU_SCRIM, 0.0) > 0.0
-                    {
-                        if let Some(scrim) = Self::menu_scrim() {
-                            viewport_stack = viewport_stack.push(scrim);
-                        }
+                if !thumbnail_capture_clean
+                    && !self.layout_settling
+                    && (ctx_pos.is_some()
+                        || crate::ui::motion::value_or(crate::ui::motion::MENU_SCRIM, 0.0) > 0.0)
+                {
+                    if let Some(scrim) = Self::menu_scrim() {
+                        viewport_stack = viewport_stack.push(scrim);
                     }
                 }
                 if let Some(p) = ctx_pos {
@@ -3006,7 +3005,7 @@ impl DraftFlowCAD {
                         Some(Message::OsWindowClosed(win_id))
                     }
                     iced::Event::Window(window::Event::Resized(sz)) => {
-                        Some(Message::WindowResized(sz.width as f32, sz.height as f32))
+                        Some(Message::WindowResized(sz.width, sz.height))
                     }
                     iced::Event::Window(window::Event::FileDropped(path)) => {
                         Some(Message::FileDropped(path))
@@ -4095,8 +4094,8 @@ fn recent_is_missing(path: &std::path::Path) -> bool {
 fn recent_within_band(path: &std::path::Path, filter: super::StartFilter) -> bool {
     match filter {
         super::StartFilter::All => true,
-        super::StartFilter::Today => recent_age_secs(path).map_or(true, |secs| secs < 86_400),
-        super::StartFilter::Week => recent_age_secs(path).map_or(true, |secs| secs < 604_800),
+        super::StartFilter::Today => recent_age_secs(path).is_none_or(|secs| secs < 86_400),
+        super::StartFilter::Week => recent_age_secs(path).is_none_or(|secs| secs < 604_800),
     }
 }
 
@@ -4198,7 +4197,7 @@ pub(super) fn recent_files_panel<'a>(
         Space::new().width(Fill).into(),
         filters.into(),
         search.into(),
-        meta(format!("/ {}", super::recent::RECENT_MAX)).into(),
+        meta(format!("/ {}", super::recent::RECENT_MAX)),
     ])
     .spacing(tokens::GAP_CONTROL)
     .align_y(iced::Center)

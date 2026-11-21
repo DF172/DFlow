@@ -1127,17 +1127,27 @@ pub struct SolidHistoryTree {
 impl SolidHistoryTree {
     /// The operation whose node id is `id`, anywhere in the tree.
     pub fn find(&self, id: i32) -> Option<&SolidHistoryTree> {
-        if self.operation.base().is_some_and(|base| base.node_id() == id) {
+        if self
+            .operation
+            .base()
+            .is_some_and(|base| base.node_id() == id)
+        {
             return Some(self);
         }
         self.operands.iter().find_map(|operand| operand.find(id))
     }
 
     pub fn find_mut(&mut self, id: i32) -> Option<&mut SolidHistoryTree> {
-        if self.operation.base().is_some_and(|base| base.node_id() == id) {
+        if self
+            .operation
+            .base()
+            .is_some_and(|base| base.node_id() == id)
+        {
             return Some(self);
         }
-        self.operands.iter_mut().find_map(|operand| operand.find_mut(id))
+        self.operands
+            .iter_mut()
+            .find_map(|operand| operand.find_mut(id))
     }
 
     /// Whether any step combines two solids.
@@ -1306,7 +1316,10 @@ impl SolidHistoryLoft {
         options.start_magnitude = parameters.start_magnitude;
         options.end_magnitude = parameters.end_magnitude;
         (
-            parameters.path_entity.as_ref().or(self.path_entity.as_ref()),
+            parameters
+                .path_entity
+                .as_ref()
+                .or(self.path_entity.as_ref()),
             options,
         )
     }

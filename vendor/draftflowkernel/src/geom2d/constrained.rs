@@ -40,11 +40,11 @@ impl ConstrainedMesh {
             }
         }
         let origin = [bounds[0][0], bounds[1][0]];
-        let scale = [
-            bounds[0][1] - bounds[0][0],
-            bounds[1][1] - bounds[1][0],
-        ];
-        if scale.iter().any(|value| !value.is_finite() || *value <= 0.0) {
+        let scale = [bounds[0][1] - bounds[0][0], bounds[1][1] - bounds[1][0]];
+        if scale
+            .iter()
+            .any(|value| !value.is_finite() || *value <= 0.0)
+        {
             return None;
         }
 
@@ -164,8 +164,7 @@ fn ring_contains(ring: &[[f64; 2]], point: [f64; 2]) -> bool {
         .fold(false, |inside, (from, to)| {
             let crosses = (from[1] > point[1]) != (to[1] > point[1])
                 && point[0]
-                    < (to[0] - from[0]) * (point[1] - from[1]) / (to[1] - from[1])
-                        + from[0];
+                    < (to[0] - from[0]) * (point[1] - from[1]) / (to[1] - from[1]) + from[0];
             inside ^ crosses
         })
 }

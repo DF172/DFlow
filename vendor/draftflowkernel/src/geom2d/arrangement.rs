@@ -353,17 +353,17 @@ fn split_tagged_at_crossings(segments: &[TaggedLine], tolerance: f64) -> Vec<Tag
 /// that is the one where the active list stays short.
 fn sweep_on_y(bounds: &[Bounds], tolerance: f64) -> bool {
     let congestion = |vertical: bool| {
-        let (low, high) = bounds.iter().fold(
-            (f64::INFINITY, f64::NEG_INFINITY),
-            |(low, high), b| {
-                let (min, max) = if vertical {
-                    (b.min.y, b.max.y)
-                } else {
-                    (b.min.x, b.max.x)
-                };
-                (low.min(min), high.max(max))
-            },
-        );
+        let (low, high) =
+            bounds
+                .iter()
+                .fold((f64::INFINITY, f64::NEG_INFINITY), |(low, high), b| {
+                    let (min, max) = if vertical {
+                        (b.min.y, b.max.y)
+                    } else {
+                        (b.min.x, b.max.x)
+                    };
+                    (low.min(min), high.max(max))
+                });
         let extent = high - low;
         if !extent.is_finite() || extent <= tolerance {
             return f64::INFINITY;
@@ -411,7 +411,12 @@ impl Graph {
                 &mut buckets,
                 tolerance,
             );
-            let b = weld_point(Vec2::from(piece.end), &mut vertices, &mut buckets, tolerance);
+            let b = weld_point(
+                Vec2::from(piece.end),
+                &mut vertices,
+                &mut buckets,
+                tolerance,
+            );
             if a != b {
                 edges.insert(if a < b { (a, b) } else { (b, a) });
             }
@@ -754,7 +759,10 @@ mod tests {
         );
         match crossing {
             SegmentCrossing::Overlap { a, b } => {
-                assert!((a[0] - 0.4).abs() < 1e-12 && (a[1] - 1.0).abs() < 1e-12, "{a:?}");
+                assert!(
+                    (a[0] - 0.4).abs() < 1e-12 && (a[1] - 1.0).abs() < 1e-12,
+                    "{a:?}"
+                );
                 assert!((b[0]).abs() < 1e-12 && (b[1] - 0.6).abs() < 1e-12, "{b:?}");
             }
             other => panic!("expected an overlap, got {other:?}"),
@@ -806,10 +814,16 @@ mod tests {
         // The reason it sums about the ring's own first point: about the
         // origin the terms here are around 10¹² and cancel to 10².
         let origin = [512_345.678, 4_512_345.678];
-        let ring: Vec<[f64; 2]> = [[0.0, 0.0], [10.0, 0.0], [10.0, 10.0], [0.0, 10.0], [0.0, 0.0]]
-            .iter()
-            .map(|p| [origin[0] + p[0], origin[1] + p[1]])
-            .collect();
+        let ring: Vec<[f64; 2]> = [
+            [0.0, 0.0],
+            [10.0, 0.0],
+            [10.0, 10.0],
+            [0.0, 10.0],
+            [0.0, 0.0],
+        ]
+        .iter()
+        .map(|p| [origin[0] + p[0], origin[1] + p[1]])
+        .collect();
         assert!((signed_area(&ring) - 100.0).abs() < 1e-6);
     }
 
@@ -872,7 +886,10 @@ mod tests {
         let a = line([0.0, 0.0], [1.0e9, 1.0e-3]);
         let b = line([5.0e8, 5.0e-4 + 5.0e-7], [1.5e9, 1.5e-3 + 5.0e-7]);
         assert!(
-            matches!(segment_crossing(a, b, tol()), SegmentCrossing::Overlap { .. }),
+            matches!(
+                segment_crossing(a, b, tol()),
+                SegmentCrossing::Overlap { .. }
+            ),
             "{:?}",
             segment_crossing(a, b, tol())
         );

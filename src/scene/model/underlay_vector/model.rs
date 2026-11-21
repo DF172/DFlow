@@ -527,7 +527,12 @@ pub const DGN_DEFAULT_COLORS: [[u8; 3]; 256] = [
 pub fn dgn_color_table(e: &[u8], first: usize) -> Option<Vec<[u8; 3]>> {
     let bg = e.get(first - 3..first)?;
     let body = e.get(first..first + 255 * 3)?;
-    let mut out: Vec<[u8; 3]> = body.chunks_exact(3).map(|c| [c[0], c[1], c[2]]).collect();
+    let mut out: Vec<[u8; 3]> = body
+        .as_chunks::<3>()
+        .0
+        .iter()
+        .map(|c| [c[0], c[1], c[2]])
+        .collect();
     out.push([bg[0], bg[1], bg[2]]);
     Some(out)
 }

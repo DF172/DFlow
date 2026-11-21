@@ -1993,7 +1993,7 @@ pub fn is_annotative(doc: &CadDocument, entity: &EntityType) -> bool {
                     codec::xdata::XDataValue::Integer16(value) => Some(*value),
                     _ => None,
                 })
-                .last()
+                .next_back()
         })
         .is_some_and(|value| value != 0);
     if standard_marker

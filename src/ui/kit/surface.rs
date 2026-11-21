@@ -1236,8 +1236,8 @@ pub fn card_plate_style(theme: &Theme) -> container::Style {
 pub fn row_selection_plate_style(theme: &Theme, selected: bool) -> container::Style {
     let palette = theme.palette();
     container::Style {
-        background: selected.then(|| Background::Color(palette.primary.weak.color)),
-        text_color: selected.then(|| palette.primary.weak.text),
+        background: selected.then_some(Background::Color(palette.primary.weak.color)),
+        text_color: selected.then_some(palette.primary.weak.text),
         ..Default::default()
     }
 }
@@ -1369,7 +1369,7 @@ pub fn marker_ring_style(edge: Color) -> container::Style {
 #[must_use]
 pub fn option_row_style(theme: &Theme, highlighted: bool, selected: bool) -> container::Style {
     let palette = theme.palette();
-    let background = highlighted.then(|| Background::Color(palette.background.strong.color));
+    let background = highlighted.then_some(Background::Color(palette.background.strong.color));
     let text_color = if highlighted || selected {
         palette.background.strong.text
     } else {
@@ -1440,7 +1440,7 @@ pub fn port_dot_style(theme: &Theme, linked: bool) -> container::Style {
         None => tokens::aurora_hi(theme),
     };
     container::Style {
-        background: linked.then(|| Background::Color(ring)),
+        background: linked.then_some(Background::Color(ring)),
         border: Border {
             color: ring,
             width: tokens::EDGE_RING,
@@ -1959,7 +1959,7 @@ pub fn sheet_flat_style(fallback: Tier, theme: &Theme, track: &'static str) -> c
 /// the selection it is supposed to sit underneath.
 #[must_use]
 pub fn stripe_style(theme: &Theme, index: usize, track: &'static str) -> container::Style {
-    let tier = if index % 2 == 0 {
+    let tier = if index.is_multiple_of(2) {
         Tier::Sink
     } else {
         Tier::Well
@@ -2460,7 +2460,7 @@ pub fn selected_row_wash_style(theme: &Theme, selected: bool) -> container::Styl
             Some(colors) => Background::Color(colors.selected_row),
             None => tokens::aurora_gradient(theme, tokens::WASH_ROW),
         }),
-        text_color: selected.then(|| match colors {
+        text_color: selected.then_some(match colors {
             Some(colors) => colors.ink,
             None => palette.primary.weak.text,
         }),

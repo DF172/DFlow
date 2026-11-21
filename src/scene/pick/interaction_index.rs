@@ -392,7 +392,7 @@ impl SpatialGrid {
             });
             slots.into_iter().map(AtomicU32::into_inner).collect()
         };
-        let oversized = SpatialBvh2::build(&entries, oversized);
+        let oversized = SpatialBvh2::build(entries, oversized);
 
         Self {
             min,

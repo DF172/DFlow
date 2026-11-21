@@ -182,13 +182,13 @@ impl canvas::Program<Message> for DimensionPreview {
         if self.ext1 {
             frame.stroke(
                 &line(Point::new(x1, object_y), Point::new(x1, 22.0)),
-                stroke.clone(),
+                stroke,
             );
         }
         if self.ext2 {
             frame.stroke(
                 &line(Point::new(x2, object_y), Point::new(x2, 22.0)),
-                stroke.clone(),
+                stroke,
             );
         }
 
@@ -199,7 +199,7 @@ impl canvas::Program<Message> for DimensionPreview {
                     Point::new(x1, y),
                     Point::new((bounds.width * 0.5 - text_half).max(x1), y),
                 ),
-                stroke.clone(),
+                stroke,
             );
         }
         if self.dim2 {
@@ -208,7 +208,7 @@ impl canvas::Program<Message> for DimensionPreview {
                     Point::new((bounds.width * 0.5 + text_half).min(x2), y),
                     Point::new(x2, y),
                 ),
-                stroke.clone(),
+                stroke,
             );
         }
 
@@ -709,7 +709,7 @@ pub fn view_window<'a>(
     };
 
     let text_style_field: Element<'a, Message> = if vals.read_only {
-        crate::ui::read_only::field(&vals.dimtxsty, tokens::TEXT_LABEL, Length::Fixed(150.0))
+        crate::ui::read_only::field(vals.dimtxsty, tokens::TEXT_LABEL, Length::Fixed(150.0))
     } else {
         crate::ui::kit::themed_pick_list(
             Some(vals.dimtxsty.to_string()),
@@ -1381,7 +1381,7 @@ pub fn view_window<'a>(
         on_set_current: Message::DimStyleDialogSetCurrent,
         on_apply: Message::DimStyleDialogApply,
         read_only: vals.read_only,
-        editor: right_panel.into(),
+        editor: right_panel,
     })
 }
 

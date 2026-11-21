@@ -66,6 +66,12 @@ impl RadiusDimensionCommand {
     }
 }
 
+impl Default for RadiusDimensionCommand {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// A radius dimension of `source` with its text at `world`: the dimension
 /// line runs from the center through the text (DIMUPT).
 pub(crate) fn radial_dimension_entity(

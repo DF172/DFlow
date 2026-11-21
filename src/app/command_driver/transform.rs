@@ -290,9 +290,9 @@ impl DraftFlowCAD {
             })
         };
 
-        let dx = delta.x as f64;
-        let dy = delta.y as f64; // drawing plane is world XY
-        let dz = delta.z as f64;
+        let dx = delta.x;
+        let dy = delta.y; // drawing plane is world XY
+        let dz = delta.z;
 
         // Dimensions whose points moved — their baked *D block is
         // stale afterwards and must be dropped (see #398 / #372).

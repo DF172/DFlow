@@ -289,7 +289,7 @@ pub fn split_wires(wires: &[WireModel]) -> (Vec<&WireModel>, Vec<&WireModel>) {
 ///     resolve by submission order, which a tail relocation would flip.
 fn order_sensitive(wires: &[&WireModel], depth_map: &FxHashMap<u64, [f32; 2]>) -> bool {
     wires.iter().any(|w| {
-        w.color[3] < 0.999 || handle_of(w).map_or(true, |h| !depth_map.contains_key(&h.value()))
+        w.color[3] < 0.999 || handle_of(w).is_none_or(|h| !depth_map.contains_key(&h.value()))
     })
 }
 
@@ -956,10 +956,7 @@ impl WireArena {
                 bytemuck::cast_slice(&self.consts_cpu[start as usize..end as usize]),
             );
         }
-        if self.tombstoned > self.inst_tail / 2 {
-            return false;
-        }
-        true
+        self.tombstoned <= self.inst_tail / 2
     }
 
     /// One draw batch wrapping the persistent instance buffer. `instance_count`
@@ -1036,7 +1033,7 @@ impl WireArena {
         // instance drawing.
         const MAX_RANGES: usize = 64;
         if ranges.len() > MAX_RANGES {
-            let group = (ranges.len() + MAX_RANGES - 1) / MAX_RANGES;
+            let group = ranges.len().div_ceil(MAX_RANGES);
             ranges = ranges
                 .chunks(group)
                 .map(|chunk| (chunk[0].0, chunk[chunk.len() - 1].1))
@@ -1160,7 +1157,7 @@ fn visible_ranges(
     // Cap CPU draw-call overhead on pathologically interleaved draw order.
     const MAX_RANGES: usize = 64;
     if merged.len() > MAX_RANGES {
-        let group = (merged.len() + MAX_RANGES - 1) / MAX_RANGES;
+        let group = merged.len().div_ceil(MAX_RANGES);
         merged = merged
             .chunks(group)
             .map(|chunk| (chunk[0].0, chunk[chunk.len() - 1].1))

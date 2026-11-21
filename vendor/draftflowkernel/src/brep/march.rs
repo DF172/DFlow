@@ -49,11 +49,15 @@ pub(super) fn traced(
         // ponytail: a seed this near a traced curve is taken as on it; two
         // branches closer than that would be read as one.
         let covered = |point: Vec3| {
-            walks.iter().map(|walk| &walk.points).chain(known.iter()).any(|points| {
-                points
-                    .windows(2)
-                    .any(|pair| point.distance_to_segment(pair[0], pair[1]) <= size * 1e-3)
-            })
+            walks
+                .iter()
+                .map(|walk| &walk.points)
+                .chain(known.iter())
+                .any(|points| {
+                    points
+                        .windows(2)
+                        .any(|pair| point.distance_to_segment(pair[0], pair[1]) <= size * 1e-3)
+                })
         };
         if covered(seed) {
             continue;
@@ -97,7 +101,11 @@ pub(super) fn traced(
                 let end = |at: usize, towards: usize| -> Option<[f64; 3]> {
                     let (point, next) = (Vec3::from(points[at]), Vec3::from(points[towards]));
                     let along = heading(one, other, point)?;
-                    let sign = if along.dot(next - point) < 0.0 { -1.0 } else { 1.0 };
+                    let sign = if along.dot(next - point) < 0.0 {
+                        -1.0
+                    } else {
+                        1.0
+                    };
                     let sign = if at == 0 { sign } else { -sign };
                     Some((along * sign).to_array())
                 };
@@ -139,10 +147,16 @@ fn evened(one: &Surface, other: &Surface, points: &[Vec3], tolerance: f64) -> Ve
             while lengths[segment] < at {
                 segment += 1;
             }
-            let before = if segment == 0 { 0.0 } else { lengths[segment - 1] };
+            let before = if segment == 0 {
+                0.0
+            } else {
+                lengths[segment - 1]
+            };
             let fraction = (at - before) / (lengths[segment] - before).max(f64::MIN_POSITIVE);
             let guess = points[segment].lerp(points[segment + 1], fraction);
-            settle(one, other, guess, tolerance).unwrap_or(guess).to_array()
+            settle(one, other, guess, tolerance)
+                .unwrap_or(guess)
+                .to_array()
         })
         .collect()
 }
@@ -210,7 +224,9 @@ pub(super) struct TriangleGrid<'a> {
 
 impl<'a> TriangleGrid<'a> {
     pub(super) fn new(bounds: &'a [(Vec3, Vec3)]) -> Self {
-        let origin = bounds.first().map_or(Vec3::new(0.0, 0.0, 0.0), |(low, _)| *low);
+        let origin = bounds
+            .first()
+            .map_or(Vec3::new(0.0, 0.0, 0.0), |(low, _)| *low);
         let typical = bounds
             .iter()
             .map(|(low, high)| (high.x - low.x).max(high.y - low.y).max(high.z - low.z))
@@ -296,16 +312,27 @@ fn triangle_bounds(t: &[Vec3; 3]) -> (Vec3, Vec3) {
 /// be — widened a little so a march carries on past the faces' edges.
 fn shared_bounds(first: &[[Vec3; 3]], second: &[[Vec3; 3]]) -> Option<(Vec3, Vec3)> {
     let span = |triangles: &[[Vec3; 3]]| {
-        triangles.iter().map(triangle_bounds).reduce(|(low, high), (l, h)| {
-            (
-                Vec3::new(low.x.min(l.x), low.y.min(l.y), low.z.min(l.z)),
-                Vec3::new(high.x.max(h.x), high.y.max(h.y), high.z.max(h.z)),
-            )
-        })
+        triangles
+            .iter()
+            .map(triangle_bounds)
+            .reduce(|(low, high), (l, h)| {
+                (
+                    Vec3::new(low.x.min(l.x), low.y.min(l.y), low.z.min(l.z)),
+                    Vec3::new(high.x.max(h.x), high.y.max(h.y), high.z.max(h.z)),
+                )
+            })
     };
     let ((a_low, a_high), (b_low, b_high)) = (span(first)?, span(second)?);
-    let low = Vec3::new(a_low.x.max(b_low.x), a_low.y.max(b_low.y), a_low.z.max(b_low.z));
-    let high = Vec3::new(a_high.x.min(b_high.x), a_high.y.min(b_high.y), a_high.z.min(b_high.z));
+    let low = Vec3::new(
+        a_low.x.max(b_low.x),
+        a_low.y.max(b_low.y),
+        a_low.z.max(b_low.z),
+    );
+    let high = Vec3::new(
+        a_high.x.min(b_high.x),
+        a_high.y.min(b_high.y),
+        a_high.z.min(b_high.z),
+    );
     let margin = low.distance(high) * 0.05;
     let widen = Vec3::new(margin, margin, margin);
     Some((low - widen, high + widen))
@@ -324,7 +351,9 @@ fn triangle_crossing(a: &[Vec3; 3], b: &[Vec3; 3]) -> Option<Vec3> {
     }
     let count = points.len();
     (count > 0).then(|| {
-        points.into_iter().fold(Vec3::new(0.0, 0.0, 0.0), |sum, point| sum + point)
+        points
+            .into_iter()
+            .fold(Vec3::new(0.0, 0.0, 0.0), |sum, point| sum + point)
             * (1.0 / count as f64)
     })
 }
@@ -358,7 +387,9 @@ fn heading(one: &Surface, other: &Surface, point: Vec3) -> Option<Vec3> {
     let (_, first) = foot(one, point)?;
     let (_, second) = foot(other, point)?;
     let along = first.cross(second);
-    (along.length() > GRAZING).then(|| along.normalize()).flatten()
+    (along.length() > GRAZING)
+        .then(|| along.normalize())
+        .flatten()
 }
 
 /// Whether `point` sits on the edge of a bounded spline surface's domain.
@@ -393,7 +424,10 @@ fn settle(one: &Surface, other: &Surface, mut point: Vec3, tolerance: f64) -> Op
         if determinant <= GRAZING * GRAZING {
             return None;
         }
-        let (h1, h2) = ((first - point).dot(first_normal), (second - point).dot(second_normal));
+        let (h1, h2) = (
+            (first - point).dot(first_normal),
+            (second - point).dot(second_normal),
+        );
         let a = (h1 - cosine * h2) / determinant;
         let b = (h2 - cosine * h1) / determinant;
         point = point + first_normal * a + second_normal * b;
@@ -483,7 +517,11 @@ fn walk(
                     points.pop();
                 }
                 points.push(start);
-                return Some(Walk { points, closed: true, start: 0 });
+                return Some(Walk {
+                    points,
+                    closed: true,
+                    start: 0,
+                });
             }
             if !inside(point) {
                 left = true;
@@ -502,5 +540,9 @@ fn walk(
     let at = points.len();
     points.push(start);
     points.extend(ahead);
-    Some(Walk { points, closed: false, start: at })
+    Some(Walk {
+        points,
+        closed: false,
+        start: at,
+    })
 }

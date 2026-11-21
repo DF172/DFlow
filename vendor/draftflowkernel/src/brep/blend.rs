@@ -103,18 +103,15 @@ impl fmt::Display for FilletError {
                 formatter,
                 "selected edges {first:?} and {second:?} meet; corner blends are unsupported"
             ),
-            Self::UnsupportedBodySurface => formatter.write_str(
-                "the body contains a surface this convex planar fillet cannot preserve",
-            ),
+            Self::UnsupportedBodySurface => formatter
+                .write_str("the body contains a surface this convex planar fillet cannot preserve"),
             Self::NonConvexBody => {
                 formatter.write_str("the body is not a convex intersection of planar halfspaces")
             }
-            Self::UnsupportedExistingFillet => formatter.write_str(
-                "an existing cylindrical face is not a supported constant edge fillet",
-            ),
-            Self::RadiusTooLargeOrInteracting => formatter.write_str(
-                "the radius removes the body or makes selected fillet regions interact",
-            ),
+            Self::UnsupportedExistingFillet => formatter
+                .write_str("an existing cylindrical face is not a supported constant edge fillet"),
+            Self::RadiusTooLargeOrInteracting => formatter
+                .write_str("the radius removes the body or makes selected fillet regions interact"),
             Self::UnsupportedEndCondition(edge) => write!(
                 formatter,
                 "selected edge {edge:?} needs an unsupported fillet end condition"
@@ -155,7 +152,9 @@ impl fmt::Display for ChamferError {
                 formatter.write_str("chamfer distances must be finite and positive")
             }
             Self::UnknownEdge => formatter.write_str("a selected edge does not belong to the body"),
-            Self::UnknownBaseFace => formatter.write_str("the base face does not belong to the body"),
+            Self::UnknownBaseFace => {
+                formatter.write_str("the base face does not belong to the body")
+            }
             Self::EdgeOutsideBaseFace(edge) => write!(
                 formatter,
                 "selected edge {edge:?} does not belong to the common base face"
@@ -184,9 +183,8 @@ impl fmt::Display for ChamferError {
             Self::NonConvexBody => {
                 formatter.write_str("the body is not a convex intersection of planar halfspaces")
             }
-            Self::UnsupportedExistingFillet => formatter.write_str(
-                "an existing cylindrical face is not a supported constant edge fillet",
-            ),
+            Self::UnsupportedExistingFillet => formatter
+                .write_str("an existing cylindrical face is not a supported constant edge fillet"),
             Self::DistanceTooLargeOrInteracting => formatter.write_str(
                 "a distance removes the body or makes selected chamfer regions interact",
             ),
@@ -247,7 +245,11 @@ pub fn chamfer_edges(
     ) {
         return result;
     }
-    let rim = LocalBlend::Chamfer { base_face, base: base_distance, other: other_distance };
+    let rim = LocalBlend::Chamfer {
+        base_face,
+        base: base_distance,
+        other: other_distance,
+    };
     if let Some(result) = blend_rims(body, &selected, rim) {
         return result.map_err(|error| match error {
             LocalError::TooLarge => ChamferError::DistanceTooLargeOrInteracting,
@@ -281,7 +283,11 @@ pub fn chamfer_edges(
         .unwrap_or_else(|| chamfer_convex(body, &selected, base_face, distances, tolerance));
     // A body the convex solver cannot rebuild may still take a local cut.
     let Err(error) = convex else { return convex };
-    let local = LocalBlend::Chamfer { base_face, base: base_distance, other: other_distance };
+    let local = LocalBlend::Chamfer {
+        base_face,
+        base: base_distance,
+        other: other_distance,
+    };
     let local = match blend_lines(body, &selected, local) {
         Some(result) => result.map_err(|error| match error {
             LocalError::TooLarge => ChamferError::DistanceTooLargeOrInteracting,
@@ -301,7 +307,11 @@ pub fn chamfer_edges(
             | ChamferError::UnsupportedEdgeCurve(_)
             | ChamferError::InvalidResult),
         ) => {
-            let bevel = Section::Bevel { base_face, base: base_distance, other: other_distance };
+            let bevel = Section::Bevel {
+                base_face,
+                base: base_distance,
+                other: other_distance,
+            };
             blend_by_cut(body, &selected, bevel).ok_or(error)
         }
         result => result,
@@ -341,8 +351,8 @@ fn chamfer_convex(
             .ok_or(ChamferError::DegenerateGeometry(*edge))?;
         halfspaces.push(cut);
     }
-    let (mut result, _) = convex_body(&halfspaces, tolerance)
-        .ok_or(ChamferError::DistanceTooLargeOrInteracting)?;
+    let (mut result, _) =
+        convex_body(&halfspaces, tolerance).ok_or(ChamferError::DistanceTooLargeOrInteracting)?;
     restore_fillets(&mut result, &existing, &corners, tolerance)
         .ok_or(ChamferError::UnsupportedExistingFillet)?;
     if !result.validate().is_empty()
@@ -356,7 +366,10 @@ fn chamfer_convex(
 
 fn is_open_sheet(body: &Body) -> bool {
     body.edges.iter().any(|(_, edge)| edge.coedges.len() == 1)
-        && body.edges.iter().all(|(_, edge)| !edge.coedges.is_empty() && edge.coedges.len() <= 2)
+        && body
+            .edges
+            .iter()
+            .all(|(_, edge)| !edge.coedges.is_empty() && edge.coedges.len() <= 2)
 }
 
 fn chamfer_sheet(
@@ -373,14 +386,15 @@ fn chamfer_sheet(
             .get(body.roots[0])
             .is_none_or(|lump| lump.shells.len() != 1)
         || body.faces.iter().any(|(_, face)| face.loops.len() != 1)
-        || body.faces.iter().any(|(_, face)| {
-            !matches!(body.surfaces.get(face.surface), Some(Surface::Plane(_)))
-        })
+        || body
+            .faces
+            .iter()
+            .any(|(_, face)| !matches!(body.surfaces.get(face.surface), Some(Surface::Plane(_))))
     {
         return Err(ChamferError::UnsupportedBodyTopology);
     }
-    let (supports, boundaries) = sheet_halfspaces(body, tolerance)
-        .ok_or(ChamferError::UnsupportedBodySurface)?;
+    let (supports, boundaries) =
+        sheet_halfspaces(body, tolerance).ok_or(ChamferError::UnsupportedBodySurface)?;
     let mut halfspaces = supports
         .iter()
         .map(|(_, halfspace)| *halfspace)
@@ -404,8 +418,8 @@ fn chamfer_sheet(
         halfspaces.push(cut);
         cuts.push(cut);
     }
-    let (closed, _) = convex_body(&halfspaces, tolerance)
-        .ok_or(ChamferError::DistanceTooLargeOrInteracting)?;
+    let (closed, _) =
+        convex_body(&halfspaces, tolerance).ok_or(ChamferError::DistanceTooLargeOrInteracting)?;
     let kept = supports
         .iter()
         .map(|(_, halfspace)| *halfspace)
@@ -432,7 +446,11 @@ fn chamfer_sheet(
         super::boolean::copy_face(&mut result, &closed, face, shell, false)
             .map_err(|_| ChamferError::InvalidResult)?;
     }
-    result.lumps.get_mut(lump).ok_or(ChamferError::InvalidResult)?.shells = vec![shell];
+    result
+        .lumps
+        .get_mut(lump)
+        .ok_or(ChamferError::InvalidResult)?
+        .shells = vec![shell];
     result.roots = vec![lump];
     if !result.validate().is_empty()
         || result.worst_vertex_gap() > tolerance
@@ -452,7 +470,10 @@ fn sheet_halfspaces(
         .iter()
         .map(|(_, vertex)| Vec3::from(vertex.point))
         .collect::<Vec<_>>();
-    let centre = points.iter().copied().fold(Vec3::ZERO, |sum, point| sum + point)
+    let centre = points
+        .iter()
+        .copied()
+        .fold(Vec3::ZERO, |sum, point| sum + point)
         / points.len() as f64;
     let mut supports = Vec::new();
     for (face_key, face) in body.faces.iter() {
@@ -465,16 +486,23 @@ fn sheet_halfspaces(
             normal = -normal;
             offset = -offset;
         }
-        supports.push((face_key, Halfspace {
-            origin: Vec3::from(plane.origin),
-            normal,
-            offset,
-            added: false,
-        }));
+        supports.push((
+            face_key,
+            Halfspace {
+                origin: Vec3::from(plane.origin),
+                normal,
+                offset,
+                added: false,
+            },
+        ));
     }
 
     let mut boundaries = Vec::new();
-    for (_, edge) in body.edges.iter().filter(|(_, edge)| edge.coedges.len() == 1) {
+    for (_, edge) in body
+        .edges
+        .iter()
+        .filter(|(_, edge)| edge.coedges.len() == 1)
+    {
         let coedge = body.coedges.get(edge.coedges[0])?;
         let face = body.loops.get(coedge.owner)?.owner;
         let face_normal = supports.iter().find(|(key, _)| *key == face)?.1.normal;
@@ -501,7 +529,9 @@ fn sheet_halfspaces(
             normal = -normal;
             offset = -offset;
         }
-        if supports.iter().any(|(_, candidate)| same_halfspace(*candidate, normal, offset, tolerance))
+        if supports
+            .iter()
+            .any(|(_, candidate)| same_halfspace(*candidate, normal, offset, tolerance))
             || boundaries
                 .iter()
                 .any(|candidate| same_halfspace(*candidate, normal, offset, tolerance))
@@ -518,14 +548,8 @@ fn sheet_halfspaces(
     Some((supports, boundaries))
 }
 
-fn same_halfspace(
-    candidate: Halfspace,
-    normal: Vec3,
-    offset: f64,
-    tolerance: f64,
-) -> bool {
-    candidate.normal.dot(normal) > 1.0 - 1.0e-8
-        && (candidate.offset - offset).abs() <= tolerance
+fn same_halfspace(candidate: Halfspace, normal: Vec3, offset: f64, tolerance: f64) -> bool {
+    candidate.normal.dot(normal) > 1.0 - 1.0e-8 && (candidate.offset - offset).abs() <= tolerance
 }
 
 fn sheet_edge_frame(
@@ -546,7 +570,12 @@ fn sheet_edge_frame(
         Some(body.loops.get(loop_key)?.owner)
     };
     let faces = [face_of(edge.coedges[0])?, face_of(edge.coedges[1])?];
-    let normal_of = |face| supports.iter().find(|(key, _)| *key == face).map(|(_, value)| value.normal);
+    let normal_of = |face| {
+        supports
+            .iter()
+            .find(|(key, _)| *key == face)
+            .map(|(_, value)| value.normal)
+    };
     let first_normal = normal_of(faces[0])?;
     let second_normal = normal_of(faces[1])?;
     let dot = first_normal.dot(second_normal);
@@ -576,11 +605,7 @@ pub fn fillet(body: &Body, edge: EdgeKey, radius: f64) -> Option<Body> {
 ///
 /// Selection order and duplicate keys do not affect the result. Orthogonal
 /// corners use exact elliptical seams or spherical three-edge patches.
-pub fn fillet_edges(
-    body: &Body,
-    selected: &[EdgeKey],
-    radius: f64,
-) -> Result<Body, FilletError> {
+pub fn fillet_edges(body: &Body, selected: &[EdgeKey], radius: f64) -> Result<Body, FilletError> {
     if !radius.is_finite() || radius <= 0.0 {
         return Err(FilletError::InvalidRadius);
     }
@@ -694,7 +719,11 @@ fn within_tool(body: &Body, tool: &Body, result: &Body) -> bool {
 #[derive(Clone, Copy)]
 enum Section {
     Round(f64),
-    Bevel { base_face: FaceKey, base: f64, other: f64 },
+    Bevel {
+        base_face: FaceKey,
+        base: f64,
+        other: f64,
+    },
 }
 
 /// Straight edges between two planes rounded or bevelled one by one with
@@ -734,8 +763,7 @@ fn blend_by_cut(body: &Body, selected: &[EdgeKey], section: Section) -> Option<B
             }
             let a = Vec3::from(result.vertices.get(edge.start)?.point);
             let b = Vec3::from(result.vertices.get(edge.end)?.point);
-            ((near(a, start) && near(b, end)) || (near(a, end) && near(b, start)))
-                .then_some(key)
+            ((near(a, start) && near(b, end)) || (near(a, end) && near(b, start))).then_some(key)
         })?;
         result = match ring {
             None => cut_along_edge(&result, edge, section, tolerance)
@@ -768,8 +796,11 @@ fn cut_along_ruling(
     let axis = (end - start).normalize()?;
     let face_of = |coedge| Some(body.loops.get(body.coedges.get(coedge)?.owner)?.owner);
     let faces = [face_of(edge.coedges[0])?, face_of(edge.coedges[1])?];
-    let surface_of =
-        |face: FaceKey| body.faces.get(face).and_then(|node| body.surfaces.get(node.surface));
+    let surface_of = |face: FaceKey| {
+        body.faces
+            .get(face)
+            .and_then(|node| body.surfaces.get(node.surface))
+    };
     // The plane first, the cylinder second, its axis along the edge.
     let (flat, round) = match (surface_of(faces[0])?, surface_of(faces[1])?) {
         (Surface::Plane(_), Surface::Cylinder(_)) => (faces[0], faces[1]),
@@ -842,7 +873,11 @@ fn cut_along_ruling(
             // side of a convex edge (outside a concave one), and the
             // cylinder's radius less or more the ball's from its axis.
             let offset = [into[0] * radius * side, into[1] * radius * side];
-            let reach = if inside == convex { radius_b - radius } else { radius_b + radius };
+            let reach = if inside == convex {
+                radius_b - radius
+            } else {
+                radius_b + radius
+            };
             if reach <= 0.0 {
                 return None;
             }
@@ -861,20 +896,29 @@ fn cut_along_ruling(
             let touch_flat = [s, 0.0];
             let away = [ball[0] - c[0], ball[1] - c[1]];
             let length = away[0].hypot(away[1]);
-            let touch_round =
-                [c[0] + away[0] / length * radius_b, c[1] + away[1] / length * radius_b];
+            let touch_round = [
+                c[0] + away[0] / length * radius_b,
+                c[1] + away[1] / length * radius_b,
+            ];
             (touch_flat, touch_round, Some(ball))
         }
-        Section::Bevel { base_face, base, other } => {
-            let (on_flat, on_round) = if base_face == flat { (base, other) } else { (other, base) };
+        Section::Bevel {
+            base_face,
+            base,
+            other,
+        } => {
+            let (on_flat, on_round) = if base_face == flat {
+                (base, other)
+            } else {
+                (other, base)
+            };
             // Round the circle from the corner, the way the cylinder face
             // runs.
             let corner = [0.0, 0.0];
             let from = (corner[1] - c[1]).atan2(corner[0] - c[0]);
             let turn = on_round / radius_b;
-            let candidates = [from + turn, from - turn].map(|angle| {
-                [c[0] + radius_b * angle.cos(), c[1] + radius_b * angle.sin()]
-            });
+            let candidates = [from + turn, from - turn]
+                .map(|angle| [c[0] + radius_b * angle.cos(), c[1] + radius_b * angle.sin()]);
             let on_face = |point: [f64; 2]| {
                 let spatial = Vec3::from(plane.point_at(point));
                 super::classify::face_distance(body, round, spatial.to_array(), tolerance)
@@ -892,9 +936,8 @@ fn cut_along_ruling(
         return None;
     }
     // Both touches on their faces, all along the edge.
-    let lift_to = |point: [f64; 2], at: f64| {
-        Vec3::from(plane.point_at(point)) + axis * (length * at)
-    };
+    let lift_to =
+        |point: [f64; 2], at: f64| Vec3::from(plane.point_at(point)) + axis * (length * at);
     for at in [0.02, 0.5, 0.98] {
         for (point, face) in [(touch_flat, flat), (touch_round, round)] {
             let spatial = lift_to(point, at).to_array();
@@ -907,22 +950,23 @@ fn cut_along_ruling(
     let line = |start: [f64; 2], end: [f64; 2]| {
         crate::geom2d::Curve::Line(crate::geom2d::Line { start, end })
     };
-    let arc_between = |centre: [f64; 2],
-                       radius: f64,
-                       from: [f64; 2],
-                       to: [f64; 2],
-                       toward: [f64; 2]| {
-        let angle = |p: [f64; 2]| (p[1] - centre[1]).atan2(p[0] - centre[0]);
-        let (a, b, t) = (angle(from), angle(to), angle(toward));
-        let turn = |x: f64, y: f64| (y - x).rem_euclid(TAU);
-        let (low, high) = if turn(a, t) < turn(a, b) { (a, b) } else { (b, a) };
-        crate::geom2d::Curve::Arc(crate::geom2d::Arc {
-            centre,
-            radius,
-            start_angle: low,
-            end_angle: low + turn(low, high),
-        })
-    };
+    let arc_between =
+        |centre: [f64; 2], radius: f64, from: [f64; 2], to: [f64; 2], toward: [f64; 2]| {
+            let angle = |p: [f64; 2]| (p[1] - centre[1]).atan2(p[0] - centre[0]);
+            let (a, b, t) = (angle(from), angle(to), angle(toward));
+            let turn = |x: f64, y: f64| (y - x).rem_euclid(TAU);
+            let (low, high) = if turn(a, t) < turn(a, b) {
+                (a, b)
+            } else {
+                (b, a)
+            };
+            crate::geom2d::Curve::Arc(crate::geom2d::Arc {
+                centre,
+                radius,
+                start_angle: low,
+                end_angle: low + turn(low, high),
+            })
+        };
     let corner = [0.0, 0.0];
     let blend = match ball {
         Some(ball) => arc_between(ball, radius, touch_flat, touch_round, corner),
@@ -931,10 +975,16 @@ fn cut_along_ruling(
     // The cylinder's own arc from its touch back to the corner, the short
     // way.
     let rim_middle = {
-        let mid = [(touch_round[0] + corner[0]) / 2.0, (touch_round[1] + corner[1]) / 2.0];
+        let mid = [
+            (touch_round[0] + corner[0]) / 2.0,
+            (touch_round[1] + corner[1]) / 2.0,
+        ];
         let away = [mid[0] - c[0], mid[1] - c[1]];
         let length = away[0].hypot(away[1]);
-        [c[0] + away[0] / length * radius_b, c[1] + away[1] / length * radius_b]
+        [
+            c[0] + away[0] / length * radius_b,
+            c[1] + away[1] / length * radius_b,
+        ]
     };
     let rim = arc_between(c, radius_b, touch_round, corner, rim_middle);
     let profile = if convex {
@@ -945,11 +995,17 @@ fn cut_along_ruling(
             let d = [p[0] - c[0], p[1] - c[1]];
             let l = d[0].hypot(d[1]);
             let sign = if inside { 1.0 } else { -1.0 };
-            [p[0] + d[0] / l * clear * sign, p[1] + d[1] / l * clear * sign]
+            [
+                p[0] + d[0] / l * clear * sign,
+                p[1] + d[1] / l * clear * sign,
+            ]
         };
         let flat_out = [touch_flat[0] + out_flat[0], touch_flat[1] + out_flat[1]];
         let round_out = radial(touch_round);
-        let corner_out = [out_flat[0] + radial(corner)[0], out_flat[1] + radial(corner)[1]];
+        let corner_out = [
+            out_flat[0] + radial(corner)[0],
+            out_flat[1] + radial(corner)[1],
+        ];
         vec![
             line(touch_flat, flat_out),
             line(flat_out, corner_out),
@@ -995,7 +1051,11 @@ fn turn_along_edge(
     let face_of = |coedge| Some(body.loops.get(body.coedges.get(coedge)?.owner)?.owner);
     let faces = [face_of(edge.coedges[0])?, face_of(edge.coedges[1])?];
     let square = faces.iter().all(|face| {
-        match body.faces.get(*face).and_then(|node| body.surfaces.get(node.surface)) {
+        match body
+            .faces
+            .get(*face)
+            .and_then(|node| body.surfaces.get(node.surface))
+        {
             Some(Surface::Plane(plane)) => plane
                 .normal()
                 .is_some_and(|normal| Vec3::from(normal).cross(axis).length() <= 1e-9),
@@ -1053,9 +1113,19 @@ fn turn_along_edge(
                 at + (normals[0] + normals[1]) * (side * radius / (1.0 + dot))
                     - normals[index] * (side * radius)
             }
-            Section::Bevel { base_face, base, other } => {
+            Section::Bevel {
+                base_face,
+                base,
+                other,
+            } => {
                 let across = (normals[1 - index] - normals[index] * dot).normalize()?;
-                at + across * (side * if faces[index] == base_face { base } else { other })
+                at + across
+                    * (side
+                        * if faces[index] == base_face {
+                            base
+                        } else {
+                            other
+                        })
             }
         })
     };
@@ -1072,8 +1142,11 @@ fn turn_along_edge(
     }
     // The section in the plane through the axis at the edge's start.
     let radial = (start - centre - axis * (start - centre).dot(axis)).normalize()?;
-    let plane =
-        Plane::orthonormal(centre.to_array(), radial.to_array(), radial.cross(axis).to_array())?;
+    let plane = Plane::orthonormal(
+        centre.to_array(),
+        radial.to_array(),
+        radial.cross(axis).to_array(),
+    )?;
     let flat = |point: Vec3| plane.project(point.to_array());
     let clear = if convex { radius * 0.25 } else { 0.0 };
     let lift = |point: Vec3, index: usize| point + normals[index] * clear;
@@ -1088,7 +1161,11 @@ fn turn_along_edge(
     let angle = |p: [f64; 2]| (p[1] - ball[1]).atan2(p[0] - ball[0]);
     let (a, b, c) = (angle(first), angle(second), angle(corner));
     let turn = |from: f64, to: f64| (to - from).rem_euclid(TAU);
-    let (from, to) = if turn(a, c) < turn(a, b) { (a, b) } else { (b, a) };
+    let (from, to) = if turn(a, c) < turn(a, b) {
+        (a, b)
+    } else {
+        (b, a)
+    };
     let line = |start, end| crate::geom2d::Curve::Line(crate::geom2d::Line { start, end });
     let arc = match section {
         Section::Round(_) => crate::geom2d::Curve::Arc(crate::geom2d::Arc {
@@ -1168,8 +1245,16 @@ fn cut_along_edge(
     let across = |index: usize| (normals[1 - index] - normals[index] * dot).normalize();
     let setback = |index: usize| match section {
         Section::Round(_) => radius,
-        Section::Bevel { base_face, base, other } => {
-            if faces[index] == base_face { base } else { other }
+        Section::Bevel {
+            base_face,
+            base,
+            other,
+        } => {
+            if faces[index] == base_face {
+                base
+            } else {
+                other
+            }
         }
     };
     let touch = |at: Vec3, index: usize| match section {
@@ -1229,7 +1314,11 @@ fn cut_along_edge(
     let (a, b, c) = (angle(first), angle(second), angle(corner));
     let span = |from: f64, to: f64| (to - from).rem_euclid(TAU);
     // The arc of the ball between its two touches facing the corner.
-    let (from, to) = if span(a, c) < span(a, b) { (a, b) } else { (b, a) };
+    let (from, to) = if span(a, c) < span(a, b) {
+        (a, b)
+    } else {
+        (b, a)
+    };
     let line = |start, end| crate::geom2d::Curve::Line(crate::geom2d::Line { start, end });
     let arc = match section {
         Section::Round(_) => crate::geom2d::Curve::Arc(crate::geom2d::Arc {
@@ -1286,7 +1375,10 @@ fn refillet_from_sharp(body: &Body, selected: &[EdgeKey], radius: f64) -> Option
     }
     for edge in selected {
         let frame = edge_frame(body, *edge)?;
-        edges.push(sharp_edge(&sharp, [frame.first_normal, frame.second_normal])?);
+        edges.push(sharp_edge(
+            &sharp,
+            [frame.first_normal, frame.second_normal],
+        )?);
     }
     fillet_convex(&sharp, &edges, radius).ok()
 }
@@ -1371,14 +1463,14 @@ fn fillet_convex(body: &Body, selected: &[EdgeKey], radius: f64) -> Result<Body,
     }
     let corners = corner_blends(body, &selected, radius, tolerance)?;
     halfspaces.extend(corners.iter().map(|(cut, _)| *cut));
-    let (mut result, _) = convex_body(&halfspaces, tolerance)
-        .ok_or(FilletError::RadiusTooLargeOrInteracting)?;
+    let (mut result, _) =
+        convex_body(&halfspaces, tolerance).ok_or(FilletError::RadiusTooLargeOrInteracting)?;
 
     let mut occupied = HashSet::new();
     let mut existing_faces = Vec::with_capacity(existing.len());
     for old in &existing {
-        let face = face_on(&result, old.cut, tolerance)
-            .ok_or(FilletError::RadiusTooLargeOrInteracting)?;
+        let face =
+            face_on(&result, old.cut, tolerance).ok_or(FilletError::RadiusTooLargeOrInteracting)?;
         if !occupied.insert(face) {
             return Err(FilletError::RadiusTooLargeOrInteracting);
         }
@@ -1386,8 +1478,8 @@ fn fillet_convex(body: &Body, selected: &[EdgeKey], radius: f64) -> Result<Body,
     }
     let mut targets = Vec::with_capacity(blends.len());
     for (edge, cut, cylinder) in blends {
-        let face = face_on(&result, cut, tolerance)
-            .ok_or(FilletError::RadiusTooLargeOrInteracting)?;
+        let face =
+            face_on(&result, cut, tolerance).ok_or(FilletError::RadiusTooLargeOrInteracting)?;
         if !occupied.insert(face) {
             return Err(FilletError::RadiusTooLargeOrInteracting);
         }
@@ -1404,16 +1496,28 @@ fn fillet_convex(body: &Body, selected: &[EdgeKey], radius: f64) -> Result<Body,
     // Assign every support first: a shared seam must see both true surfaces,
     // rather than the temporary halfspace faces used to build connectivity.
     for (_, face, cylinder) in &targets {
-        let surface = result.faces.get(*face).ok_or(FilletError::InvalidResult)?.surface;
-        *result.surfaces.get_mut(surface).ok_or(FilletError::InvalidResult)? =
-            Surface::Cylinder(*cylinder);
+        let surface = result
+            .faces
+            .get(*face)
+            .ok_or(FilletError::InvalidResult)?
+            .surface;
+        *result
+            .surfaces
+            .get_mut(surface)
+            .ok_or(FilletError::InvalidResult)? = Surface::Cylinder(*cylinder);
     }
     for (cut, sphere) in corners {
-        let face = face_on(&result, cut, tolerance)
-            .ok_or(FilletError::RadiusTooLargeOrInteracting)?;
-        let surface = result.faces.get(face).ok_or(FilletError::InvalidResult)?.surface;
-        *result.surfaces.get_mut(surface).ok_or(FilletError::InvalidResult)? =
-            Surface::Sphere(sphere);
+        let face =
+            face_on(&result, cut, tolerance).ok_or(FilletError::RadiusTooLargeOrInteracting)?;
+        let surface = result
+            .faces
+            .get(face)
+            .ok_or(FilletError::InvalidResult)?
+            .surface;
+        *result
+            .surfaces
+            .get_mut(surface)
+            .ok_or(FilletError::InvalidResult)? = Surface::Sphere(sphere);
     }
     for (edge, face, cylinder) in targets {
         if round_face(&mut result, face, &cylinder, true, tolerance)
@@ -1423,7 +1527,8 @@ fn fillet_convex(body: &Body, selected: &[EdgeKey], radius: f64) -> Result<Body,
             return Err(FilletError::UnsupportedEndCondition(edge));
         }
     }
-    if !result.validate().is_empty() || result.worst_vertex_gap() > tolerance
+    if !result.validate().is_empty()
+        || result.worst_vertex_gap() > tolerance
         || !blend_boundaries_fit(&result, tolerance)
     {
         return Err(FilletError::InvalidResult);
@@ -1633,11 +1738,18 @@ fn corner_blends(
     vertices.sort_by_key(|(vertex, _)| vertex.slot());
     let mut corners = Vec::new();
     for (vertex, edges) in vertices {
-        if edges.len() < 2 { continue; }
+        if edges.len() < 2 {
+            continue;
+        }
         let unsupported = FilletError::AdjacentSelections(edges[0], edges[1]);
-        let incident = body.edges.iter().filter(|(_, edge)|
-            edge.start == vertex || edge.end == vertex).count();
-        if incident != 3 || edges.len() > 3 { return Err(unsupported); }
+        let incident = body
+            .edges
+            .iter()
+            .filter(|(_, edge)| edge.start == vertex || edge.end == vertex)
+            .count();
+        if incident != 3 || edges.len() > 3 {
+            return Err(unsupported);
+        }
         let mut normals = Vec::<Vec3>::new();
         for edge in &edges {
             let frame = edge_frame(body, *edge).ok_or(unsupported)?;
@@ -1647,25 +1759,39 @@ fn corner_blends(
                 }
             }
         }
-        if normals.len() != 3 || (0..3).any(|i|
-            (i + 1..3).any(|j| normals[i].dot(normals[j]).abs() > 1e-8)) {
+        if normals.len() != 3
+            || (0..3).any(|i| (i + 1..3).any(|j| normals[i].dot(normals[j]).abs() > 1e-8))
+        {
             return Err(unsupported);
         }
         if edges.len() == 3 {
-            let point = Vec3::from(body.vertices.get(vertex)
-                .ok_or(FilletError::InvalidBodyTopology)?.point);
+            let point = Vec3::from(
+                body.vertices
+                    .get(vertex)
+                    .ok_or(FilletError::InvalidBodyTopology)?
+                    .point,
+            );
             let sum = normals.iter().copied().fold(Vec3::ZERO, |a, b| a + b);
             let centre = point - sum * radius;
             let normal = sum.normalize().ok_or(unsupported)?;
             let origin = centre + normals[0] * radius;
-            if normal.dot(point - origin) <= tolerance { return Err(unsupported); }
+            if normal.dot(point - origin) <= tolerance {
+                return Err(unsupported);
+            }
             // Keep both parameter poles and the longitude seam outside the
             // trimmed patch so downstream meshing has a regular UV domain.
             let pole = (normals[0] - normals[1]).normalize().ok_or(unsupported)?;
-            let frame = Plane::orthonormal(centre.to_array(), normal.to_array(),
-                pole.to_array()).ok_or(unsupported)?;
-            corners.push((Halfspace { origin, normal, offset: normal.dot(origin), added: true },
-                Sphere { frame, radius }));
+            let frame = Plane::orthonormal(centre.to_array(), normal.to_array(), pole.to_array())
+                .ok_or(unsupported)?;
+            corners.push((
+                Halfspace {
+                    origin,
+                    normal,
+                    offset: normal.dot(origin),
+                    added: true,
+                },
+                Sphere { frame, radius },
+            ));
         }
     }
     Ok(corners)
@@ -1694,14 +1820,21 @@ fn reject_interacting_regions(
         .collect::<Result<Vec<_>, FilletError>>()?;
     for first in 0..segments.len() {
         for second in first + 1..segments.len() {
-            let a = body.edges.get(selected[first]).ok_or(FilletError::UnknownEdge)?;
-            let b = body.edges.get(selected[second]).ok_or(FilletError::UnknownEdge)?;
-            if [a.start, a.end].iter().any(|v| *v == b.start || *v == b.end) {
+            let a = body
+                .edges
+                .get(selected[first])
+                .ok_or(FilletError::UnknownEdge)?;
+            let b = body
+                .edges
+                .get(selected[second])
+                .ok_or(FilletError::UnknownEdge)?;
+            if [a.start, a.end]
+                .iter()
+                .any(|v| *v == b.start || *v == b.end)
+            {
                 continue;
             }
-            if segment_distance(segments[first], segments[second])
-                <= radius * 2.0 + tolerance
-            {
+            if segment_distance(segments[first], segments[second]) <= radius * 2.0 + tolerance {
                 return Err(FilletError::RadiusTooLargeOrInteracting);
             }
         }
@@ -1765,9 +1898,7 @@ fn validate_supported_body(
     let cylinders = body
         .faces
         .iter()
-        .filter(|(_, face)| {
-            matches!(body.surfaces.get(face.surface), Some(Surface::Cylinder(_)))
-        })
+        .filter(|(_, face)| matches!(body.surfaces.get(face.surface), Some(Surface::Cylinder(_))))
         .count();
     if cylinders != existing.len() {
         return Err(FilletError::UnsupportedExistingFillet);
@@ -1790,9 +1921,11 @@ fn validate_supported_body(
         };
         let normal = if face.forward { normal } else { -normal };
         let offset = normal.dot(Vec3::from(plane.origin));
-        if body.vertices.iter().any(|(_, vertex)| {
-            normal.dot(Vec3::from(vertex.point)) > offset + tolerance
-        }) {
+        if body
+            .vertices
+            .iter()
+            .any(|(_, vertex)| normal.dot(Vec3::from(vertex.point)) > offset + tolerance)
+        {
             return Err(FilletError::NonConvexBody);
         }
     }
@@ -1838,8 +1971,8 @@ fn existing_fillets(body: &Body) -> Option<Vec<ExistingFillet>> {
             continue;
         }
         let normal = (side_normals[0] + side_normals[1]).normalize()?;
-        let offset = points.iter().map(|point| normal.dot(*point)).sum::<f64>()
-            / points.len() as f64;
+        let offset =
+            points.iter().map(|point| normal.dot(*point)).sum::<f64>() / points.len() as f64;
         found.push(ExistingFillet {
             cut: Halfspace {
                 origin: points[0],
@@ -1861,7 +1994,9 @@ fn restore_fillets(
     corners: &[(Halfspace, Sphere)],
     tolerance: f64,
 ) -> Option<()> {
-    let faces = fillets.iter().map(|fillet| face_on(body, fillet.cut, tolerance))
+    let faces = fillets
+        .iter()
+        .map(|fillet| face_on(body, fillet.cut, tolerance))
         .collect::<Option<Vec<_>>>()?;
     for (cut, sphere) in corners {
         let face = face_on(body, *cut, tolerance)?;
@@ -2057,26 +2192,39 @@ fn cylinder_seam(
     end: Vec3,
     tolerance: f64,
 ) -> Option<Curve3> {
-    if (first.radius - second.radius).abs() > tolerance { return None; }
+    if (first.radius - second.radius).abs() > tolerance {
+        return None;
+    }
     let a = Vec3::from(first.base.normal()?);
     let b = Vec3::from(second.base.normal()?);
     let cosine = a.dot(b);
-    if cosine.abs() > 1.0 - 1e-8 { return None; }
+    if cosine.abs() > 1.0 - 1e-8 {
+        return None;
+    }
     let delta = Vec3::from(second.base.origin) - Vec3::from(first.base.origin);
     let along = (a.dot(delta) - cosine * b.dot(delta)) / (1.0 - cosine * cosine);
     let centre = Vec3::from(first.base.origin) + a * along;
     let second_delta = centre - Vec3::from(second.base.origin);
-    if (second_delta - b * second_delta.dot(b)).length() > tolerance { return None; }
+    if (second_delta - b * second_delta.dot(b)).length() > tolerance {
+        return None;
+    }
     for bisector in [a + b, a - b] {
         let normal = bisector.normalize()?;
         if normal.dot(start - centre).abs() > tolerance
-            || normal.dot(end - centre).abs() > tolerance { continue; }
+            || normal.dot(end - centre).abs() > tolerance
+        {
+            continue;
+        }
         let cosine = normal.dot(a).abs();
-        if cosine < 1e-8 { continue; }
+        if cosine < 1e-8 {
+            continue;
+        }
         let major = (a - normal * normal.dot(a)).normalize()?;
         let plane = Plane::orthonormal(centre.to_array(), major.to_array(), normal.to_array())?;
         return Some(Curve3::Ellipse(Ellipse3 {
-            plane, major_radius: first.radius / cosine, minor_radius: first.radius,
+            plane,
+            major_radius: first.radius / cosine,
+            minor_radius: first.radius,
         }));
     }
     None
@@ -2097,7 +2245,10 @@ pub(super) fn cylinder_section(cylinder: &Cylinder, plane: &Plane) -> Option<Cur
     let minor = axis.cross(normal);
     if minor.length() < 1e-9 {
         let plane = Plane::orthonormal(origin, cylinder.base.x_axis, normal.to_array())?;
-        return Some(Curve3::Circle(Circle3 { plane, radius: cylinder.radius }));
+        return Some(Curve3::Circle(Circle3 {
+            plane,
+            radius: cylinder.radius,
+        }));
     }
     let minor = minor.normalize()?;
     let plane = Plane::orthonormal(origin, normal.cross(minor).to_array(), normal.to_array())?;
@@ -2129,9 +2280,11 @@ pub(super) fn set_round_edge(
         begin = curve.parameter_at(start);
         span = (curve.parameter_at(end) - begin).rem_euclid(TAU);
     }
-    if span <= 1e-12 || span > PI + 1e-8
+    if span <= 1e-12
+        || span > PI + 1e-8
         || Vec3::from(curve.point_at(begin)).distance(Vec3::from(start)) > tolerance
-        || Vec3::from(curve.point_at(begin + span)).distance(Vec3::from(end)) > tolerance {
+        || Vec3::from(curve.point_at(begin + span)).distance(Vec3::from(end)) > tolerance
+    {
         return None;
     }
     *body.curves.get_mut(edge.curve)? = curve;
@@ -2145,15 +2298,22 @@ fn existing_corners(body: &Body) -> Option<Vec<(Halfspace, Sphere)>> {
     let tolerance = operation_tolerance(&[body]);
     let mut corners = Vec::new();
     for (key, face) in body.faces.iter() {
-        let Surface::Sphere(sphere) = body.surfaces.get(face.surface)? else { continue; };
-        if !face.forward || face.loops.len() != 1 { return None; }
+        let Surface::Sphere(sphere) = body.surfaces.get(face.surface)? else {
+            continue;
+        };
+        if !face.forward || face.loops.len() != 1 {
+            return None;
+        }
         let centre = Vec3::from(sphere.frame.origin);
         let mut points = Vec::new();
         for coedge in body.face_coedges(key) {
             let edge = body.edges.get(body.coedges.get(coedge)?.edge)?;
             for vertex in [edge.start, edge.end] {
                 let point = Vec3::from(body.vertices.get(vertex)?.point);
-                if points.iter().all(|other: &Vec3| other.distance(point) > tolerance) {
+                if points
+                    .iter()
+                    .all(|other: &Vec3| other.distance(point) > tolerance)
+                {
                     points.push(point);
                 }
             }
@@ -2161,24 +2321,47 @@ fn existing_corners(body: &Body) -> Option<Vec<(Halfspace, Sphere)>> {
                 let owner = body.loops.get(body.coedges.get(*coedge)?.owner)?.owner;
                 (owner != key).then_some(owner)
             })?;
-            let Surface::Cylinder(cylinder) = body.surfaces.get(body.faces.get(other)?.surface)? else { return None; };
+            let Surface::Cylinder(cylinder) = body.surfaces.get(body.faces.get(other)?.surface)?
+            else {
+                return None;
+            };
             let axis = Vec3::from(cylinder.base.normal()?);
             let offset = centre - Vec3::from(cylinder.base.origin);
             if (cylinder.radius - sphere.radius).abs() > tolerance
-                || (offset - axis * offset.dot(axis)).length() > tolerance { return None; }
+                || (offset - axis * offset.dot(axis)).length() > tolerance
+            {
+                return None;
+            }
         }
-        if points.len() != 3 { return None; }
-        let normal = points.iter().fold(Vec3::ZERO, |sum, point| sum + (*point - centre)).normalize()?;
+        if points.len() != 3 {
+            return None;
+        }
+        let normal = points
+            .iter()
+            .fold(Vec3::ZERO, |sum, point| sum + (*point - centre))
+            .normalize()?;
         let origin = points[0];
-        if points.iter().any(|point| normal.dot(*point - origin).abs() > tolerance
-            || (point.distance(centre) - sphere.radius).abs() > tolerance) { return None; }
+        if points.iter().any(|point| {
+            normal.dot(*point - origin).abs() > tolerance
+                || (point.distance(centre) - sphere.radius).abs() > tolerance
+        }) {
+            return None;
+        }
         // Framed as a new corner is, poles and seam off the patch: a file's
         // frame may put a pole on a corner, which meshes only through the
         // file's own parameter curves, gone once the face is rebuilt.
         let pole = (points[0] - points[1]).normalize()?;
         let frame = Plane::orthonormal(sphere.frame.origin, normal.to_array(), pole.to_array())?;
-        let sphere = Sphere { frame, radius: sphere.radius };
-        let plane = Halfspace { origin, normal, offset: normal.dot(origin), added: true };
+        let sphere = Sphere {
+            frame,
+            radius: sphere.radius,
+        };
+        let plane = Halfspace {
+            origin,
+            normal,
+            offset: normal.dot(origin),
+            added: true,
+        };
         corners.push((plane, sphere));
     }
     Some(corners)
@@ -2186,12 +2369,22 @@ fn existing_corners(body: &Body) -> Option<Vec<(Halfspace, Sphere)>> {
 
 fn blend_boundaries_fit(body: &Body, tolerance: f64) -> bool {
     body.edges.iter().all(|(_, edge)| {
-        let Some(curve) = body.curves.get(edge.curve) else { return false; };
+        let Some(curve) = body.curves.get(edge.curve) else {
+            return false;
+        };
         edge.coedges.iter().all(|key| {
-            let Some(coedge) = body.coedges.get(*key) else { return false; };
-            let Some(ring) = body.loops.get(coedge.owner) else { return false; };
-            let Some(face) = body.faces.get(ring.owner) else { return false; };
-            let Some(surface) = body.surfaces.get(face.surface) else { return false; };
+            let Some(coedge) = body.coedges.get(*key) else {
+                return false;
+            };
+            let Some(ring) = body.loops.get(coedge.owner) else {
+                return false;
+            };
+            let Some(face) = body.faces.get(ring.owner) else {
+                return false;
+            };
+            let Some(surface) = body.surfaces.get(face.surface) else {
+                return false;
+            };
             (0..=8).all(|i| {
                 let t = edge.start_parameter
                     + (edge.end_parameter - edge.start_parameter) * i as f64 / 8.0;
@@ -2224,11 +2417,9 @@ fn convex_body(halfspaces: &[Halfspace], tolerance: f64) -> Option<(Body, FaceKe
     for first in 0..halfspaces.len() {
         for second in first + 1..halfspaces.len() {
             for third in second + 1..halfspaces.len() {
-                let Some(point) = intersection(
-                    halfspaces[first],
-                    halfspaces[second],
-                    halfspaces[third],
-                ) else {
+                let Some(point) =
+                    intersection(halfspaces[first], halfspaces[second], halfspaces[third])
+                else {
                     continue;
                 };
                 if halfspaces
@@ -2237,10 +2428,7 @@ fn convex_body(halfspaces: &[Halfspace], tolerance: f64) -> Option<(Body, FaceKe
                 {
                     continue;
                 }
-                if points
-                    .iter()
-                    .all(|other| other.distance(point) > tolerance)
-                {
+                if points.iter().all(|other| other.distance(point) > tolerance) {
                     points.push(point);
                 }
             }
@@ -2443,7 +2631,10 @@ mod tests {
         let volume = |body: &Body| crate::brep::mass_properties(body).unwrap().volume;
         let tolerance = operation_tolerance(&[&part]);
         let radius = 0.3;
-        let round = (radius * radius * (1.0 - PI / 4.0), (10.0 - 3.0 * PI) / (12.0 - 3.0 * PI));
+        let round = (
+            radius * radius * (1.0 - PI / 4.0),
+            (10.0 - 3.0 * PI) / (12.0 - 3.0 * PI),
+        );
         for (height, sign) in [(4.0, -1.0), (1.0, 1.0)] {
             let edge = rim(height);
             let plane = part
@@ -2453,21 +2644,34 @@ mod tests {
                 .coedges
                 .iter()
                 .map(|coedge| {
-                    part.loops.get(part.coedges.get(*coedge).unwrap().owner).unwrap().owner
+                    part.loops
+                        .get(part.coedges.get(*coedge).unwrap().owner)
+                        .unwrap()
+                        .owner
                 })
                 .find(|face| {
-                    matches!(part.surfaces.get(part.faces.get(*face).unwrap().surface),
-                        Some(Surface::Plane(_)))
+                    matches!(
+                        part.surfaces.get(part.faces.get(*face).unwrap().surface),
+                        Some(Surface::Plane(_))
+                    )
                 })
                 .unwrap();
-            let bevel = Section::Bevel { base_face: plane, base: radius, other: radius };
-            for (section, (area, off)) in
-                [(Section::Round(radius), round), (bevel, (radius * radius / 2.0, 1.0 / 3.0))]
-            {
+            let bevel = Section::Bevel {
+                base_face: plane,
+                base: radius,
+                other: radius,
+            };
+            for (section, (area, off)) in [
+                (Section::Round(radius), round),
+                (bevel, (radius * radius / 2.0, 1.0 / 3.0)),
+            ] {
                 let cut = turn_along_edge(&part, edge, section, tolerance).unwrap();
                 let change = volume(&cut) - volume(&part);
                 let expected = sign * area * TAU * (2.0 + sign * off * radius);
-                assert!((change - expected).abs() < 1e-3 * expected.abs(), "{change} {expected}");
+                assert!(
+                    (change - expected).abs() < 1e-3 * expected.abs(),
+                    "{change} {expected}"
+                );
             }
         }
     }
@@ -2518,16 +2722,25 @@ mod tests {
             .coedges
             .iter()
             .map(|coedge| {
-                part.loops.get(part.coedges.get(*coedge).unwrap().owner).unwrap().owner
+                part.loops
+                    .get(part.coedges.get(*coedge).unwrap().owner)
+                    .unwrap()
+                    .owner
             })
             .find(|face| {
-                matches!(part.surfaces.get(part.faces.get(*face).unwrap().surface),
-                    Some(Surface::Plane(_)))
+                matches!(
+                    part.surfaces.get(part.faces.get(*face).unwrap().surface),
+                    Some(Surface::Plane(_))
+                )
             })
             .unwrap();
         let volume = |body: &Body| crate::brep::mass_properties(body).unwrap().volume;
         let tolerance = operation_tolerance(&[&part]);
-        let bevel = Section::Bevel { base_face: plate, base: 0.2, other: 0.2 };
+        let bevel = Section::Bevel {
+            base_face: plate,
+            base: 0.2,
+            other: 0.2,
+        };
         for section in [Section::Round(0.2), bevel] {
             let blended = cut_along_ruling(&part, ruling, section, tolerance).unwrap();
             assert!(blended.validate().is_empty());

@@ -312,9 +312,7 @@ pub(crate) fn object_class_names(object: &ObjectType) -> Vec<std::borrow::Cow<'_
         ObjectType::FieldList(_) => "FIELDLIST",
         ObjectType::DynamicBlock(value) => &value.dxf_name,
         ObjectType::DgnLineStyle(value) => value.dxf_name(),
-        ObjectType::ClassObject(value)
-            if !matches!(value.data, ClassObjectData::VbaProject(_)) =>
-        {
+        ObjectType::ClassObject(value) if !matches!(value.data, ClassObjectData::VbaProject(_)) => {
             value.dxf_name()
         }
         ObjectType::DataObject(value)
@@ -365,7 +363,9 @@ impl<'a> DwgObjectWriter<'a> {
         let names = object_class_names(object);
         class_only
             && !names.is_empty()
-            && !names.iter().any(|name| self.document.classes.contains(name))
+            && !names
+                .iter()
+                .any(|name| self.document.classes.contains(name))
     }
 
     /// Write a single non-graphical object record.
@@ -1157,7 +1157,8 @@ impl<'a> DwgObjectWriter<'a> {
         if !self.version.r2010_plus() {
             self.writer.write_variable_text(&value.name);
             self.writer.write_bit_short(value.flow_direction as i16);
-            self.writer.write_bit_short(value.flags.bits() & !STALE_TABLE_STYLE_FLAG);
+            self.writer
+                .write_bit_short(value.flags.bits() & !STALE_TABLE_STYLE_FLAG);
             self.writer.write_bit_double(value.horizontal_margin);
             self.writer.write_bit_double(value.vertical_margin);
             self.writer.write_bit(value.title_suppressed);
@@ -1169,7 +1170,8 @@ impl<'a> DwgObjectWriter<'a> {
             self.writer.write_byte(value.modern_unknown_byte);
             self.writer.write_variable_text(&value.name);
             // The R2010+ flags field carries the table style flags.
-            self.writer.write_bit_long((value.flags.bits() & !STALE_TABLE_STYLE_FLAG) as i32);
+            self.writer
+                .write_bit_long((value.flags.bits() & !STALE_TABLE_STYLE_FLAG) as i32);
             self.writer.write_bit_long(value.modern_unknown_long2);
             self.writer.write_handle(
                 DwgReferenceType::HardOwnership,

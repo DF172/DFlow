@@ -33,18 +33,18 @@ pub use class_object::{
     AcMeCommandHistory, AcMeScope, AcMeStateManager, ClassObject, ClassObjectData,
     ContextDataEntry, ContextDataManager, ContextDataSubManager, CsacDocumentOptions, CurvePath,
     DataLink, DataLinkCustomData, DataTable, DataTableCellType, DataTableColumn, DataTableValue,
-    DetailViewStyle,
-    GeoMapImage, GradientBackground, GroundPlaneBackground, IblBackground, ImageBackground,
-    LayerFilter, LightList, LightListEntry, MentalRayRenderSettings, ModelDocViewStyle, MotionPath,
-    NavisworksModelDefinition, PartialViewingIndex, PartialViewingIndexEntry,
-    PersistentSubentityManager, PointCloudColorMap, PointCloudColorRamp, PointCloudDefinition, PointCloudRampColor,
-    PointCloudDefinitionReactor, PointPath, RapidRtRenderSettings, RenderEntry, RenderEnvironment,
-    RenderGlobal, RenderSettings, SectionGeometrySettings, SectionManager, SectionSettings,
-    SectionTypeSettings, SectionViewStyle, SkyLightBackground, SolidBackground, SpatialIndex, Sun,
-    SunStudy, SunStudyDate, TvDeviceProperties, VbaProject, ViewRep, ViewRepBlockPath,
-    ViewRepBlockPathEntry, ViewRepGuid, ViewRepModelSpaceSource, ViewRepModelSpaceViewSelectionSet,
-    ViewRepObjectPath, ViewRepOrientation, ViewRepSectionDefinition, ViewRepSketch,
-    ViewRepSketchGeometry, ViewRepSketchReference, ViewRepSourceManager, ViewRepStandard,
+    DetailViewStyle, GeoMapImage, GradientBackground, GroundPlaneBackground, IblBackground,
+    ImageBackground, LayerFilter, LightList, LightListEntry, MentalRayRenderSettings,
+    ModelDocViewStyle, MotionPath, NavisworksModelDefinition, PartialViewingIndex,
+    PartialViewingIndexEntry, PersistentSubentityManager, PointCloudColorMap, PointCloudColorRamp,
+    PointCloudDefinition, PointCloudDefinitionReactor, PointCloudRampColor, PointPath,
+    RapidRtRenderSettings, RenderEntry, RenderEnvironment, RenderGlobal, RenderSettings,
+    SectionGeometrySettings, SectionManager, SectionSettings, SectionTypeSettings,
+    SectionViewStyle, SkyLightBackground, SolidBackground, SpatialIndex, Sun, SunStudy,
+    SunStudyDate, TvDeviceProperties, VbaProject, ViewRep, ViewRepBlockPath, ViewRepBlockPathEntry,
+    ViewRepGuid, ViewRepModelSpaceSource, ViewRepModelSpaceViewSelectionSet, ViewRepObjectPath,
+    ViewRepOrientation, ViewRepSectionDefinition, ViewRepSketch, ViewRepSketchGeometry,
+    ViewRepSketchReference, ViewRepSourceManager, ViewRepStandard,
 };
 pub use data_objects::{
     BreakData, BreakPointReference, CellStyleMap, DataObject, DataObjectData, IdBuffer, Index,
@@ -71,9 +71,9 @@ pub use dynamic_block::{
     BlockStretchCode, BlockStretchHandle, BlockTwoPointParameter, BlockUserParameter,
     BlockXYParameter, DynamicBlockData, DynamicBlockObject, SolidHistory, SolidHistoryBoolean,
     SolidHistoryBox, SolidHistoryBrep, SolidHistoryChamfer, SolidHistoryCone, SolidHistoryCylinder,
-    SolidHistoryFillet, SolidHistoryLoft, SolidHistoryLoftOptions, SolidHistoryLoftParameters, SolidHistoryNodeBase,
-    SolidHistoryOperation, SolidHistoryPyramid, SolidHistoryRevolve, SolidHistorySphere,
-    SolidHistorySweep, SolidHistoryTorus, SolidHistoryTree,
+    SolidHistoryFillet, SolidHistoryLoft, SolidHistoryLoftOptions, SolidHistoryLoftParameters,
+    SolidHistoryNodeBase, SolidHistoryOperation, SolidHistoryPyramid, SolidHistoryRevolve,
+    SolidHistorySphere, SolidHistorySweep, SolidHistoryTorus, SolidHistoryTree,
 };
 pub use field::{Field, FieldChildValue, FieldList};
 pub use group::Group;
@@ -105,13 +105,13 @@ pub use semantic_property::{
 };
 pub use sort_entities_table::{SortEntitiesTable, SortEntsEntry};
 pub(crate) use stub_objects::{restore_visual_style_roundtrip, store_visual_style_roundtrip};
-pub(crate) use table_style::{restore_table_style_roundtrip, store_table_style_roundtrip};
 pub use stub_objects::{
     BookColor, DictionaryWithDefault, GeoData, GeoDataMeshFace, GeoDataMeshPoint, Material,
     MaterialColor, MaterialMap, MaterialProceduralValue, MaterialTexture, PlaceHolder,
     RasterVariables, SpatialFilter, StubObject, VisualStyle, VisualStyleProperty,
     VisualStylePropertyValue, WipeoutVariables,
 };
+pub(crate) use table_style::{restore_table_style_roundtrip, store_table_style_roundtrip};
 pub use table_style::{
     CellAlignment, NamedTableCellStyle, RowCellStyle, TableBorderPropertyFlags, TableBorderType,
     TableCellBorder, TableCellStyleData, TableCellStylePropertyFlags, TableContentFormat,

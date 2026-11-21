@@ -190,7 +190,8 @@ impl<P: Primitive> Stored for BlackBox<P> {
             .downcast_ref::<P::Pipeline>()
             .expect("renderer should have the proper type");
 
-        self.primitive.draw_with_backdrop(renderer, render_pass, backdrop)
+        self.primitive
+            .draw_with_backdrop(renderer, render_pass, backdrop)
     }
 
     fn render(
@@ -236,11 +237,7 @@ impl Instance {
     }
 
     /// Draws the [`Instance`] in the given pass.
-    pub(crate) fn draw(
-        &self,
-        storage: &Storage,
-        render_pass: &mut wgpu::RenderPass<'_>,
-    ) -> bool {
+    pub(crate) fn draw(&self, storage: &Storage, render_pass: &mut wgpu::RenderPass<'_>) -> bool {
         self.primitive.draw(storage, render_pass)
     }
 
@@ -251,7 +248,8 @@ impl Instance {
         render_pass: &mut wgpu::RenderPass<'_>,
         backdrop: &Backdrop<'_>,
     ) -> bool {
-        self.primitive.draw_with_backdrop(storage, render_pass, backdrop)
+        self.primitive
+            .draw_with_backdrop(storage, render_pass, backdrop)
     }
 }
 

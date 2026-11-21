@@ -257,9 +257,13 @@ mod tests {
         let spline = narrow(0.00001);
         let curve = Curve::Nurbs(spline.clone());
         let original = curve.tessellate_angle(DEFAULT_ANGLE);
-        assert!(triangulate_rings(std::slice::from_ref(&original)).1.is_empty());
+        assert!(triangulate_rings(std::slice::from_ref(&original))
+            .1
+            .is_empty());
         let refined = refine_spline_boundary(&original, || vec![curve], |point| point).unwrap();
-        assert!(!triangulate_rings(std::slice::from_ref(&refined)).1.is_empty());
+        assert!(!triangulate_rings(std::slice::from_ref(&refined))
+            .1
+            .is_empty());
         for index in 0..=6 {
             assert!(refined.contains(&spline.point_at(index as f64 / 6.0)));
         }

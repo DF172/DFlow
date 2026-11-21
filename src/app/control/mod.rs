@@ -848,16 +848,14 @@ impl DraftFlowCAD {
         Ok(match req["op"].as_str().unwrap_or("") {
             "new" => {
                 if let Some(template) = req["template"].as_str() {
-                    match self.apply_template(template) {
-                        Ok(purged) => {
-                            self.set_control_result(json!({
-                                "template": template,
-                                "purged": purged,
-                                "total": self.tabs[i].scene.document.entities().count(),
-                            }));
-                            Task::none()
-                        }
-                        Err(error) => return Err(error),
+                    {
+                        let purged = self.apply_template(template)?;
+                        self.set_control_result(json!({
+                            "template": template,
+                            "purged": purged,
+                            "total": self.tabs[i].scene.document.entities().count(),
+                        }));
+                        Task::none()
                     }
                 } else {
                     self.update(Message::TabNew)

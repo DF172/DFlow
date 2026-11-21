@@ -19,9 +19,9 @@ fn repro_issue64() {
     // No Standard DIMSTYLE in the input: the default one survives, still
     // pointing its dimtxsty at the DEFAULT text style handle (0x14) - which
     // the input has now given to the ByBlock linetype.
-    doc.add_entity(EntityType::Line(draftflowcodec::entities::Line::from_coords(
-        0.0, 0.0, 0.0, 1.0, 1.0, 0.0,
-    )))
+    doc.add_entity(EntityType::Line(
+        draftflowcodec::entities::Line::from_coords(0.0, 0.0, 0.0, 1.0, 1.0, 0.0),
+    ))
     .unwrap();
 
     let input = std::env::temp_dir().join("issue64_input.dxf");

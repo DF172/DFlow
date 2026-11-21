@@ -770,26 +770,24 @@ impl DraftFlowCAD {
                 }
                 return self.update(Message::CloseModal);
             }
-            if self.active_modal == Some(super::ModalKind::BlockDefinition) {
-                if matches!(msg, Message::CommandFinalize)
-                    || matches!(&msg, Message::ShortcutPressed(key) if key.rsplit('+').next() == Some("ENTER") || key.rsplit('+').next() == Some("RETURN"))
-                {
-                    if let Some(ref state) = self.block_definition {
-                        if state.confirm_redefine.is_some() {
-                            // Default to "No" so an accidental Enter doesn't nuke a definition.
-                            return self.update(Message::BlockDefConfirmRedefine(false));
-                        } else {
-                            return self.update(Message::BlockDefApply);
-                        }
+            if self.active_modal == Some(super::ModalKind::BlockDefinition)
+                && (matches!(msg, Message::CommandFinalize)
+                    || matches!(&msg, Message::ShortcutPressed(key) if key.rsplit('+').next() == Some("ENTER") || key.rsplit('+').next() == Some("RETURN")))
+            {
+                if let Some(ref state) = self.block_definition {
+                    if state.confirm_redefine.is_some() {
+                        // Default to "No" so an accidental Enter doesn't nuke a definition.
+                        return self.update(Message::BlockDefConfirmRedefine(false));
+                    } else {
+                        return self.update(Message::BlockDefApply);
                     }
                 }
             }
-            if self.active_modal == Some(super::ModalKind::WriteBlock) {
-                if matches!(msg, Message::CommandFinalize)
-                    || matches!(&msg, Message::ShortcutPressed(key) if key.rsplit('+').next() == Some("ENTER") || key.rsplit('+').next() == Some("RETURN"))
-                {
-                    return self.update(Message::WblockApply);
-                }
+            if self.active_modal == Some(super::ModalKind::WriteBlock)
+                && (matches!(msg, Message::CommandFinalize)
+                    || matches!(&msg, Message::ShortcutPressed(key) if key.rsplit('+').next() == Some("ENTER") || key.rsplit('+').next() == Some("RETURN")))
+            {
+                return self.update(Message::WblockApply);
             }
             if is_modal_blocked_key_msg(&msg) {
                 return Task::none();
@@ -1142,7 +1140,7 @@ impl DraftFlowCAD {
                     // Recents are read from disk every save → the path may be
                     // stale. Skip silently if the file no longer exists; the
                     // entry stays in the list so the user can clean it up.
-                    return match std::fs::metadata(&path) {
+                    match std::fs::metadata(&path) {
                         Ok(m) => {
                             self.update(Message::OpenPathPicked(crate::io::OpenPick::Picked {
                                 path,
@@ -1156,7 +1154,7 @@ impl DraftFlowCAD {
                             );
                             Task::none()
                         }
-                    };
+                    }
                 }
             }
 
@@ -2100,7 +2098,7 @@ impl DraftFlowCAD {
                 // Start is the startup page, not a document: opening it while
                 // drawings are still open would hide the work in progress, so
                 // the entry stays shut until every drawing is closed.
-                if idx != self.active_tab && self.tabs.get(idx).map_or(false, |tab| tab.is_start) {
+                if idx != self.active_tab && self.tabs.get(idx).is_some_and(|tab| tab.is_start) {
                     self.command_line.push_info(
                         crate::t!("Close all drawings before switching to Start.").as_ref(),
                     );
@@ -2254,7 +2252,7 @@ impl DraftFlowCAD {
                 });
                 self.command_line
                     .push_output(crate::tf!("Copied path: {}", full_path.display()).as_ref());
-                return iced::clipboard::write(full_path.to_string_lossy().into_owned()).discard();
+                iced::clipboard::write(full_path.to_string_lossy().into_owned()).discard()
             }
 
             Message::DocTabOpenFileLocation(idx) => {
@@ -3032,7 +3030,7 @@ impl DraftFlowCAD {
                 self.command_line.push_info(
                     crate::t!("Specify replacement path: XREF Path Find <old> <new>").as_ref(),
                 );
-                return self.focus_cmd_input();
+                self.focus_cmd_input()
             }
             Message::XrefRowChangePathEnter => {
                 self.xref_manager.row_change_path_open = true;
@@ -3048,7 +3046,7 @@ impl DraftFlowCAD {
                 self.command_line.input = "XREF Path Find ".to_string();
                 self.command_line.autocomplete_cursor = None;
                 self.command_line.cancel_history_navigation();
-                return self.focus_cmd_input();
+                self.focus_cmd_input()
             }
 
             Message::LayerStateManagerOpen => {
@@ -4998,13 +4996,14 @@ impl DraftFlowCAD {
                     .header
                     .current_annotation_scale
                     .clone();
-                if !sel.is_empty() && !sel.eq_ignore_ascii_case(&cur) {
-                    if self.tabs[i].scene.remove_scale(&sel) {
-                        self.scale_manager_selected.clear();
-                        self.scale_manager_paper_buf.clear();
-                        self.scale_manager_drawing_buf.clear();
-                        self.scale_stage_mark();
-                    }
+                if !sel.is_empty()
+                    && !sel.eq_ignore_ascii_case(&cur)
+                    && self.tabs[i].scene.remove_scale(&sel)
+                {
+                    self.scale_manager_selected.clear();
+                    self.scale_manager_paper_buf.clear();
+                    self.scale_manager_drawing_buf.clear();
+                    self.scale_stage_mark();
                 }
                 Task::none()
             }
@@ -5555,7 +5554,7 @@ impl DraftFlowCAD {
                             .map(|h| crate::sys::handle_path(&h));
                         path
                     },
-                    |path| Message::WblockBrowsePathResult(path),
+                    Message::WblockBrowsePathResult,
                 )
             }
             Message::WblockBrowsePathResult(opt_path) => {
@@ -7493,7 +7492,7 @@ impl DraftFlowCAD {
                     self.apply_property_op(i, "CHPROP", &handles, |app, handle| {
                         match app.tabs[i].scene.document.get_entity_mut(handle) {
                             Some(codec::EntityType::MText(m)) => {
-                                m.background_color = color.clone();
+                                m.background_color = color;
                                 // Picking a colour turns the background on in Fill
                                 // mode (specific colour), preserving the frame bit.
                                 m.background_fill_flags = (m.background_fill_flags & !0x02) | 0x01;
@@ -7551,7 +7550,7 @@ impl DraftFlowCAD {
                         | "dim_text_color"
                         | "dim_text_fill_color"
                 ) {
-                    let fill_mode = (field == "dim_text_fill_color").then(|| match color {
+                    let fill_mode = (field == "dim_text_fill_color").then_some(match color {
                         codec::types::Color::None => 0,
                         codec::types::Color::ByBlock => 1,
                         _ => 2,
@@ -7713,7 +7712,7 @@ impl DraftFlowCAD {
                                     },
                                 );
                             }
-                            h.gradient_color.colors[idx].color = color.clone();
+                            h.gradient_color.colors[idx].color = color;
                         }
                     });
                     // Rebuild hatch seeds so the gradient fill picks up the new

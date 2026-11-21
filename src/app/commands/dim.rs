@@ -1341,7 +1341,7 @@ impl DraftFlowCAD {
                     .selected_entities()
                     .into_iter()
                     .filter_map(|(handle, entity)| {
-                        crate::modules::draw::modify::trim::is_trim_boundary_entity(&entity)
+                        crate::modules::draw::modify::trim::is_trim_boundary_entity(entity)
                             .then_some(handle)
                     })
                     .collect();

@@ -62,7 +62,9 @@ impl Mesh {
         let reference = self
             .positions
             .iter()
-            .fold(Vec3::new(0.0, 0.0, 0.0), |sum, point| sum + Vec3::from(*point))
+            .fold(Vec3::new(0.0, 0.0, 0.0), |sum, point| {
+                sum + Vec3::from(*point)
+            })
             / count;
         self.positions.first()?;
         let mut signed_volume = 0.0;
@@ -2141,9 +2143,12 @@ fn chain_samples(
         // that difference away erases the patch's parameter-space area.
         if !explicit || !next_explicit {
             align_parameters(&mut next, &points, surface_periods, pieces.peek().is_none());
-        } else if let Some(shift) =
-            ordinary_period_jump(surface, points.last()?.parameters, next[0].parameters, surface_periods)
-        {
+        } else if let Some(shift) = ordinary_period_jump(
+            surface,
+            points.last()?.parameters,
+            next[0].parameters,
+            surface_periods,
+        ) {
             // Two explicit pcurves on either side of an ordinary seam point
             // that merely name it from different turns: the jump is not a
             // pole's, so it is folded rather than kept as a boundary segment
@@ -2728,7 +2733,9 @@ fn scheduled_band(
                 && body.edges.get(coedge.edge).is_some_and(|edge| {
                     edge.coedges.len() == 2
                         && edge.coedges.iter().all(|other| {
-                            body.coedges.get(*other).is_some_and(|other| other.owner == *loop_key)
+                            body.coedges
+                                .get(*other)
+                                .is_some_and(|other| other.owner == *loop_key)
                         })
                 });
             if let Some(varying) = varying {
@@ -3031,11 +3038,10 @@ fn cut_winding_band(
             })?;
             let (a, b) = (&rim[index], &rim[index + 1]);
             let line = seam + turn(b.parameters[varying], seam) * period;
-            let t = (line - a.parameters[varying])
-                / (b.parameters[varying] - a.parameters[varying]);
-            let mut parameters = [0, 1].map(|axis| {
-                a.parameters[axis] + (b.parameters[axis] - a.parameters[axis]) * t
-            });
+            let t =
+                (line - a.parameters[varying]) / (b.parameters[varying] - a.parameters[varying]);
+            let mut parameters = [0, 1]
+                .map(|axis| a.parameters[axis] + (b.parameters[axis] - a.parameters[axis]) * t);
             parameters[varying] = line;
             let start = BoundaryPoint {
                 parameters,
@@ -3216,7 +3222,10 @@ fn scheduled_singular_band(
         let apex = surface.point_at(0.0, cone.radius / cone.half_angle.tan());
         let ring = body.loops.get(boundary_loop?)?;
         Some(ring.coedges.iter().any(|coedge| {
-            let Some(edge) = body.coedges.get(*coedge).and_then(|c| body.edges.get(c.edge))
+            let Some(edge) = body
+                .coedges
+                .get(*coedge)
+                .and_then(|c| body.edges.get(c.edge))
             else {
                 return false;
             };
@@ -3345,7 +3354,9 @@ fn scheduled_winding_band(
             .cloned()
             .partition(|ring| traversal(ring).abs() >= period * 0.5);
         if rims.len() != 2
-            || rims.iter().any(|ring| !is_monotonic_periodic_rim(ring, varying, period))
+            || rims
+                .iter()
+                .any(|ring| !is_monotonic_periodic_rim(ring, varying, period))
         {
             continue;
         }
@@ -3629,7 +3640,10 @@ fn rotate_periodic_rim(
     }
     rim.dedup_by(|a, b| {
         (0..2).all(|axis| {
-            let scale = a.parameters[axis].abs().max(b.parameters[axis].abs()).max(1.0);
+            let scale = a.parameters[axis]
+                .abs()
+                .max(b.parameters[axis].abs())
+                .max(1.0);
             (a.parameters[axis] - b.parameters[axis]).abs() <= f64::EPSILON * 128.0 * scale
         })
     });
@@ -5028,9 +5042,17 @@ fn surface_display_normal(surface: &super::geometry::Surface, uv: [f64; 2]) -> O
     if !matches!(surface, super::geometry::Surface::Nurbs(_)) {
         return display_normal(surface, uv);
     }
-    let key = (surface as *const _ as usize, uv[0].to_bits(), uv[1].to_bits());
-    let known = SPLINE_NORMALS
-        .with(|normals| normals.borrow().as_ref().and_then(|normals| normals.get(&key).copied()));
+    let key = (
+        surface as *const _ as usize,
+        uv[0].to_bits(),
+        uv[1].to_bits(),
+    );
+    let known = SPLINE_NORMALS.with(|normals| {
+        normals
+            .borrow()
+            .as_ref()
+            .and_then(|normals| normals.get(&key).copied())
+    });
     if let Some(normal) = known {
         return normal;
     }
@@ -5045,16 +5067,21 @@ fn surface_display_normal(surface: &super::geometry::Surface, uv: [f64; 2]) -> O
 
 /// [`Surface::tangents_at`](super::geometry::Surface::tangents_at), kept
 /// for a spline as its normals are.
-fn surface_frame(
-    surface: &super::geometry::Surface,
-    uv: [f64; 2],
-) -> Option<([f64; 3], [f64; 3])> {
+fn surface_frame(surface: &super::geometry::Surface, uv: [f64; 2]) -> Option<([f64; 3], [f64; 3])> {
     if !matches!(surface, super::geometry::Surface::Nurbs(_)) {
         return surface.tangents_at(uv[0], uv[1]);
     }
-    let key = (surface as *const _ as usize, uv[0].to_bits(), uv[1].to_bits());
-    let known = SPLINE_FRAMES
-        .with(|frames| frames.borrow().as_ref().and_then(|frames| frames.get(&key).copied()));
+    let key = (
+        surface as *const _ as usize,
+        uv[0].to_bits(),
+        uv[1].to_bits(),
+    );
+    let known = SPLINE_FRAMES.with(|frames| {
+        frames
+            .borrow()
+            .as_ref()
+            .and_then(|frames| frames.get(&key).copied())
+    });
     if let Some(frame) = known {
         return frame;
     }
@@ -5492,10 +5519,7 @@ mod tests {
             },
         ];
         assert!(smooth_scheduled_edge(&solid, edge_key, &schedule));
-        let tessellation = tessellate(
-            &solid,
-            TessellationTolerance::new(default_angle(), TOL),
-        );
+        let tessellation = tessellate(&solid, TessellationTolerance::new(default_angle(), TOL));
         assert!(!tessellation.edges.iter().any(|edge| edge.edge == edge_key));
         assert!(tessellation
             .drawing_edges
@@ -5543,8 +5567,7 @@ mod tests {
     #[test]
     fn cylinder_isolines_are_not_mistaken_for_the_parameter_seam() {
         let solid = crate::brep::make::cylinder([0.0; 3], 5.0, 10.0).unwrap();
-        let tolerance = TessellationTolerance::new(default_angle(), TOL)
-            .with_uv_isolines(4, 0);
+        let tolerance = TessellationTolerance::new(default_angle(), TOL).with_uv_isolines(4, 0);
         let isolines = tessellate_wireframe(&solid, tolerance).isolines;
 
         assert_eq!(isolines.len(), 4);

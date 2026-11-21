@@ -258,6 +258,12 @@ impl Dc {
     }
 }
 
+impl Default for Dc {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// COLORREF (0x00BBGGRR) → RGBA.
 pub fn colorref(v: u32) -> Rgba {
     Rgba([

@@ -60,6 +60,12 @@ impl FixConstraintCommand {
     }
 }
 
+impl Default for FixConstraintCommand {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CadCommand for FixConstraintCommand {
     fn name(&self) -> &'static str {
         "FXCONSTRAINT"

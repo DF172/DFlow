@@ -71,6 +71,12 @@ impl DonutCommand {
     }
 }
 
+impl Default for DonutCommand {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 fn prompt_with_default(prompt: &str, value: f64) -> String {
     match prompt.char_indices().next_back() {
         Some((index, suffix @ (':' | '：'))) => {

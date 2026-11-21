@@ -898,10 +898,9 @@ impl DraftFlowCAD {
         let pending = self.begin_undo(i, label, hatches.len(), true);
         let layer = self.tabs[i].active_layer.clone();
         for hatch in hatches {
-            let new_handle =
-                self.tabs[i]
-                    .scene
-                    .add_hatch(hatch, Some(&layer), entity_style.clone());
+            let new_handle = self.tabs[i]
+                .scene
+                .add_hatch(hatch, Some(&layer), entity_style);
             if !new_handle.is_null() {
                 self.tabs[i].scene.select_entity(new_handle, true);
             }

@@ -1076,10 +1076,7 @@ impl NurbsSurface3 {
         const GRID: usize = 16;
         const ITERATIONS: usize = 32;
         let ((u0, u1), (v0, v1)) = self.domain();
-        if ![u0, u1, v0, v1].into_iter().all(f64::is_finite)
-            || u1 <= u0
-            || v1 <= v0
-        {
+        if ![u0, u1, v0, v1].into_iter().all(f64::is_finite) || u1 <= u0 || v1 <= v0 {
             return None;
         }
         let target = Vec3::from(point);
@@ -1128,13 +1125,10 @@ impl NurbsSurface3 {
             let current = residual.length_squared();
             let mut accepted = false;
             for divisor in [1.0, 2.0, 4.0, 8.0, 16.0, 32.0] {
-                let candidate_u =
-                    wrap_parameter(u + step[0] / divisor, u0, u1, self.u_closed);
-                let candidate_v =
-                    wrap_parameter(v + step[1] / divisor, v0, v1, self.v_closed);
-                let candidate =
-                    (Vec3::from(self.point_at_knot(candidate_u, candidate_v)) - target)
-                        .length_squared();
+                let candidate_u = wrap_parameter(u + step[0] / divisor, u0, u1, self.u_closed);
+                let candidate_v = wrap_parameter(v + step[1] / divisor, v0, v1, self.v_closed);
+                let candidate = (Vec3::from(self.point_at_knot(candidate_u, candidate_v)) - target)
+                    .length_squared();
                 if candidate.is_finite() && candidate < current {
                     u = candidate_u;
                     v = candidate_v;
@@ -1438,11 +1432,19 @@ mod tests {
         let circle = NurbsCurve3::new(
             2,
             vec![
-                [1.0, 0.0, 0.0], [1.0, -1.0, 0.0], [0.0, -1.0, 0.0], [-1.0, -1.0, 0.0],
-                [-1.0, 0.0, 0.0], [-1.0, 1.0, 0.0], [0.0, 1.0, 0.0], [1.0, 1.0, 0.0],
+                [1.0, 0.0, 0.0],
+                [1.0, -1.0, 0.0],
+                [0.0, -1.0, 0.0],
+                [-1.0, -1.0, 0.0],
+                [-1.0, 0.0, 0.0],
+                [-1.0, 1.0, 0.0],
+                [0.0, 1.0, 0.0],
+                [1.0, 1.0, 0.0],
                 [1.0, 0.0, 0.0],
             ],
-            vec![0.0, 0.0, 0.0, 0.25, 0.25, 0.5, 0.5, 0.75, 0.75, 1.0, 1.0, 1.0],
+            vec![
+                0.0, 0.0, 0.0, 0.25, 0.25, 0.5, 0.5, 0.75, 0.75, 1.0, 1.0, 1.0,
+            ],
             Some(vec![1.0, w, 1.0, w, 1.0, w, 1.0, w, 1.0]),
         )
         .unwrap();

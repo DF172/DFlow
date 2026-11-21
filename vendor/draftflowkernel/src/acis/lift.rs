@@ -3,17 +3,18 @@
 //! Unsupported records remain attached through provenance and appear in
 //! [`Loss`].
 
-use draftflowcodec::entities::acis::types::{
-    SatBSplineSurface, SatBody, SatCoedge, SatConeSurface, SatDocument, SatEdge, SatEllipseCurve, SatFace, SatIntCurve,
-    SatLoop, SatLump, SatPCurve, SatPlaneSurface, SatPoint, SatPointer, SatRecord, SatShell,
-    SatSphereSurface, SatSplineSurface, SatStraightCurve, SatTorusSurface, SatVertex, Sense,
-};
 use crate::brep::{
     Body, Circle3, Coedge, Cone, Curve3, CurveKey, Cylinder, Edge, EdgeKey, Face, Line3, Loop,
     Lump, Provenance, Shell, SourceRef, Sphere, Surface, SurfaceKey, Torus, Vertex, VertexKey,
 };
 use crate::geom2d::{Curve as Curve2, NurbsCurve};
 use crate::space::{NurbsCurve3, NurbsSurface3, Plane, Vec3};
+use draftflowcodec::entities::acis::types::{
+    SatBSplineSurface, SatBody, SatCoedge, SatConeSurface, SatDocument, SatEdge, SatEllipseCurve,
+    SatFace, SatIntCurve, SatLoop, SatLump, SatPCurve, SatPlaneSurface, SatPoint, SatPointer,
+    SatRecord, SatShell, SatSphereSurface, SatSplineSurface, SatStraightCurve, SatTorusSurface,
+    SatVertex, Sense,
+};
 use std::collections::HashMap;
 use std::f64::consts::TAU;
 
@@ -55,7 +56,12 @@ pub fn lift(document: &SatDocument) -> (Vec<Body>, Loss) {
         .into_iter()
         .enumerate()
         .filter_map(|(order, body)| {
-            lift_one(document, &body, indices.get(order).copied().flatten(), &mut loss)
+            lift_one(
+                document,
+                &body,
+                indices.get(order).copied().flatten(),
+                &mut loss,
+            )
         })
         .collect();
     (bodies, loss)
@@ -129,7 +135,15 @@ fn lift_one(
                     note_broken(loss, record);
                     break;
                 };
-                lift_face(document, &mut body, &mut seen, loss, &source_face, record, shell);
+                lift_face(
+                    document,
+                    &mut body,
+                    &mut seen,
+                    loss,
+                    &source_face,
+                    record,
+                    shell,
+                );
                 face_pointer = source_face.next_face();
             }
             shell_pointer = source_shell.next_shell();
@@ -173,14 +187,24 @@ fn body_placement(record: &SatRecord) -> Option<crate::brep::Placement> {
         } else if let Some(value) = token.as_integer() {
             values.push(value as f64);
         } else if let Some(text) = token.as_string() {
-            values.extend(text.split_ascii_whitespace().map_while(|word| word.parse::<f64>().ok()));
+            values.extend(
+                text.split_ascii_whitespace()
+                    .map_while(|word| word.parse::<f64>().ok()),
+            );
         }
     }
-    if values.len() < 13 || !values[..13].iter().all(|value| value.is_finite()) || values[12] <= 0.0 {
+    if values.len() < 13 || !values[..13].iter().all(|value| value.is_finite()) || values[12] <= 0.0
+    {
         return None;
     }
     let scale = values[12];
-    let row = |at: usize| [scale * values[at], scale * values[at + 1], scale * values[at + 2]];
+    let row = |at: usize| {
+        [
+            scale * values[at],
+            scale * values[at + 1],
+            scale * values[at + 2],
+        ]
+    };
     Some(crate::brep::Placement {
         x_axis: row(0),
         y_axis: row(3),
@@ -265,8 +289,8 @@ fn lift_face(
                         if edge.start == edge.end {
                             return source_edge.sense() == Sense::Forward;
                         }
-                        let source_start = resolve(document, source_edge.start_vertex())
-                            .and_then(index_of);
+                        let source_start =
+                            resolve(document, source_edge.start_vertex()).and_then(index_of);
                         let kernel_start = body
                             .vertices
                             .get(edge.start)
@@ -341,7 +365,10 @@ fn edge_of(
     };
     // Open curves have an unambiguous span, so their vertices resolve stale
     // stored parameters. Closed curves keep the stored choice of arc.
-    let ends = (body.vertices.get(start)?.point, body.vertices.get(end)?.point);
+    let ends = (
+        body.vertices.get(start)?.point,
+        body.vertices.get(end)?.point,
+    );
     let apart = Vec3::from(ends.0).distance(Vec3::from(ends.1)) > 1e-9;
     let mut stored_low = source.start_param();
     let mut stored_high = source.end_param();
@@ -355,7 +382,8 @@ fn edge_of(
         Some(shape @ Curve3::Nurbs(nurbs))
             if start == end
                 && nurbs.periodicity()
-                && stored_high - stored_low >= (nurbs.domain().1 - nurbs.domain().0) * (1.0 - 1e-6) =>
+                && stored_high - stored_low
+                    >= (nurbs.domain().1 - nurbs.domain().0) * (1.0 - 1e-6) =>
         {
             let period = nurbs.domain().1 - nurbs.domain().0;
             let projected = shape.parameter_at(ends.0);
@@ -403,7 +431,11 @@ fn edge_of(
         // — negated on a reversed edge — and ACIS before 7.0 writes none at
         // all, which read as zero collapsed the circle to a point.
         Some(shape @ (Curve3::Circle(_) | Curve3::Ellipse(_))) if !apart => {
-            let near = if edge_forward { stored_low } else { -stored_high };
+            let near = if edge_forward {
+                stored_low
+            } else {
+                -stored_high
+            };
             let low = periodic_near(shape.parameter_at(ends.0), near, TAU);
             (low, low + TAU)
         }
@@ -499,10 +531,7 @@ fn surface_curve(surface: &Surface, pcurve: &Curve2) -> Option<Curve3> {
     ))
 }
 
-fn partner_surface_curve(
-    document: &SatDocument,
-    source: &SatCoedge<'_>,
-) -> Option<Curve3> {
+fn partner_surface_curve(document: &SatDocument, source: &SatCoedge<'_>) -> Option<Curve3> {
     let partner = SatCoedge::from_record(resolve(document, source.partner())?)?;
     let owner_loop = SatLoop::from_record(resolve(document, partner.owner_loop())?)?;
     let face = SatFace::from_record(resolve(document, owner_loop.face())?)?;
@@ -567,10 +596,9 @@ fn read_curve(document: &SatDocument, record: &SatRecord) -> Option<Curve3> {
             ]);
             weights.push(weight);
         }
-        return Some(Curve3::Nurbs(NurbsCurve3::new_strict(
-            degree, points, knots, weights,
-        )?
-        .with_periodicity(closed)));
+        return Some(Curve3::Nurbs(
+            NurbsCurve3::new_strict(degree, points, knots, weights)?.with_periodicity(closed),
+        ));
     }
     None
 }
@@ -660,7 +688,10 @@ fn pcurve_on_edge(
     let (starts, ends) = (landings(along[0]), landings(along[along.len() - 1]));
     let mut spans: Vec<(f64, f64)> = starts
         .iter()
-        .flat_map(|start| ends.iter().map(move |end| (start.min(*end), start.max(*end))))
+        .flat_map(|start| {
+            ends.iter()
+                .map(move |end| (start.min(*end), start.max(*end)))
+        })
         .filter(|(from, to)| to - from > 1e-9)
         .collect();
     // The pcurve as written wins over any cut of it.
@@ -709,7 +740,9 @@ fn read_pcurve(
         points.push(surface.map_or(point, |surface| super::append::kernel_uv(surface, point)));
         weights.push(weight);
     }
-    Some(Curve2::Nurbs(NurbsCurve::new_strict(degree, points, knots, weights)?))
+    Some(Curve2::Nurbs(NurbsCurve::new_strict(
+        degree, points, knots, weights,
+    )?))
 }
 
 fn analytic_surface_reversed(record: &SatRecord) -> bool {
@@ -786,7 +819,11 @@ impl EllipticCone {
         let axis = Vec3::from(frame.normal()?);
         // Same half-angle convention as the circular cone in `read_surface`.
         let (sine, cosine) = (cone.sin_half_angle(), cone.cos_half_angle());
-        let (sine, cosine) = if cosine < 0.0 { (-sine, -cosine) } else { (sine, cosine) };
+        let (sine, cosine) = if cosine < 0.0 {
+            (-sine, -cosine)
+        } else {
+            (sine, cosine)
+        };
         let tangent = (-sine.atan2(cosine)).tan();
         (radius > 0.0 && tangent.is_finite()).then_some(Self {
             centre: Vec3::new(cx, cy, cz),
@@ -822,9 +859,14 @@ impl EllipticCone {
             let across = (self.major * x + self.minor * y) * scale;
             (self.centre + across + self.axis * height).to_array()
         };
-        let points = section.iter().map(|&(x, y, _)| vec![at(x, y, low), at(x, y, high)]).collect();
+        let points = section
+            .iter()
+            .map(|&(x, y, _)| vec![at(x, y, low), at(x, y, high)])
+            .collect();
         let weights = section.iter().map(|&(_, _, w)| vec![w, w]).collect();
-        let knots = vec![0.0, 0.0, 0.0, 0.25, 0.25, 0.5, 0.5, 0.75, 0.75, 1.0, 1.0, 1.0];
+        let knots = vec![
+            0.0, 0.0, 0.0, 0.25, 0.25, 0.5, 0.5, 0.75, 0.75, 1.0, 1.0, 1.0,
+        ];
         NurbsSurface3::new(2, 1, points, knots, vec![0.0, 0.0, 1.0, 1.0], Some(weights))
     }
 }
@@ -839,12 +881,19 @@ fn fit_elliptic_cones(body: &mut Body, seen: &Seen) {
         let mut coedges = Vec::new();
         for (_, face) in body.faces.iter().filter(|(_, face)| face.surface == *key) {
             for ring in &face.loops {
-                let Some(ring) = body.loops.get(*ring) else { continue };
+                let Some(ring) = body.loops.get(*ring) else {
+                    continue;
+                };
                 for coedge in &ring.coedges {
                     coedges.push(*coedge);
-                    let edge = body.coedges.get(*coedge).and_then(|c| body.edges.get(c.edge));
+                    let edge = body
+                        .coedges
+                        .get(*coedge)
+                        .and_then(|c| body.edges.get(c.edge));
                     let Some(edge) = edge else { continue };
-                    let Some(curve) = body.curves.get(edge.curve) else { continue };
+                    let Some(curve) = body.curves.get(edge.curve) else {
+                        continue;
+                    };
                     let span = edge.end_parameter - edge.start_parameter;
                     for i in 0..=32 {
                         let t = edge.start_parameter + span * i as f64 / 32.0;
@@ -861,7 +910,9 @@ fn fit_elliptic_cones(body: &mut Body, seen: &Seen) {
             continue;
         }
         let pad = ((high - low) * 0.05).max(1e-6 * (1.0 + low.abs().max(high.abs())));
-        let Some(surface) = cone.surface(low - pad, high + pad) else { continue };
+        let Some(surface) = cone.surface(low - pad, high + pad) else {
+            continue;
+        };
         if let Some(slot) = body.surfaces.get_mut(*key) {
             *slot = Surface::Nurbs(surface);
         }
@@ -902,7 +953,11 @@ fn read_surface(document: &SatDocument, record: &SatRecord) -> Option<Surface> {
         // Only the ratio shapes the cone; a negative cosine flips the normal,
         // which `points_inward` carries on the face.
         let (sine, cosine) = (cone.sin_half_angle(), cone.cos_half_angle());
-        let (sine, cosine) = if cosine < 0.0 { (-sine, -cosine) } else { (sine, cosine) };
+        let (sine, cosine) = if cosine < 0.0 {
+            (-sine, -cosine)
+        } else {
+            (sine, cosine)
+        };
         return Some(if sine.abs() < 1e-12 {
             Surface::Cylinder(Cylinder { base, radius })
         } else {
@@ -991,7 +1046,8 @@ fn offset_surface(base: &NurbsSurface3, distance: f64) -> Option<NurbsSurface3> 
     let ((u0, u1), (v0, v1)) = base.domain();
     let rows = base.control_points();
     let (u_count, v_count) = ((rows.len() * 4).max(16), (rows.first()?.len() * 4).max(4));
-    let at = |i: usize, count: usize, low: f64, high: f64| low + (high - low) * i as f64 / count as f64;
+    let at =
+        |i: usize, count: usize, low: f64, high: f64| low + (high - low) * i as f64 / count as f64;
     let grid = (0..=v_count)
         .map(|j| {
             let v = at(j, v_count, v0, v1);
@@ -1021,7 +1077,10 @@ fn interpolate_grid(
     let fit = |points: &[[f64; 3]]| {
         NurbsCurve3::interpolate_fit(points, None, None, crate::space::Parameterization::Uniform)
     };
-    let rows = grid.iter().map(|row| fit(row)).collect::<Option<Vec<_>>>()?;
+    let rows = grid
+        .iter()
+        .map(|row| fit(row))
+        .collect::<Option<Vec<_>>>()?;
     let u_knots = rows.first()?.knots().to_vec();
     let mut points = Vec::new();
     let mut v_knots = Vec::new();
@@ -1091,10 +1150,13 @@ fn boundary_patch(document: &SatDocument, source: &SatFace<'_>) -> Option<Surfac
     if boundary.len() < 3 {
         return None;
     }
-    let centre = boundary.iter().fold(Vec3::ZERO, |sum, point| sum + *point)
-        * (1.0 / boundary.len() as f64);
+    let centre =
+        boundary.iter().fold(Vec3::ZERO, |sum, point| sum + *point) * (1.0 / boundary.len() as f64);
     let newell = (0..boundary.len()).fold(Vec3::ZERO, |sum, index| {
-        let (a, b) = (boundary[index] - centre, boundary[(index + 1) % boundary.len()] - centre);
+        let (a, b) = (
+            boundary[index] - centre,
+            boundary[(index + 1) % boundary.len()] - centre,
+        );
         sum + a.cross(b)
     });
     // The first piece may have been chained backwards, reversing the walk.
@@ -1105,11 +1167,20 @@ fn boundary_patch(document: &SatDocument, source: &SatFace<'_>) -> Option<Surfac
         let curve = read_curve(document, resolve(document, edge.curve())?)?;
         let start = Vec3::from(curve.point_at(edge.start_param()));
         let end = Vec3::from(curve.point_at(edge.end_param()));
-        (end - start) * if coedge.sense() == edge.sense() { 1.0 } else { -1.0 }
+        (end - start)
+            * if coedge.sense() == edge.sense() {
+                1.0
+            } else {
+                -1.0
+            }
     };
     let walked_backwards = ahead.dot(expected) < 0.0;
     let face_normal = if walked_backwards { -newell } else { newell };
-    let normal = if source.sense() == Sense::Forward { face_normal } else { -face_normal };
+    let normal = if source.sense() == Sense::Forward {
+        face_normal
+    } else {
+        -face_normal
+    };
     let plane = Plane::orthonormal(
         centre.to_array(),
         (boundary[0] - centre).to_array(),
@@ -1133,7 +1204,10 @@ fn boundary_patch(document: &SatDocument, source: &SatFace<'_>) -> Option<Surfac
         }
     }
     let margin = (high[0] - low[0]).max(high[1] - low[1]) * 0.02;
-    let (low, high) = (low.map(|value| value - margin), high.map(|value| value + margin));
+    let (low, high) = (
+        low.map(|value| value - margin),
+        high.map(|value| value + margin),
+    );
     const STEPS: usize = 24;
     let grid: Vec<Vec<[f64; 3]>> = (0..=STEPS)
         .map(|j| {
@@ -1162,7 +1236,10 @@ fn mean_value_point(corners: &[[f64; 2]], values: &[Vec3], point: [f64; 2]) -> V
         .iter()
         .map(|corner| [corner[0] - point[0], corner[1] - point[1]])
         .collect();
-    let lengths: Vec<f64> = spokes.iter().map(|spoke| spoke[0].hypot(spoke[1])).collect();
+    let lengths: Vec<f64> = spokes
+        .iter()
+        .map(|spoke| spoke[0].hypot(spoke[1]))
+        .collect();
     if let Some(index) = lengths.iter().position(|length| *length < 1e-12) {
         return values[index];
     }
@@ -1182,7 +1259,8 @@ fn mean_value_point(corners: &[[f64; 2]], values: &[Vec3], point: [f64; 2]) -> V
     let mut total = 0.0;
     let mut sum = Vec3::ZERO;
     for index in 0..count {
-        let weight = (half_tangents[(index + count - 1) % count] + half_tangents[index]) / lengths[index];
+        let weight =
+            (half_tangents[(index + count - 1) % count] + half_tangents[index]) / lengths[index];
         total += weight;
         sum = sum + values[index] * weight;
     }
@@ -1246,7 +1324,9 @@ fn supported_curve(
 }
 
 fn resolve(document: &SatDocument, pointer: SatPointer) -> Option<&SatRecord> {
-    (!pointer.is_null()).then(|| document.resolve(pointer)).flatten()
+    (!pointer.is_null())
+        .then(|| document.resolve(pointer))
+        .flatten()
 }
 
 fn index_of(record: &SatRecord) -> Option<u32> {
@@ -1287,11 +1367,10 @@ pub struct WireSpan {
 /// is closed. The body's transform, if any, is applied.
 pub fn lift_wire(document: &SatDocument) -> Option<Vec<WireSpan>> {
     let wire = document.wires().into_iter().next()?;
-    let first = wire
-        .record()
-        .pointers()
-        .into_iter()
-        .find(|pointer| resolve(document, *pointer).is_some_and(|record| record.is_a("coedge")))?;
+    let first =
+        wire.record().pointers().into_iter().find(|pointer| {
+            resolve(document, *pointer).is_some_and(|record| record.is_a("coedge"))
+        })?;
     let index = |pointer| resolve(document, pointer).and_then(index_of);
     // An open wire's first coedge is its own predecessor; a closed one is a
     // ring, walked from the coedge the wire names.

@@ -164,7 +164,7 @@ pub fn text_local_bounds(
 
     let shaping_family = face.ttf_family().or_else(|| {
         crate::scene::text::web_font::requires_shaping(text)
-            .then(|| crate::scene::text::web_font::fallback_family())
+            .then(crate::scene::text::web_font::fallback_family)
     });
     if let Some(family) = shaping_family {
         if let Some(run) = crate::scene::text::ttf_glyph::shape_run(family, text) {
@@ -252,7 +252,7 @@ pub fn text_char_cells(
     let wf = width_factor.abs().clamp(0.01, 100.0);
     let shaping_family = face.ttf_family().or_else(|| {
         crate::scene::text::web_font::requires_shaping(text)
-            .then(|| crate::scene::text::web_font::fallback_family())
+            .then(crate::scene::text::web_font::fallback_family)
     });
     if let Some(run) =
         shaping_family.and_then(|family| crate::scene::text::ttf_glyph::shape_run(family, text))
