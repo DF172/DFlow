@@ -1755,6 +1755,62 @@ impl DraftFlowCAD {
         // building the panel, and syncing the ribbon.
         let t_all = crate::perf::enabled().then(iced::time::Instant::now);
         let i = self.active_tab;
+        // Item 18: a dimension whose reference chain just went Broken or
+        // Unresolved gets one 100 ms warning flash. The transition is only
+        // observable where the panel is rebuilt (the status row is produced
+        // from the same resolve), so the edge is detected here rather than
+        // per frame. Re-selecting an already-broken dimension is not a
+        // severance and stays quiet.
+        {
+            let target = match self.property_target_handles(i).as_slice() {
+                [handle]
+                    if self.tabs[i]
+                        .scene
+                        .document
+                        .get_entity(*handle)
+                        .is_some_and(|entity| matches!(entity, codec::EntityType::Dimension(_))) =>
+                {
+                    Some(*handle)
+                }
+                _ => None,
+            };
+            let broken_now = target.is_some_and(|handle| {
+                self.tabs[i]
+                    .scene
+                    .dimension_association_status(handle)
+                    .iter()
+                    .any(|(_, status)| {
+                        matches!(
+                            status,
+                            crate::scene::ReferenceStatus::Broken(_)
+                                | crate::scene::ReferenceStatus::Unresolved
+                        )
+                    })
+            });
+            match target {
+                Some(handle) if self.assoc_break_handle == Some(handle) => {
+                    if broken_now && !self.assoc_break_broken {
+                        let rise = crate::ui::motion::ASSOC_BREAK_TIME / 3;
+                        crate::ui::motion::pulse(
+                            crate::ui::motion::ASSOC_BREAK,
+                            1.0,
+                            0.0,
+                            rise,
+                            crate::ui::motion::ASSOC_BREAK_TIME - rise,
+                        );
+                    }
+                    self.assoc_break_broken = broken_now;
+                }
+                Some(handle) => {
+                    self.assoc_break_handle = Some(handle);
+                    self.assoc_break_broken = broken_now;
+                }
+                None => {
+                    self.assoc_break_handle = None;
+                    self.assoc_break_broken = false;
+                }
+            }
+        }
         if !crate::entities::object_data::cache_is_prepared(&self.tabs[i].scene.object_data_cache) {
             self.tabs[i].scene.object_data_cache =
                 crate::entities::object_data::build_cache(&self.tabs[i].scene.document);
@@ -2510,6 +2566,12 @@ filter={:.1} local={:.1} aggregate={:.1} entities={}",
                 panel.field_key_by_id = crate::ui::properties::build_field_key_map(&panel.sections);
                 panel.edit_buf.clear();
                 panel.active_field = None;
+                // The target set changed, so nothing is uncommitted any more.
+                crate::ui::motion::set(
+                    crate::ui::motion::PROP_DIRTY,
+                    0.0,
+                    crate::ui::motion::PROP_DIRTY_TIME,
+                );
                 panel.color_picker_open = false;
                 panel.bg_color_picker_open = false;
                 panel.open_color_field = None;

@@ -453,6 +453,29 @@ impl DraftFlowCAD {
             .into()
     }
 
+    /// Item 36: while the DOCK_LAND spring is active, the just-landed panel
+    /// rides a pure visual translation. `Float` delegates size and layout to
+    /// its content, so no layout metric moves; at rest the spring snaps to
+    /// exactly 0 and this returns the body unwrapped, pixel-identical to the
+    /// plain path.
+    fn landed<'a>(
+        &self,
+        id: crate::ui::dock::PanelId,
+        body: Element<'a, Message>,
+    ) -> Element<'a, Message> {
+        if self.dock_land_panel != Some(id) {
+            return body;
+        }
+        let offset = crate::ui::motion::spring_value(crate::ui::motion::DOCK_LAND, 0.0);
+        if offset == 0.0 {
+            return body;
+        }
+        let dir = self.dock_land_dir;
+        iced::widget::Float::new(body)
+            .translate(move |_, _| iced::Vector::new(dir.x * offset, dir.y * offset))
+            .into()
+    }
+
     /// A pallet of the shown group: its body plus a grabbable divider
     /// against the viewport (sizing the whole group). Hovering is handled by
     /// the enclosing edge region (see `build_edge_stack`), so the body stays
@@ -464,7 +487,7 @@ impl DraftFlowCAD {
         width: f32,
         tab: &'a DocumentTab,
     ) -> Element<'a, Message> {
-        let panel = self.panel_body(id, width, false, tab);
+        let panel = self.landed(id, self.panel_body(id, width, false, tab));
         let divider = dock_divider(id);
         match side {
             crate::app::config::DockSide::Left => row![panel, divider].height(Fill).into(),
@@ -555,7 +578,7 @@ impl DraftFlowCAD {
             .on_enter(Message::Dock(DockMsg::Hover(f.id)))
             .on_exit(Message::Dock(DockMsg::HoverExit))
             .interaction(iced::mouse::Interaction::Idle);
-        place_at(panel.into(), x, y)
+        place_at(self.landed(f.id, panel.into()), x, y)
     }
 
     /// Where floating panel `f` draws.
@@ -660,12 +683,25 @@ impl DraftFlowCAD {
         use crate::ui::dock::DropTarget;
         let (ww, _) = self.dock_workspace_size();
         let strip = crate::ui::dock::DOCK_STRIP_W;
+        // The preview rides one 120 ms track: it fades in and slides the last
+        // few pixels into place, and a target that changes mid-drag replays it
+        // (see `dock_drag_move`). Reading the track here rather than a bool is
+        // what lets the ghost settle instead of snapping between edges.
+        let p = crate::ui::motion::value_or(crate::ui::motion::DOCK_DROP, 1.0);
+        let settle = (1.0 - p) * crate::ui::motion::DOCK_DROP_REACH;
         let tint = |side: DockSide, w: f32| -> Element<'_, Message> {
             let band = container(Space::new())
                 .width(Length::Fixed(w + strip))
                 .height(Fill)
-                // An open drop target is the loudest wash in the kit.
-                .style(|theme: &Theme| kit::tint_style(kit::Tint::Dropped, theme, ""));
+                // An open drop target is the loudest wash in the kit; it
+                // arrives on the same track as the ghost.
+                .style(|theme: &Theme| {
+                    kit::tint_style(
+                        kit::Tint::Dropped,
+                        theme,
+                        crate::ui::motion::DOCK_DROP,
+                    )
+                });
             container(band)
                 .width(Fill)
                 .height(Fill)
@@ -684,7 +720,11 @@ impl DraftFlowCAD {
             DropTarget::Edge { side, .. } | DropTarget::Join { side, .. } => Some(side),
             DropTarget::Float { x, y } => {
                 let (w, h) = self.dock_float_size(id);
-                layers.push(place_at(dock_ghost(id, w + DOCK_FLOAT_BAR_W, h), x, y));
+                layers.push(place_at(
+                    dock_ghost(id, w + DOCK_FLOAT_BAR_W, h, p),
+                    x,
+                    y + settle,
+                ));
                 None
             }
         };
@@ -697,8 +737,13 @@ impl DraftFlowCAD {
                     DockSide::Left => strip,
                     DockSide::Right => (ww - w - strip).max(0.0),
                 };
+                // Inward from the edge: a left drop starts left of its slot.
+                let x = match side {
+                    DockSide::Left => x + settle,
+                    DockSide::Right => (x - settle).max(0.0),
+                };
                 layers.push(tint(side, w));
-                layers.push(place_at(dock_ghost(id, w, bottom - top), x, top));
+                layers.push(place_at(dock_ghost(id, w, bottom - top, p), x, top + settle));
             }
         }
         // On top: the strip's drop marks and a ghost of what is dragged
@@ -1085,8 +1130,15 @@ fn dock_splitter(
 }
 
 /// The blue drop ghost: a `w`×`h` outline of where pallet `id` lands, with
-/// its name as the header.
-fn dock_ghost(id: crate::ui::dock::PanelId, w: f32, h: f32) -> Element<'static, Message> {
+/// its name as the header. `p` is the drop-preview track, `0.0..=1.0`; the
+/// head plate and its ink both ride it so the ghost is not fully opaque on the
+/// frame it first appears.
+fn dock_ghost(
+    id: crate::ui::dock::PanelId,
+    w: f32,
+    h: f32,
+    p: f32,
+) -> Element<'static, Message> {
     let header = container(
         text(t!(id.title()))
             .size(tokens::TEXT_BODY)
@@ -1100,7 +1152,8 @@ fn dock_ghost(id: crate::ui::dock::PanelId, w: f32, h: f32) -> Element<'static, 
     // The accent plate iced's tint ladder owns is `Tint::Badge`, whose corner is
     // `RADIUS_CONTROL`, and this bar is square because it is the head of a square
     // sheet — so it could not fold onto that one and is not folded here either.
-    .style(kit::accent_plate_style);
+    // The arriving fade scales the plate and the ink together.
+    .style(move |theme: &Theme| kit::drop_ghost_head_style(theme, p));
     container(column![header, Space::new()])
         .width(Length::Fixed(w.max(1.0)))
         .height(Length::Fixed(h.max(1.0)))

@@ -7132,16 +7132,44 @@ fn apply_dimpost(value: &str, style: Option<&DimStyle>) -> String {
     }
 }
 
+/// A unit switch's easing multiplier, published by the app once per frame.
+///
+/// Dimension text is formatted from the style on every frame rather than kept
+/// as a cached display string, so the transition between millimetres and
+/// inches has nothing in the model to interpolate — the app eases a ratio
+/// (`old DIMLFAC / new DIMLFAC` → 1) in its motion layer and parks the current
+/// sample here. `1.0` is both the boot value and the settled value.
+static DISPLAY_SCALE_BITS: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0x3F80_0000);
+
+/// Publishes the current unit-switch multiplier (see [`DISPLAY_SCALE_BITS`]).
+/// Non-finite or non-positive values are dropped: a bad sample must never
+/// collapse every measurement on the drawing to zero.
+pub fn set_display_scale(scale: f32) {
+    if scale.is_finite() && scale > 0.0 {
+        DISPLAY_SCALE_BITS.store(scale.to_bits(), std::sync::atomic::Ordering::Relaxed);
+    }
+}
+
+fn display_scale() -> f64 {
+    let scale = f32::from_bits(DISPLAY_SCALE_BITS.load(std::sync::atomic::Ordering::Relaxed));
+    if scale.is_finite() && scale > 0.0 {
+        scale as f64
+    } else {
+        1.0
+    }
+}
+
 /// `resolved_dimension_style` has already applied the DXF sign convention,
 /// so a negative value here means the caller passed an unresolved style;
 /// fall back to 1.0 rather than reporting a negative length.
 fn effective_dimlfac(style: Option<&DimStyle>) -> f64 {
     let lfac = style.map(|s| s.dimlfac).unwrap_or(1.0);
-    if lfac.abs() < 1e-12 || lfac < 0.0 {
+    let base = if lfac.abs() < 1e-12 || lfac < 0.0 {
         1.0
     } else {
         lfac
-    }
+    };
+    base * display_scale()
 }
 
 /// Average advance of one character cell as a fraction of the text height.
@@ -9486,5 +9514,121 @@ mod layout_parity_tests {
             points.iter().any(|p| (p.y - 0.8).abs() < 1e-6),
             "hook at the text height"
         );
+    }
+}
+
+#[cfg(test)]
+mod f3_display_scale_scope {
+    //! F3 (item 44), fix (b): two-document independence under the publish rule.
+    //!
+    //! The dimension-layer mechanism is UNCHANGED by (b): `DISPLAY_SCALE_BITS`
+    //! is still one process-level `AtomicU32` and `effective_dimlfac(style)`
+    //! still takes no document parameter (making those per-document is option
+    //! (a), out of scope). Independence is achieved at the app's publish point
+    //! (`update/motion.rs`): a running chase drives the global multiplier away
+    //! from 1.0 ONLY while its owner tab is the active tab; a tab switch lands
+    //! it at 1.0 instantly. That decision is guarded against the real code in
+    //! `update/motion.rs::f3_unit_chase_publish_scope`.
+    //!
+    //! This guard verifies the dimension-layer OUTCOME of that publish protocol
+    //! over two separate documents: A's switch changes A; B always reads its
+    //! true value; the tab-switch instant multiplier is 1.0 (no residual). It
+    //! drives `set_display_scale` with exactly the values the publish point
+    //! emits (ratio for the active owner, 1.0 otherwise) rather than re-deciding
+    //! the gating here. The global is restored to 1.0 on exit.
+    use super::*;
+    use codec::entities::DimensionLinear;
+    use codec::types::Vector3;
+
+    fn ten_unit_dim() -> Dimension {
+        let mut d =
+            DimensionLinear::horizontal(Vector3::new(0.0, 0.0, 0.0), Vector3::new(10.0, 0.0, 0.0));
+        d.definition_point = Vector3::new(0.0, 5.0, 0.0);
+        Dimension::Linear(d)
+    }
+
+    /// A document whose Standard style has a neutral 1.0 linear factor.
+    fn doc_with_neutral_style() -> (CadDocument, DimStyle) {
+        let mut document = CadDocument::new();
+        {
+            let style = document
+                .dim_styles
+                .get_mut("Standard")
+                .expect("Standard style");
+            style.dimlfac = 1.0;
+            style.dimdec = 3;
+            style.dimzin = 0;
+        }
+        let style = document
+            .dim_styles
+            .get("Standard")
+            .expect("Standard style")
+            .clone();
+        (document, style)
+    }
+
+    #[test]
+    fn a_unit_switch_only_scales_the_active_document_under_the_publish_rule() {
+        // Two independent drawings, each with its own style and a 10-unit dim.
+        let (_doc_a, style_a) = doc_with_neutral_style();
+        let (_doc_b, style_b) = doc_with_neutral_style();
+        let dim = ten_unit_dim();
+        let ratio = 25.4_f32; // e.g. an mm <-> inch DIMLFAC ratio
+
+        // Settled state: multiplier 1.0, both drawings read their true value.
+        set_display_scale(1.0);
+        let base_a = dimension_text_value(&dim, Some(&style_a)).expect("text a");
+        let base_b = dimension_text_value(&dim, Some(&style_b)).expect("text b");
+        assert_eq!(base_a, base_b, "two neutral drawings read the same value");
+        assert!((effective_dimlfac(Some(&style_a)) - 1.0).abs() < 1e-9);
+        assert!((effective_dimlfac(Some(&style_b)) - 1.0).abs() < 1e-9);
+
+        // (1) BEFORE the fix: the ungated publish point drove the single global
+        // multiplier with the chase value for EVERY tab. Publishing the ratio
+        // globally reproduces that side effect: doc B, which never switched,
+        // was scaled too. This is the defect the old behaviour exhibited.
+        set_display_scale(ratio);
+        let before_a = dimension_text_value(&dim, Some(&style_a)).expect("before a");
+        let before_b = dimension_text_value(&dim, Some(&style_b)).expect("before b");
+        assert_ne!(
+            before_b, base_b,
+            "the ungated global publish scaled doc B (the reproduced defect)"
+        );
+        assert_eq!(before_a, before_b, "one global multiplier hit both documents");
+
+        // (2) AFTER fix (b), A active: the owner's chase value is published, so
+        // the active document A still animates its own unit switch.
+        let after_a = dimension_text_value(&dim, Some(&style_a)).expect("after a");
+        assert_ne!(after_a, base_a, "the active document A animates its own switch");
+
+        // (3) Tab switch to B: the publish point lands the chase at 1.0 instantly
+        // (item 22's contract). B reads its true value, effective_dimlfac is 1.0,
+        // and the multiplier at the switch instant is 1.0 — no residual.
+        set_display_scale(1.0);
+        let switch_b = dimension_text_value(&dim, Some(&style_b)).expect("switch b");
+        let eff_b = effective_dimlfac(Some(&style_b));
+        let scale_at_switch = display_scale();
+        assert_eq!(switch_b, base_b, "doc B is independent: its text never changed");
+        assert!(
+            (eff_b - 1.0).abs() < 1e-9,
+            "doc B effective_dimlfac stays 1.0 under the publish rule"
+        );
+        assert!(
+            (scale_at_switch - 1.0).abs() < 1e-9,
+            "the tab-switch instant multiplier is 1.0 (no residual)"
+        );
+
+        // (4) Switch back to A: still 1.0 — the old chase left no residual.
+        let back_a = dimension_text_value(&dim, Some(&style_a)).expect("back a");
+        assert_eq!(back_a, base_a, "switching back reads no residual multiplier");
+
+        eprintln!(
+            "[F3] base_a={base_a} base_b={base_b} | before_ungated a={before_a} b={before_b} | \
+             after_b_A_active a={after_a} | switch_to_B b={switch_b} eff_dimlfac_b={eff_b:.6} \
+             scale_at_switch={scale_at_switch:.6} | back_to_A a={back_a}"
+        );
+
+        // Restore the global so sibling tests in a shared process are unaffected.
+        set_display_scale(1.0);
     }
 }

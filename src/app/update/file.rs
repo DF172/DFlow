@@ -2066,6 +2066,16 @@ impl DraftFlowCAD {
                 .set(crate::app::OPEN_PHASE_FINALIZING, 10000, 1, 1);
         }
         self.opening.take();
+        // Item 38: a large drawing uncovers in a spatial sweep instead of
+        // snapping in whole. Small files skip it — a sweep over a sketch
+        // would read as a glitch, not as the file finishing.
+        if entity_count >= crate::ui::motion::REVEAL_MIN_ENTITIES {
+            crate::ui::motion::replay(
+                crate::ui::motion::REVEAL,
+                1.0,
+                crate::ui::motion::REVEAL_TIME,
+            );
+        }
         // The tab list just changed (and the active tab with it): remember
         // it for the next boot's restore flow (web session memory).
         let pending_open_task = if let Some(report) = recovery_report {

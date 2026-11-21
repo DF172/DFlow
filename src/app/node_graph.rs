@@ -170,6 +170,18 @@ impl DraftFlowCAD {
         engine.evaluate(&mut host);
         tasks.append(&mut host.tasks);
         self.tabs[i].graph.engine = engine;
+        // Item 47 (P1, batch 5): one replay per evaluation under a single key.
+        // The engine evaluates the whole graph in one `order()` sweep and
+        // exposes no touched-node set, so this is the ruled degradation:
+        // every edge pulses at once. A drag that re-evaluates on each frame
+        // restarts that same track instead of stacking one per call.
+        if !self.tabs[i].graph.engine.links.is_empty() {
+            crate::ui::motion::replay(
+                crate::ui::motion::GRAPH_FLOW,
+                1.0,
+                crate::ui::motion::GRAPH_FLOW_MS,
+            );
+        }
         self.graph_undo_open = false;
         Task::batch(tasks)
     }

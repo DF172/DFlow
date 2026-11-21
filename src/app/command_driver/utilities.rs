@@ -307,6 +307,7 @@ impl DraftFlowCAD {
         }
 
         self.grip_reference_wires.clear();
+        self.grip_ghost_origin = None;
         self.grip_text_verts.clear();
         self.grip_text_slide = false;
         self.tabs[i].scene.clear_preview_wire();

@@ -2053,6 +2053,11 @@ pub struct Scene {
     /// Previous swaps with this snapshot, allowing the user to toggle between
     /// the two most recent views without touching drawing history.
     previous_view: Option<ViewSnapshot>,
+    /// P2 batch 1 item 6: the in-flight 3D view reposition. `Some` while a
+    /// perspective ZOOM EXTENTS / entity zoom is flying; it holds the exact
+    /// takeoff and landing pose so the render can interpolate in f64 without
+    /// ever routing a (possibly UTM-scale) target through an f32 spring.
+    view_fly: Option<camera_ops::ViewFly>,
     /// Model-space tiled viewport layout. One full-window tile by default;
     /// the split buttons / VPORTS subdivide the active tile.
     pub(crate) model_tiles: RefCell<Vec<ModelTile>>,
@@ -2142,6 +2147,12 @@ pub struct Scene {
     /// Entity drawn with the selection-highlight colour without being part
     /// of the real selection — used to preview a row in the cycling list box.
     pub hover_highlight: Option<Handle>,
+    /// Batch 2 item 14: previous cycling-list preview candidate, kept for the
+    /// 60 ms RGB cross-fade so the rollover highlight migrates instead of
+    /// teleporting. `cycle_fade_t` is the eased progress (0 = old full hover,
+    /// 1 = new full hover); written every MotionTick while the track runs.
+    pub cycle_fade_old: Option<Handle>,
+    pub cycle_fade_t: f32,
     /// All entities related to the constraint indicator currently under the cursor.
     constraint_hover_highlights: HashSet<Handle>,
     /// Sub-entity references related to that indicator. Polyline segments are
@@ -2166,6 +2177,10 @@ pub struct Scene {
     /// capture; the renderer merges it under the live preview each frame so
     /// the per-event path never re-clones/re-fades the full reference set.
     pub preview_ghost_wires: Vec<WireModel>,
+    /// Remaining opacity factor applied to `preview_ghost_wires` at draw time
+    /// (1.0 = as published). The drag path lowers it with distance instead of
+    /// re-colouring the stored set on every cursor move.
+    pub preview_ghost_fade: f32,
     /// Candidate wireframes produced by editable solid-history grips. The
     /// resident body remains untouched until the grip is committed.
     solid_history_preview_wires: HashMap<Handle, Vec<WireModel>>,
@@ -2734,6 +2749,7 @@ impl Scene {
         Self {
             camera: Rc::new(RefCell::new(Camera::default())),
             previous_view: None,
+            view_fly: None,
             model_tiles: RefCell::new(vec![ModelTile {
                 rect: iced::Rectangle {
                     x: 0.0,
@@ -2767,6 +2783,8 @@ impl Scene {
             refedit_keep: None,
             count_display: None,
             hover_highlight: None,
+            cycle_fade_old: None,
+            cycle_fade_t: 1.0,
             constraint_hover_highlights: HashSet::default(),
             constraint_hover_refs: Vec::new(),
             constraint_hover_wires: Vec::new(),
@@ -2777,6 +2795,7 @@ impl Scene {
             selection_filter: HashSet::default(),
             preview_wires: vec![],
             preview_ghost_wires: vec![],
+            preview_ghost_fade: 1.0,
             solid_history_preview_wires: HashMap::default(),
             preview_hatches: Arc::new(Vec::new()),
             preview_text: vec![],
@@ -6252,8 +6271,25 @@ impl Scene {
             .hover_highlight
             .map(|handle| self.handles_expanded_for_selectable_groups(&[handle]))
             .unwrap_or_default();
+        // Batch 2 item 14: during the cross-fade the previous candidate keeps
+        // contributing (at a fading tint strength) so the highlight migrates.
+        if let Some(old) = self.cycle_fade_old {
+            if Some(old) != self.hover_highlight {
+                handles.extend(self.handles_expanded_for_selectable_groups(&[old]));
+            }
+        }
         handles.extend(self.constraint_hover_highlights.iter().copied());
         handles
+    }
+
+    /// Batch 2 item 14: drop any in-flight cycling cross-fade (list closed,
+    /// candidate committed, cycling toggled off). Forces one xray rebuild so
+    /// the stale old-candidate tint disappears on the next frame.
+    pub fn clear_cycle_fade(&mut self) {
+        if self.cycle_fade_old.take().is_some() {
+            self.cycle_fade_t = 1.0;
+            self.bump_selection();
+        }
     }
 
     pub fn set_constraint_hover_highlights(
@@ -14898,4 +14934,123 @@ pub(crate) fn is_locked_point_cloud(entity: &EntityType) -> bool {
         EntityType::Extended(extended)
             if matches!(&extended.data, codec::entities::ExtendedEntityData::PointCloudEx(data) if data.locked)
     )
+}
+
+#[cfg(test)]
+mod f4_camera_generation_cost {
+    //! F4 (item 3): measure the per-frame cost of `camera_generation += 1`
+    //! during inertial zoom on a large drawing (~20 000 entities, near item
+    //! 38's reveal threshold). The original report premise was "~18 frames
+    //! continuously re-upload the GPU wire set". This probe tests that against
+    //! the real wire-build path: in Model space the resident set is
+    //! camera-independent (keyed on `geometry_epoch` only, see
+    //! `resident_wires_for`), so a camera tick must NOT re-tessellate, must
+    //! return the SAME wire `Arc`, and therefore must NOT mint a new
+    //! `WIRE_CONTENT_GEN` id (the GPU upload gate in `view::render`).
+    use super::*;
+    use codec::entities::Line;
+    use codec::types::Vector3;
+
+    const N: usize = 20_000;
+    const FRAMES: usize = 18;
+
+    fn large_model_scene() -> Scene {
+        let mut s = Scene::new();
+        s.current_layout = "Model".to_string();
+        for k in 0..N {
+            let x = (k % 200) as f64;
+            let y = (k / 200) as f64;
+            s.add_entity(EntityType::Line(Line::from_points(
+                Vector3::new(x, y, 0.0),
+                Vector3::new(x + 1.0, y + 1.0, 0.0),
+            )));
+        }
+        s.bump_geometry();
+        s
+    }
+
+    fn median(mut v: Vec<f64>) -> f64 {
+        v.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        v[v.len() / 2]
+    }
+
+    #[test]
+    fn camera_tick_does_not_rebuild_the_model_wire_set() {
+        let mut s = large_model_scene();
+
+        // One-time cold tessellation (fresh geometry_epoch).
+        let t0 = std::time::Instant::now();
+        let cold = s.entity_wires();
+        let cold_ms = t0.elapsed().as_secs_f64() * 1000.0;
+        // observed>0 self-check: the fixture really produced wires.
+        assert!(
+            cold.len() >= N,
+            "fixture produced {} wires for {N} entities",
+            cold.len()
+        );
+        let cold_gen = s.last_model_wire_gen.get();
+
+        // Variant A: bump camera_generation EVERY frame (what inertial zoom does).
+        let base_gen = s.camera_generation;
+        let mut a_ms = Vec::new();
+        let mut prev = Arc::clone(&cold);
+        for _ in 0..FRAMES {
+            s.camera_generation += 1;
+            let t = std::time::Instant::now();
+            let w = s.entity_wires();
+            a_ms.push(t.elapsed().as_secs_f64() * 1000.0);
+            // Same Arc => no re-tessellation on a camera tick.
+            assert!(
+                Arc::ptr_eq(&prev, &w),
+                "camera_generation tick re-tessellated the Model resident wire set"
+            );
+            // Same content id => the GPU wire vertex upload stays skipped.
+            assert_eq!(
+                s.last_model_wire_gen.get(),
+                cold_gen,
+                "camera tick minted a new WIRE_CONTENT_GEN id (would force GPU re-upload)"
+            );
+            prev = w;
+        }
+
+        // Variant B: hold camera_generation constant, bump only first/last.
+        s.camera_generation = base_gen;
+        let mut b_ms = Vec::new();
+        let mut prev = Arc::clone(&cold);
+        for f in 0..FRAMES {
+            if f == 0 || f == FRAMES - 1 {
+                s.camera_generation += 1;
+            }
+            let t = std::time::Instant::now();
+            let w = s.entity_wires();
+            b_ms.push(t.elapsed().as_secs_f64() * 1000.0);
+            assert!(
+                Arc::ptr_eq(&prev, &w),
+                "held camera_generation still changed the Model wire Arc"
+            );
+            prev = w;
+        }
+
+        let a_med = median(a_ms);
+        let b_med = median(b_ms);
+        eprintln!(
+            "[F4] N={N} FRAMES={FRAMES} wire_len={} cold_build_ms={cold_ms:.3} \
+             per_frame_bump_median_ms={a_med:.4} first_last_only_median_ms={b_med:.4} \
+             arc_stable=true content_id_stable=true",
+            cold.len()
+        );
+
+        // The expensive tessellation is one-time, not per-frame: a camera tick
+        // is far cheaper than the cold build.
+        assert!(
+            a_med < cold_ms.max(1.0),
+            "per-frame camera tick {a_med:.4}ms not below cold build {cold_ms:.3}ms"
+        );
+        // Bumping every frame is no more expensive than holding it: both are
+        // resident-cache hits, so there is no per-frame re-upload to throttle.
+        assert!(
+            a_med < b_med * 3.0 + 0.5,
+            "per-frame bump {a_med:.4}ms materially worse than first/last-only {b_med:.4}ms"
+        );
+    }
 }

@@ -31,6 +31,18 @@ const UCS_ICON_PICK_PX: f32 = 10.0;
 /// Pixel half-width for clicking an icon arm (line segment).
 const UCS_ICON_ARM_PX: f32 = 6.0;
 
+/// Registry key for the wheel-zoom spring: a position in log-distance space
+/// (one unit = one `ZOOM_STEP` factor), exactly the steps `Camera::zoom` takes.
+const ZOOM_GLIDE: &str = "viewport:zoom";
+/// Registry keys for the released middle-drag glide, in screen pixels.
+const PAN_GLIDE_X: &str = "viewport:pan:x";
+const PAN_GLIDE_Y: &str = "viewport:pan:y";
+/// Zoom steps per second injected per wheel notch, so a notch carries momentum
+/// into the spring instead of starting from rest.
+const ZOOM_GLIDE_KICK: f32 = 12.0;
+/// Slowest release (px/s) that still coasts; below this the drag simply stops.
+const PAN_GLIDE_MIN: f32 = 60.0;
+
 fn pt_pt_d2(a: Point, b: Point) -> f32 {
     (a.x - b.x).powi(2) + (a.y - b.y).powi(2)
 }
@@ -1093,18 +1105,39 @@ impl DraftFlowCAD {
         // In a paper layout with an active (double-clicked)
         // viewport, the picker drives that viewport entity's own
         // render mode; the model-layout tab style is untouched.
+        // Item 41 (2026-11-20 degraded ruling): remember the previous style
+        // so the veil fires on a real switch, not on re-picking the same one.
+        let prev_paper_mode = self.tabs[i].scene.active_viewport.and_then(|h| {
+            match self.tabs[i].scene.document.get_entity(h) {
+                Some(codec::EntityType::Viewport(vp)) => Some(vp.render_mode),
+                _ => None,
+            }
+        });
         if self.tabs[i].scene.set_active_viewport_render_mode(mode) {
+            if prev_paper_mode != Some(mode) {
+                let rect = self.tabs[i].scene.active_viewport.and_then(|h| {
+                    let (cw, ch) = self.tabs[i].scene.selection.borrow().view.vp_size;
+                    self.tabs[i].scene.viewport_screen_rect(h, (cw, ch))
+                });
+                self.kick_render_mode_veil(i, rect);
+            }
             self.tabs[i].scene.bump_geometry_no_blocks();
             self.tabs[i].dirty = true;
             self.command_line
                 .push_output(crate::tf!("Viewport visual style: {label}").as_ref());
             return Task::none();
         }
+        let prev_model_mode = self.tabs[i].render_mode;
         self.tabs[i].render_mode = mode;
         // Write the style onto the active Model tile alone so it
         // sticks when that tile loses focus and the other tiles keep
         // their own styles.
         self.tabs[i].scene.set_active_model_tile_render_mode(mode);
+        if prev_model_mode != mode {
+            let (vw, vh) = self.tabs[i].scene.selection.borrow().view.vp_size;
+            let rect = self.tabs[i].scene.active_model_tile_bounds(vw, vh);
+            self.kick_render_mode_veil(i, Some(rect));
+        }
         // Keep the legacy `wireframe` bool synced — both wireframe
         // modes set it, everything else clears it.
         let wf = matches!(mode, M::Wireframe2D | M::Wireframe3D);
@@ -1122,6 +1155,38 @@ impl DraftFlowCAD {
             self.refresh_selected_grips();
         }
         Task::none()
+    }
+
+    /// Item 41 (2026-11-20 degraded ruling): record the switching viewport's
+    /// own screen rect (clamped to the canvas, `None` when fully off-screen)
+    /// and pulse the per-viewport veil. The pulse rides the shared motion
+    /// track — rise 0 so the switch frame reads the peak, fall
+    /// `RENDER_VEIL_MS` back to nothing — and is kicked here on the update
+    /// side so the frame subscription sees it. Re-picking the same style
+    /// never reaches this helper; a rapid second switch re-pulses the same
+    /// key, which replaces the track instead of stacking a second one.
+    fn kick_render_mode_veil(&mut self, i: usize, rect: Option<iced::Rectangle>) {
+        let (cw, ch) = self.tabs[i].scene.selection.borrow().view.vp_size;
+        let bounds = rect.and_then(|r| {
+            let x = r.x.max(0.0);
+            let y = r.y.max(0.0);
+            let w = ((r.x + r.width).min(cw) - x).max(0.0);
+            let h = ((r.y + r.height).min(ch) - y).max(0.0);
+            (w > 0.0 && h > 0.0).then_some(iced::Rectangle {
+                x,
+                y,
+                width: w,
+                height: h,
+            })
+        });
+        self.tabs[i].render_mode_veil = bounds;
+        crate::ui::motion::pulse(
+            crate::ui::motion::RENDER_VEIL,
+            1.0,
+            0.0,
+            0,
+            crate::ui::motion::RENDER_VEIL_MS,
+        );
     }
 
     pub(super) fn on_cursor_moved(
@@ -1427,7 +1492,38 @@ impl DraftFlowCAD {
                         let pivot = sel.orbit.pivot;
                         drop(sel);
                         self.tabs[i].scene.refresh_projection_bounds();
+                        // P2 batch 1 item 7: remember how fast the hand is
+                        // turning the view so the release can hand that
+                        // angular speed to the coast springs. The estimator
+                        // is fed the SAME radian deltas `orbit` just applied,
+                        // so the coast cannot disagree with the drag.
+                        let before = {
+                            let cam = self.tabs[i].scene.camera.borrow();
+                            (cam.yaw, cam.pitch)
+                        };
+                        if !self.orbit_drag_active {
+                            self.orbit_drag_yaw = 0.0;
+                            self.orbit_drag_pitch = 0.0;
+                            self.orbit_vel_yaw.reset();
+                            self.orbit_vel_pitch.reset();
+                        }
                         self.tabs[i].scene.camera.borrow_mut().orbit(dx, dy, pivot);
+                        let after = {
+                            let cam = self.tabs[i].scene.camera.borrow();
+                            (cam.yaw, cam.pitch)
+                        };
+                        let mut dyaw = after.0 - before.0;
+                        // Yaw wraps at ±π. A crossing is not a drag: dropping
+                        // the sample keeps a 2π spike out of the estimator.
+                        if dyaw.abs() > 1.0 {
+                            dyaw = 0.0;
+                        }
+                        self.orbit_drag_yaw += dyaw;
+                        self.orbit_drag_pitch += after.1 - before.1;
+                        let now = move_started;
+                        self.orbit_vel_yaw.push(now, self.orbit_drag_yaw);
+                        self.orbit_vel_pitch.push(now, self.orbit_drag_pitch);
+                        self.orbit_drag_active = true;
                         self.tabs[i].scene.camera_generation += 1;
                         self.tabs[i]
                             .scene
@@ -1449,6 +1545,13 @@ impl DraftFlowCAD {
                 }
                 // Drop `sel` before calling mutable scene methods.
                 drop(sel);
+                // Remember how fast the hand is moving, so releasing the
+                // button can hand that speed to the glide spring.
+                self.pan_drag_pos.0 += dx;
+                self.pan_drag_pos.1 += dy;
+                self.pan_vel_x.push(move_started, self.pan_drag_pos.0);
+                self.pan_vel_y.push(move_started, self.pan_drag_pos.1);
+                self.pan_drag_active = true;
                 self.pan_active_view(i, dx, dy, move_started);
                 self.tabs[i]
                     .scene
@@ -1547,6 +1650,9 @@ impl DraftFlowCAD {
             // Initialize once: constraint solves may add neighbors to this gesture.
             // Wire entities use the overlay; solid meshes stay visible and move live.
             if self.grip_preview_handles.is_empty() {
+                // The ghost's dissolve is measured from this point, so a drag
+                // that doubles back drags the original outline back with it.
+                self.grip_ghost_origin = Some(p);
                 let preview_handles = self.tabs[i].scene.parametric_connected_handles(
                     self.tabs[i].current_parametric_scope(),
                     &edited_handles,
@@ -1640,11 +1746,30 @@ impl DraftFlowCAD {
                     };
                     for wire in &mut ghost {
                         wire.selected = false;
-                        // Preserve the entity colour but strongly fade it.
-                        wire.color[3] *= 0.48;
+                        // Preserve the entity colour but start it at 30% — the
+                        // distance dissolve below does the rest.
+                        wire.color[3] *= crate::ui::motion::GHOST_START_ALPHA;
                         // The original is a positional reference, not another selected object.
                         wire.line_weight_px = wire.line_weight_px.min(1.0);
                     }
+                    // Remaining visibility falls with the drag distance: at
+                    // `GHOST_FADE_DISTANCE` px the original has dissolved, and
+                    // pulling back brings it in again. The colour multiply
+                    // happens in the renderer, so the published wires stay
+                    // immutable.
+                    let fade = match self.grip_ghost_origin {
+                        Some(origin) => crate::ui::motion::ghost_fade_for(
+                            ((p.x - origin.x).powi(2) + (p.y - origin.y).powi(2)).sqrt(),
+                        ),
+                        None => 1.0,
+                    };
+                    crate::ui::motion::set(
+                        crate::ui::motion::GHOST_FADE,
+                        fade,
+                        crate::ui::motion::GHOST_FADE_TIME,
+                    );
+                    let shown = crate::ui::motion::value_or(crate::ui::motion::GHOST_FADE, fade);
+                    self.tabs[i].scene.set_preview_ghost_fade(shown);
                     self.tabs[i].scene.set_preview_ghost_wires(ghost);
                 }
             }
@@ -2629,7 +2754,13 @@ impl DraftFlowCAD {
                 }
             }
 
-            let effective = {
+            // Second element: the (free, constrained) point pair when ortho or
+            // polar actually took over the cursor this move (item 11). Ortho
+            // is a hard lock — entering the branch IS the takeover; polar only
+            // takes over when it moved the point (`polar_constrain_near`
+            // returns the input untouched outside the angular tolerance).
+            let (effective, angle_takeover) = {
+                let mut angle_takeover: Option<(glam::DVec3, glam::DVec3)> = None;
                 let mut pt: glam::DVec3 =
                     if let (Some(dir), Some(base)) = (axis_lock, self.last_point) {
                         let point = self.tabs[i]
@@ -2653,6 +2784,7 @@ impl DraftFlowCAD {
                             if let Some(base) = self.last_point {
                                 let ucs_xf = self.tabs[i].ucs_xform();
                                 if self.ortho_mode {
+                                    let pre = pt;
                                     pt = drafting_constrain(
                                         pt,
                                         base,
@@ -2661,7 +2793,9 @@ impl DraftFlowCAD {
                                         self.iso_plane,
                                         self.snap_angle_deg,
                                     );
+                                    angle_takeover = Some((pre, pt));
                                 } else if self.polar_mode {
+                                    let pre = pt;
                                     pt = polar_constrain_near(
                                         pt,
                                         base,
@@ -2672,6 +2806,9 @@ impl DraftFlowCAD {
                                         self.snapper.osnap_radius_px,
                                         &ucs_xf,
                                     );
+                                    if pt.distance(pre) > 1e-9 {
+                                        angle_takeover = Some((pre, pt));
+                                    }
                                 }
                             }
                         }
@@ -2688,8 +2825,58 @@ impl DraftFlowCAD {
                 {
                     pt.z = 0.0;
                 }
-                pt
+                // The sweep's locked angle must match the point actually
+                // displayed, so re-capture after the elevation clamp.
+                let angle_takeover = angle_takeover.map(|(pre, _)| (pre, pt));
+                (pt, angle_takeover)
             };
+            // Angle-takeover sweep (item 11): fires once on the false→true
+            // edge, so a constraint that stays engaged across many moves never
+            // replays it, and an unengaged cursor draws nothing. The sector
+            // pivots on the command base point and sweeps from the free cursor
+            // angle to the locked angle, both measured in screen space.
+            if let Some((pre, post)) = angle_takeover {
+                if !self.angle_snap_engaged {
+                    if let Some(base) = self.last_point {
+                        let w2s = |w: glam::DVec3| {
+                            crate::scene::pick::hit_test::world_to_screen(
+                                w, view_rot, eye, bounds,
+                            )
+                        };
+                        let base_s = w2s(base);
+                        let pre_s = w2s(pre);
+                        let post_s = w2s(post);
+                        let from = (pre_s.y - base_s.y).atan2(pre_s.x - base_s.x);
+                        let to = (post_s.y - base_s.y).atan2(post_s.x - base_s.x);
+                        let delta = (to - from + std::f32::consts::PI)
+                            .rem_euclid(std::f32::consts::TAU)
+                            - std::f32::consts::PI;
+                        let reach = ((post_s.x - base_s.x).hypot(post_s.y - base_s.y))
+                            .clamp(24.0, 120.0);
+                        // A cursor already on the locked axis has no angular
+                        // travel to show; the edge still latches so leaving
+                        // and re-entering the axis replays exactly once.
+                        if delta.abs() > 1e-3
+                            && (pre_s.x - base_s.x).hypot(pre_s.y - base_s.y) > 1.0
+                        {
+                            self.angle_sweep = Some(crate::ui::overlay::AngleSweep {
+                                center: base_s,
+                                from,
+                                to: from + delta,
+                                radius: reach,
+                            });
+                            crate::ui::motion::replay(
+                                crate::ui::motion::ANGLE_SWEEP,
+                                1.0,
+                                crate::ui::motion::ANGLE_SWEEP_TIME,
+                            );
+                        }
+                    }
+                }
+                self.angle_snap_engaged = true;
+            } else {
+                self.angle_snap_engaged = false;
+            }
             let effective = if needs_entity
                 && self.tabs[i]
                     .active_cmd
@@ -5741,6 +5928,16 @@ properties={:.1}ms picked={}",
         let i = self.active_tab;
         self.clear_navigation_hover(i);
         self.ribbon.close_dropdown();
+        self.cancel_pan_glide();
+        // P2 batch 1 items 6-7: a fresh press takes the view back. Stop the
+        // orbit coast and any fly-through exactly where they are drawn, so
+        // nothing fights the hand and nothing jumps once it starts moving.
+        self.cancel_orbit_glide();
+        self.tabs[i].scene.cancel_view_fly();
+        self.pan_vel_x.reset();
+        self.pan_vel_y.reset();
+        self.pan_drag_pos = (0.0, 0.0);
+        self.pan_drag_active = false;
         self.tabs[i].scene.remember_current_view();
         let now = Instant::now();
         let is_double = {
@@ -5773,6 +5970,10 @@ properties={:.1}ms picked={}",
     /// A wheel notch zooms; a trackpad's two fingers pan. Which one a delta
     /// means is `scroll_intent`'s call.
     pub(super) fn on_viewport_scroll(&mut self, delta: mouse::ScrollDelta) -> Task<Message> {
+        // P2 batch 1 item 6: a wheel notch is the user taking the view back
+        // mid-flight; the takeoff pose it was heading away from no longer
+        // describes where the drawing is, so the flight stops here.
+        self.tabs[self.active_tab].scene.cancel_view_fly();
         match scroll_intent(delta, self.touchpad_pan, self.ctrl_down) {
             ScrollIntent::Zoom { notches } => {
                 crate::perf::note_scroll_zoom();
@@ -5780,7 +5981,7 @@ properties={:.1}ms picked={}",
                 if self.zoom_wheel_reversed {
                     s = -s;
                 }
-                self.zoom_view_at_cursor(s)
+                self.zoom_glide_at_cursor(s)
             }
             ScrollIntent::Pan { dx, dy } => {
                 let i = self.active_tab;
@@ -5836,12 +6037,28 @@ properties={:.1}ms picked={}",
 
     /// Zoom the active view by `s`, in the camera's own steps
     /// (`Camera::zoom`: `distance *= ZOOM_STEP.powf(s)`). Shared by the
-    /// wheel and the pinch.
+    /// pinch and the one-shot callers; the wheel goes through
+    /// [`Self::zoom_glide_at_cursor`] so a notch carries momentum.
     fn zoom_view_at_cursor(&mut self, s: f32) -> Task<Message> {
         let nav_started = Instant::now();
         let i = self.active_tab;
         self.tabs[i].scene.remember_current_view();
         self.clear_navigation_hover(i);
+        self.apply_zoom_steps(i, s);
+        self.tabs[i]
+            .scene
+            .record_nav_perf(crate::scene::NavPerfOp::Zoom, nav_started);
+        self.arm_hover_after_navigation(i);
+        Task::none()
+    }
+
+    /// Apply `s` zoom steps about the cursor without the once-per-gesture
+    /// bookkeeping (view memory, perf sample, hover arming). Inertia calls
+    /// this every frame, so it must stay cheap and side-effect free.
+    fn apply_zoom_steps(&mut self, i: usize, s: f32) {
+        if s == 0.0 {
+            return;
+        }
         let cursor = self.tabs[i].scene.selection.borrow().input.last_move_pos;
         let (vw, vh) = self.tabs[i].scene.selection.borrow().view.vp_size;
         let bounds = iced::Rectangle {
@@ -5891,19 +6108,338 @@ properties={:.1}ms picked={}",
             // as the view zooms under it (#234).
             self.reproject_box_anchor(i, vw, vh);
         }
+    }
+
+    /// A wheel notch: request `s` steps and let the spring deliver them.
+    ///
+    /// The spring integrates in log-distance space, which is what the camera
+    /// itself exponentiates, so the sum of the per-frame steps converges
+    /// exactly on the requested zoom. A second notch retargets the same
+    /// spring and adds velocity instead of restarting from rest.
+    pub(super) fn zoom_glide_at_cursor(&mut self, s: f32) -> Task<Message> {
+        let nav_started = Instant::now();
+        let i = self.active_tab;
+        self.tabs[i].scene.remember_current_view();
+        self.clear_navigation_hover(i);
+        let applied = self.zoom_glide_applied;
+        let (pos, vel, target) = if crate::ui::motion::spring_active(ZOOM_GLIDE) {
+            (
+                crate::ui::motion::spring_at(ZOOM_GLIDE).unwrap_or(applied),
+                crate::ui::motion::spring_velocity(ZOOM_GLIDE),
+                crate::ui::motion::spring_target(ZOOM_GLIDE).unwrap_or(applied),
+            )
+        } else {
+            (applied, 0.0, applied)
+        };
+        crate::ui::motion::spring_kick(
+            ZOOM_GLIDE,
+            pos,
+            vel + s * ZOOM_GLIDE_KICK,
+            target + s,
+            crate::ui::motion::SPRING_K,
+            crate::ui::motion::critical_damping(crate::ui::motion::SPRING_K),
+        );
+        self.glide_tab = i;
         self.tabs[i]
             .scene
             .record_nav_perf(crate::scene::NavPerfOp::Zoom, nav_started);
-        self.arm_hover_after_navigation(i);
+        // Reduced motion (or the gate off): the spring landed on its target,
+        // so deliver the notch now instead of waiting for a frame that will
+        // never be requested.
+        if !crate::ui::motion::animations_enabled() {
+            self.tick_view_glides(Instant::now());
+        }
         Task::none()
+    }
+
+    /// A middle-button pan just ended: hand the view the hand's last speed
+    /// and let it coast to a stop. A click or a slow drag does nothing.
+    pub(super) fn end_pan_gesture(&mut self) {
+        if !self.pan_drag_active {
+            return;
+        }
+        self.pan_drag_active = false;
+        let mut vx = self.pan_vel_x.velocity();
+        let mut vy = self.pan_vel_y.velocity();
+        self.pan_vel_x.reset();
+        self.pan_vel_y.reset();
+        // Below the floor an axis is just jitter; drop it rather than drift.
+        if vx.abs() < PAN_GLIDE_MIN {
+            vx = 0.0;
+        }
+        if vy.abs() < PAN_GLIDE_MIN {
+            vy = 0.0;
+        }
+        if vx == 0.0 && vy == 0.0 {
+            return;
+        }
+        self.pan_glide_applied = (0.0, 0.0);
+        self.glide_tab = self.active_tab;
+        crate::ui::motion::glide(PAN_GLIDE_X, 0.0, vx, crate::ui::motion::SPRING_K);
+        crate::ui::motion::glide(PAN_GLIDE_Y, 0.0, vy, crate::ui::motion::SPRING_K);
+        if !crate::ui::motion::animations_enabled() {
+            self.tick_view_glides(Instant::now());
+        }
+    }
+
+    /// Stop the current pan glide where it stands (a new middle press, a tab
+    /// switch, or the end of the drawing).
+    pub(super) fn cancel_pan_glide(&mut self) {
+        crate::ui::motion::spring_stop(PAN_GLIDE_X, 0.0);
+        crate::ui::motion::spring_stop(PAN_GLIDE_Y, 0.0);
+        self.pan_glide_applied = (0.0, 0.0);
+    }
+
+    /// A middle-drag ORBIT just ended: hand the coast the hand's last angular
+    /// speed (rad/s about the two axes the drag used) and let it decay to rest.
+    ///
+    /// Called BEFORE the release handler drops `sel.orbit.pivot` (#229), so
+    /// the coast keeps turning the view about the same centre the drag did.
+    /// A click, a slow drag, or a release under the floor starts nothing: the
+    /// view stops exactly where the drag left it.
+    pub(super) fn end_orbit_gesture(&mut self, i: usize) {
+        if !self.orbit_drag_active {
+            return;
+        }
+        self.orbit_drag_active = false;
+        let vy = self.orbit_vel_yaw.velocity();
+        let vp = self.orbit_vel_pitch.velocity();
+        self.orbit_vel_yaw.reset();
+        self.orbit_vel_pitch.reset();
+        self.orbit_drag_yaw = 0.0;
+        self.orbit_drag_pitch = 0.0;
+        if !crate::ui::motion::animations_enabled() {
+            return;
+        }
+        // Clip the RELEASE SPEED, not the spring: a violent flick then keeps
+        // the honest decay shape while the travelled angle stays under the
+        // cap (glide's target is `v0 / ω`).
+        let omega = crate::ui::motion::ORBIT_GLIDE_K.sqrt();
+        let cap = crate::ui::motion::ORBIT_COAST_MAX_PX * omega;
+        // The estimator is fed radians (the drag's own unit); the coast tracks
+        // are pixels, the pan glide's ruler, so the rest gates stay
+        // sub-visual. Converting here keeps the drag and the coast on one
+        // scale: same math, one multiplication.
+        let scale = 1.0 / crate::scene::view::camera::Camera::ORBIT_RAD_PER_PX;
+        let vy = (vy * scale).clamp(-cap, cap);
+        let vp = (vp * scale).clamp(-cap, cap);
+        // Below the floor an axis is hand jitter; drop it rather than drift.
+        let vy = if vy.abs() < crate::ui::motion::ORBIT_GLIDE_MIN {
+            0.0
+        } else {
+            vy
+        };
+        let vp = if vp.abs() < crate::ui::motion::ORBIT_GLIDE_MIN {
+            0.0
+        } else {
+            vp
+        };
+        if vy == 0.0 && vp == 0.0 {
+            return;
+        }
+        self.orbit_glide_pivot = self.tabs[i].scene.selection.borrow().orbit.pivot;
+        self.orbit_glide_applied = (0.0, 0.0);
+        self.orbit_glide_tab = i;
+        crate::ui::motion::glide(
+            crate::ui::motion::ORBIT_GLIDE_YAW,
+            0.0,
+            vy,
+            crate::ui::motion::ORBIT_GLIDE_K,
+        );
+        crate::ui::motion::glide(
+            crate::ui::motion::ORBIT_GLIDE_PITCH,
+            0.0,
+            vp,
+            crate::ui::motion::ORBIT_GLIDE_K,
+        );
+    }
+
+    /// Park the orbit coast where it stands. A new middle press uses this so it
+    /// takes the view over from the angle on screen — no snap back to the
+    /// release angle, no leftover motion fighting the hand.
+    pub(super) fn cancel_orbit_glide(&mut self) {
+        let applied = self.orbit_glide_applied;
+        crate::ui::motion::spring_stop(crate::ui::motion::ORBIT_GLIDE_YAW, applied.0);
+        crate::ui::motion::spring_stop(crate::ui::motion::ORBIT_GLIDE_PITCH, applied.1);
+        self.orbit_glide_applied = (0.0, 0.0);
+        self.orbit_glide_pivot = None;
+        self.orbit_glide_tab = usize::MAX;
+    }
+
+    /// Advance a running orbit coast. Called from `MotionTick`, i.e. only
+    /// while the springs in `any_active` keep frames coming — which is what
+    /// lets the view keep turning with no pointer event of any kind.
+    pub(in crate::app) fn tick_orbit_glide(&mut self) {
+        let yaw = crate::ui::motion::spring_at(crate::ui::motion::ORBIT_GLIDE_YAW);
+        let pitch = crate::ui::motion::spring_at(crate::ui::motion::ORBIT_GLIDE_PITCH);
+        if yaw.is_none() && pitch.is_none() {
+            return;
+        }
+        let yaw = yaw.unwrap_or(self.orbit_glide_applied.0);
+        let pitch = pitch.unwrap_or(self.orbit_glide_applied.1);
+        let dyaw = yaw - self.orbit_glide_applied.0;
+        let dpitch = pitch - self.orbit_glide_applied.1;
+        if dyaw == 0.0 && dpitch == 0.0 {
+            return;
+        }
+        self.orbit_glide_applied = (yaw, pitch);
+        let tab = self.orbit_glide_tab;
+        if tab >= self.tabs.len() || tab != self.active_tab {
+            // A coast belongs to the tab that started it; a tab switch drops
+            // it instead of spinning a drawing nobody flicked.
+            self.cancel_orbit_glide();
+            return;
+        }
+        // Pixels → radians through the orbit's own scale, so the coast turns
+        // the view with exactly the math the drag used (`Camera::spin`).
+        let scale = crate::scene::view::camera::Camera::ORBIT_RAD_PER_PX;
+        self.tabs[tab].scene.refresh_projection_bounds();
+        self.tabs[tab]
+            .scene
+            .camera
+            .borrow_mut()
+            .spin(dyaw * scale, dpitch * scale, self.orbit_glide_pivot);
+        self.tabs[tab].scene.camera_generation += 1;
+    }
+
+    /// Advance zoom and pan inertia to `now`. Called from `MotionTick`, i.e.
+    /// only while [`crate::ui::motion::any_active`] keeps frames coming.
+    pub(in crate::app) fn tick_view_glides(&mut self, now: Instant) {
+        if self.tabs.is_empty() {
+            return;
+        }
+        let i = self.active_tab;
+        // A glide belongs to the tab that started it. Switching tabs mid-glide
+        // must not carry the motion onto another drawing.
+        if self.glide_tab != i
+            && (crate::ui::motion::spring_active(ZOOM_GLIDE)
+                || crate::ui::motion::spring_active(PAN_GLIDE_X)
+                || crate::ui::motion::spring_active(PAN_GLIDE_Y))
+        {
+            crate::ui::motion::spring_stop(ZOOM_GLIDE, self.zoom_glide_applied);
+            self.zoom_glide_applied = crate::ui::motion::spring_value(ZOOM_GLIDE, 0.0);
+            self.cancel_pan_glide();
+            return;
+        }
+        let was_zooming = crate::ui::motion::spring_active(ZOOM_GLIDE);
+        let was_panning = crate::ui::motion::spring_active(PAN_GLIDE_X)
+            || crate::ui::motion::spring_active(PAN_GLIDE_Y);
+        // Read the position even when the spring just snapped to rest: that
+        // snap is exactly the last delta, and gating on "still active" would
+        // drop it and leave the view short of the requested zoom.
+        if let Some(z) = crate::ui::motion::spring_at(ZOOM_GLIDE) {
+            let dz = z - self.zoom_glide_applied;
+            if dz != 0.0 {
+                self.zoom_glide_applied = z;
+                self.apply_zoom_steps(i, dz);
+            }
+        }
+        let px = crate::ui::motion::spring_at(PAN_GLIDE_X);
+        let py = crate::ui::motion::spring_at(PAN_GLIDE_Y);
+        if px.is_some() || py.is_some() {
+            let px = px.unwrap_or(self.pan_glide_applied.0);
+            let py = py.unwrap_or(self.pan_glide_applied.1);
+            let dx = px - self.pan_glide_applied.0;
+            let dy = py - self.pan_glide_applied.1;
+            if dx != 0.0 || dy != 0.0 {
+                self.pan_glide_applied = (px, py);
+                // Pan, and keep an in-progress box selection pinned to the
+                // drawing as the view moves under it.
+                self.pan_active_view(i, dx, dy, now);
+            }
+        }
+        let still_zooming = crate::ui::motion::spring_active(ZOOM_GLIDE);
+        let still_panning = crate::ui::motion::spring_active(PAN_GLIDE_X)
+            || crate::ui::motion::spring_active(PAN_GLIDE_Y);
+        if (was_zooming && !still_zooming) || (was_panning && !still_panning) {
+            self.arm_hover_after_navigation(i);
+        }
+    }
+
+    /// Item 32: one 150 ms paper↔model settle. `sign` is +1 stepping into a
+    /// viewport (view starts 2 % farther and pushes in to 1.0) and -1 stepping
+    /// back out (starts 2 % closer and pulls back to 1.0). Both land exactly on
+    /// the view that was there before, so repeated toggling cannot drift.
+    pub(in crate::app) fn begin_space_focus(&mut self, sign: f32) {
+        self.space_focus_sign = if sign < 0.0 { -1.0 } else { 1.0 };
+        self.space_focus_applied = 0.0;
+        crate::ui::motion::pulse(
+            crate::ui::motion::SPACE_FOCUS,
+            crate::ui::motion::SPACE_FOCUS_PEAK,
+            0.0,
+            1,
+            crate::ui::motion::SPACE_FOCUS_TIME,
+        );
+    }
+
+    /// Batch 3 item 26: announce the read-only boundary once, on the first
+    /// workspace frame after the splash lands. The pulse rides the normal
+    /// motion track; with motion reduced the track lands instantly and the
+    /// view instead shows a static 150 ms hint window driven by
+    /// `readonly_edge_at` (the subscription keeps frames coming until it
+    /// expires, so the hint cannot outstay its window on a quiet screen).
+    pub(in crate::app) fn fire_readonly_edge(&mut self) {
+        self.readonly_edge_at = Some(Instant::now());
+        crate::ui::motion::pulse(
+            crate::ui::motion::READONLY_EDGE,
+            1.0,
+            0.0,
+            0,
+            crate::ui::motion::READONLY_EDGE_TIME,
+        );
+    }
+
+    /// Deliver this frame's share of the space settle. Unlike the wheel glide
+    /// this pivots on the pane centre: the transition announces a space change,
+    /// it is not a zoom the user aimed somewhere.
+    pub(in crate::app) fn tick_space_focus(&mut self) {
+        use crate::ui::motion;
+        if self.tabs.is_empty() {
+            return;
+        }
+        let i = self.active_tab;
+        let running = motion::running(motion::SPACE_FOCUS);
+        let extra = motion::value_or(motion::SPACE_FOCUS, 0.0) * self.space_focus_sign;
+        let prev = self.space_focus_applied;
+        if (extra - prev).abs() < 1e-6 {
+            return;
+        }
+        let steps = crate::scene::view::camera::Camera::zoom_steps_for_ratio(
+            (1.0 + extra) / (1.0 + prev),
+        );
+        if steps != 0.0 {
+            if self.tabs[i].scene.active_viewport.is_some() {
+                self.tabs[i].scene.zoom_active_viewport(steps, None);
+                self.tabs[i].scene.camera_generation += 1;
+            } else {
+                let (vw, vh) = self.tabs[i].scene.selection.borrow().view.vp_size;
+                let tile_b = self.tabs[i].scene.active_model_tile_bounds(vw, vh);
+                let tb = iced::Rectangle {
+                    x: 0.0,
+                    y: 0.0,
+                    width: tile_b.width,
+                    height: tile_b.height,
+                };
+                if tb.width > 0.0 && tb.height > 0.0 {
+                    let center = Point::new(tb.width * 0.5, tb.height * 0.5);
+                    self.tabs[i]
+                        .scene
+                        .camera
+                        .borrow_mut()
+                        .zoom_about_point(center, tb, steps);
+                }
+                self.tabs[i].scene.camera_generation += 1;
+                self.reproject_box_anchor(i, vw, vh);
+            }
+        }
+        self.space_focus_applied = if running { extra } else { 0.0 };
     }
 
     /// Re-pin an active box-selection anchor to its stored world point after the
     /// model-space view moves (zoom/pan), so the selection rectangle tracks the
     /// drawing instead of staying frozen at its original pixel. No-op when no
     /// box is in progress. (#234)
-    pub(in crate::app) fn reproject_box_anchor(&mut self, i: usize, vw: f32, vh: f32) {
-        let world = self.tabs[i]
+    pub(in crate::app) fn reproject_box_anchor(&mut self, i: usize, vw: f32, vh: f32) {        let world = self.tabs[i]
             .scene
             .selection
             .borrow()
@@ -6035,31 +6571,130 @@ properties={:.1}ms picked={}",
         // and matches the turntable orbit; snap_to_direction preserves an
         // intentional upside-down sense by sign-flipping only.
         let is_face = matches!(region, scene::CubeRegion::Face(_));
-        if self.tabs[i].scene.active_viewport.is_some() {
-            if is_face {
-                self.tabs[i]
-                    .scene
-                    .mutate_active_viewport_camera(|c| c.snap_to_face(eye_dir, r_ucs));
-            } else {
-                self.tabs[i]
-                    .scene
-                    .snap_active_viewport_to_direction(eye_dir, r_ucs);
-            }
+
+        // Item 5: compute the snapped orientation on a throwaway copy of the
+        // navigation camera, leaving the live one untouched until the turn
+        // lands. The camera's snap methods stay instant — mspace decodes a
+        // throwaway camera through them — so the ease lives only here, at the
+        // app dispatch, and never changes what those callers read.
+        let current = self.tabs[i].scene.navigation_camera();
+        let mut target_cam = current.clone();
+        if is_face {
+            target_cam.snap_to_face(eye_dir, r_ucs);
         } else {
-            self.tabs[i].scene.refresh_projection_bounds();
-            let mut cam = self.tabs[i].scene.camera.borrow_mut();
-            if is_face {
-                cam.snap_to_face(eye_dir, r_ucs);
-            } else {
-                cam.snap_to_direction(eye_dir, r_ucs);
-            }
+            target_cam.snap_to_direction(eye_dir, r_ucs);
         }
-        self.tabs[i].scene.camera_generation += 1;
+        let target = target_cam.rotation;
+
+        // Reduced motion lands at once. A running space settle (item 32) owns
+        // the frame, so the orientation snaps too rather than fighting it.
+        let instant = !crate::ui::motion::enabled()
+            || crate::ui::motion::running(crate::ui::motion::SPACE_FOCUS);
+        if instant {
+            self.write_view_orientation(i, target);
+            self.view_orient_from = None;
+            self.view_orient_to = None;
+            self.view_orient_tab = usize::MAX;
+            crate::ui::motion::set(crate::ui::motion::VIEW_ORIENT, 1.0, 0);
+        } else {
+            // Continue from wherever the camera is right now: a second click
+            // mid-turn reads the interpolated orientation as its new start, so
+            // rapid clicks chain instead of restarting from the old anchor.
+            self.view_orient_from = Some(current.rotation);
+            self.view_orient_to = Some(target);
+            self.view_orient_tab = i;
+            crate::ui::motion::replay(
+                crate::ui::motion::VIEW_ORIENT,
+                1.0,
+                crate::ui::motion::VIEW_ORIENT_TIME,
+            );
+        }
         if cube {
             self.command_line
                 .push_output(crate::tf!("View: {}", crate::t!(region.label())).as_ref());
         }
         Task::none()
+    }
+
+    /// Write a camera orientation to whichever camera owns the ViewCube on tab
+    /// `i` (the active floating viewport in MSPACE, else the main camera) and
+    /// bump the generation so the frame redraws. The one write path the instant
+    /// snap, the damped tick and the landing share, so model and paper stay in
+    /// step. The paper path re-encodes through `mutate_active_viewport_camera`,
+    /// the same (view_direction, twist_angle) decode the instant snap uses.
+    fn write_view_orientation(&mut self, i: usize, q: glam::Quat) {
+        let scene = &mut self.tabs[i].scene;
+        if scene.active_viewport.is_some() {
+            scene.mutate_active_viewport_camera(|c| {
+                c.rotation = q;
+                c.sync_yaw_pitch();
+            });
+        } else {
+            scene.refresh_projection_bounds();
+            let mut cam = scene.camera.borrow_mut();
+            cam.rotation = q;
+            cam.sync_yaw_pitch();
+        }
+        scene.camera_generation += 1;
+    }
+
+    /// Item 5: advance the ViewCube orientation turn to this frame's progress.
+    /// Called from `MotionTick` while `VIEW_ORIENT` keeps frames coming. The turn
+    /// belongs to the tab that started it; a switch lands it on its owner
+    /// instantly (item 22's contract), and a running space settle (item 32)
+    /// takes priority over the orientation ease.
+    pub(in crate::app) fn tick_view_orient(&mut self) {
+        use crate::ui::motion;
+        if self.tabs.is_empty() {
+            return;
+        }
+        let i = self.active_tab;
+        if self.view_orient_tab != i {
+            // Another drawing's turn is not this one's: seat it on its owner.
+            if motion::running(motion::VIEW_ORIENT) {
+                self.land_view_orient();
+            }
+            return;
+        }
+        if !motion::running(motion::VIEW_ORIENT) {
+            // Settled but not yet landed (e.g. motion was toggled off mid-turn):
+            // commit the target so the camera never strands short of the snap.
+            if self.view_orient_to.is_some() {
+                self.land_view_orient();
+            }
+            return;
+        }
+        if motion::running(motion::SPACE_FOCUS) {
+            // Space transition priority: land the turn and yield the frame.
+            self.land_view_orient();
+            return;
+        }
+        let (Some(from), Some(to)) = (self.view_orient_from, self.view_orient_to) else {
+            return;
+        };
+        let t = motion::value_or(motion::VIEW_ORIENT, 1.0);
+        if t >= 1.0 {
+            self.land_view_orient();
+            return;
+        }
+        let q = from.slerp(to, t);
+        self.write_view_orientation(i, q);
+    }
+
+    /// Land the orientation turn exactly on its target and clear it. Writes to
+    /// the owner tab (which may differ from the active one after a switch), so
+    /// the drawing that started the turn always ends square on the snapped view.
+    pub(in crate::app) fn land_view_orient(&mut self) {
+        let owner = self.view_orient_tab;
+        if let Some(to) = self.view_orient_to {
+            if self.tabs.get(owner).is_some() {
+                self.write_view_orientation(owner, to);
+            }
+        }
+        crate::ui::motion::set(crate::ui::motion::VIEW_ORIENT, 1.0, 0);
+        self.view_orient_from = None;
+        self.view_orient_to = None;
+        self.view_orient_tab = usize::MAX;
     }
 
     pub(super) fn on_hover_dwell_tick(&mut self) -> Task<Message> {
@@ -6739,6 +7374,7 @@ properties={:.1}ms picked={}",
                 self.tabs[i].dirty = true;
             }
             self.grip_reference_wires.clear();
+            self.grip_ghost_origin = None;
             self.grip_text_verts = Vec::new();
             self.grip_text_slide = false;
             for &handle in &handles {
@@ -6777,6 +7413,7 @@ properties={:.1}ms picked={}",
         self.grip_dirty_before = None;
         self.grip_add_provisional = None;
         self.grip_reference_wires.clear();
+        self.grip_ghost_origin = None;
         self.grip_text_verts = Vec::new();
         self.grip_text_slide = false;
         for &handle in &handles {
@@ -8340,4 +8977,1141 @@ pub(in crate::app) struct BoxSelectTiming {
     pub wires: f64,
     pub hatch: f64,
     pub hit: f64,
+}
+
+#[cfg(test)]
+mod view_glide_tests {
+    use super::*;
+    use crate::app::DraftFlowCAD;
+    use crate::ui::motion;
+    use iced::time::Duration;
+
+    fn app_with_view() -> DraftFlowCAD {
+        let mut app = DraftFlowCAD::new_for_test();
+        app.automation_op(r#"{"op":"new"}"#);
+        app.tabs[0].scene.selection.borrow_mut().view.vp_size = (800.0, 600.0);
+        app
+    }
+
+    /// Run frames until nothing is springing, as `MotionTick` would while
+    /// `any_active` keeps asking for them.
+    fn settle(app: &mut DraftFlowCAD) {
+        for _ in 0..900 {
+            motion::tick_springs_dt(1.0 / 60.0);
+            app.tick_view_glides(Instant::now());
+            if !motion::spring_active(ZOOM_GLIDE)
+                && !motion::spring_active(PAN_GLIDE_X)
+                && !motion::spring_active(PAN_GLIDE_Y)
+            {
+                break;
+            }
+        }
+    }
+
+    /// A wheel notch must not teleport the camera: it stores the steps in a
+    /// spring, registers that spring with `any_active` (so frames keep
+    /// coming after the input event is over), and only then delivers them.
+    #[test]
+    fn a_wheel_notch_rides_a_spring_and_keeps_frames_coming() {
+        let _gate = motion::test_gate_lock();
+        let mut app = app_with_view();
+        let was = motion::enabled();
+        motion::set_enabled(true);
+        motion::spring_stop(ZOOM_GLIDE, 0.0);
+        app.zoom_glide_applied = 0.0;
+        let before = app.tabs[0].scene.camera.borrow().distance;
+
+        let _ = app.zoom_glide_at_cursor(1.0);
+        let after_kick = app.tabs[0].scene.camera.borrow().distance;
+        assert!(
+            (after_kick - before).abs() < 1e-6,
+            "the notch must be deferred, not applied on the spot"
+        );
+        assert!(
+            motion::spring_active(ZOOM_GLIDE),
+            "the zoom spring must hold the notch"
+        );
+        assert!(
+            motion::any_active(),
+            "a time-driven glide must register with any_active"
+        );
+
+        settle(&mut app);
+        assert!(!motion::spring_active(ZOOM_GLIDE));
+        assert!(
+            (app.zoom_glide_applied - 1.0).abs() < 1e-3,
+            "glide must land on the requested step count, got {}",
+            app.zoom_glide_applied
+        );
+        motion::set_enabled(was);
+    }
+
+    /// The same notch with reduced motion must land in the input's own frame:
+    /// no spring left waiting for a `MotionTick` that will never come.
+    #[test]
+    fn reduced_motion_lands_the_notch_in_the_same_frame() {
+        let _gate = motion::test_gate_lock();
+        let mut app = app_with_view();
+        let was = motion::enabled();
+        motion::set_enabled(false);
+        motion::spring_stop(ZOOM_GLIDE, 0.0);
+        app.zoom_glide_applied = 0.0;
+        let before = app.tabs[0].scene.camera.borrow().distance;
+
+        let _ = app.zoom_glide_at_cursor(1.0);
+        assert!(!motion::spring_active(ZOOM_GLIDE));
+        assert!((app.zoom_glide_applied - 1.0).abs() < 1e-6);
+        assert!(
+            (app.tabs[0].scene.camera.borrow().distance - before).abs() > 1e-4,
+            "the camera must move even with motion off"
+        );
+        motion::set_enabled(was);
+    }
+
+    /// Releasing a moving middle-drag hands the hand's speed to a glide, which
+    /// coasts `v0 / ω` further and then stops.
+    #[test]
+    fn a_released_pan_coasts_on_its_release_speed() {
+        let _gate = motion::test_gate_lock();
+        let mut app = app_with_view();
+        let was = motion::enabled();
+        motion::set_enabled(true);
+        app.cancel_pan_glide();
+
+        let t0 = Instant::now();
+        app.pan_drag_pos = (0.0, 0.0);
+        app.pan_vel_x.reset();
+        app.pan_vel_y.reset();
+        app.pan_vel_x.push(t0, 0.0);
+        app.pan_drag_active = true;
+        let step_ms = 16.0;
+        for n in 1..=6 {
+            let px = 300.0 * (n as f32) * step_ms / 1000.0;
+            app.pan_vel_x.push(t0 + Duration::from_millis((step_ms * n as f32) as u64), px);
+        }
+        app.end_pan_gesture();
+
+        assert!(!app.pan_drag_active);
+        assert!(
+            motion::spring_active(PAN_GLIDE_X),
+            "a fast release must start a glide"
+        );
+        assert!(
+            motion::any_active(),
+            "the pan glide must register with any_active"
+        );
+
+        settle(&mut app);
+        let omega = motion::SPRING_K.sqrt();
+        let coasted = app.pan_glide_applied.0;
+        assert!(
+            coasted > 1.0,
+            "the view must keep travelling after release, got {coasted} px"
+        );
+        assert!(
+            coasted < 300.0 / omega * 1.5,
+            "a critically damped glide must not overshoot its target, got {coasted} px"
+        );
+        assert!(
+            (app.pan_glide_applied.1).abs() < 1e-6,
+            "an idle axis must not drift"
+        );
+        motion::set_enabled(was);
+    }
+
+    /// A glide belongs to the tab that started it: switching tabs mid-flight
+    /// must not zoom or pan the other drawing.
+    #[test]
+    fn a_glide_does_not_follow_a_tab_switch() {
+        let _gate = motion::test_gate_lock();
+        let mut app = app_with_view();
+        let was = motion::enabled();
+        motion::set_enabled(true);
+        motion::spring_stop(ZOOM_GLIDE, 0.0);
+        app.zoom_glide_applied = 0.0;
+        let _ = app.zoom_glide_at_cursor(2.0);
+        assert!(motion::spring_active(ZOOM_GLIDE));
+
+        app.push_test_document();
+        app.active_tab = 1;
+        let other = app.tabs[1].scene.camera.borrow().distance;
+        motion::tick_springs_dt(1.0 / 60.0);
+        app.tick_view_glides(Instant::now());
+
+        assert!(!motion::spring_active(ZOOM_GLIDE), "the glide must be dropped");
+        assert_eq!(
+            app.tabs[1].scene.camera.borrow().distance,
+            other,
+            "the new tab must not inherit the motion"
+        );
+        motion::set_enabled(was);
+    }
+
+    /// A slow release (or a plain click) must not fling the view.
+    #[test]
+    fn a_slow_release_does_not_glide() {
+        let _gate = motion::test_gate_lock();
+        let mut app = app_with_view();
+        let was = motion::enabled();
+        motion::set_enabled(true);
+        app.cancel_pan_glide();
+
+        let t0 = Instant::now();
+        app.pan_vel_x.reset();
+        app.pan_vel_y.reset();
+        app.pan_vel_x.push(t0, 0.0);
+        app.pan_drag_active = true;
+        // 10 px/s — under PAN_GLIDE_MIN.
+        app.pan_vel_x
+            .push(t0 + Duration::from_millis(100), 1.0);
+        app.end_pan_gesture();
+
+        assert!(!motion::spring_active(PAN_GLIDE_X));
+        assert!(!motion::spring_active(PAN_GLIDE_Y));
+        motion::set_enabled(was);
+    }
+}
+
+#[cfg(test)]
+mod view_orient_tests {
+    use super::*;
+    use crate::app::DraftFlowCAD;
+    use crate::ui::motion;
+
+    fn app_with_view() -> DraftFlowCAD {
+        let mut app = DraftFlowCAD::new_for_test();
+        app.automation_op(r#"{"op":"new"}"#);
+        app.tabs[0].scene.selection.borrow_mut().view.vp_size = (800.0, 600.0);
+        app
+    }
+
+    /// Quaternions `q` and `-q` are the same orientation, so compare by the
+    /// absolute dot product rather than component equality.
+    fn quat_eq(a: glam::Quat, b: glam::Quat) -> bool {
+        a.dot(b).abs() > 1.0 - 1e-5
+    }
+
+    fn set_camera(app: &mut DraftFlowCAD, q: glam::Quat) {
+        let mut cam = app.tabs[0].scene.camera.borrow_mut();
+        cam.rotation = q;
+        cam.sync_yaw_pitch();
+    }
+
+    fn face_target(app: &DraftFlowCAD, region: CubeRegion) -> glam::Quat {
+        let mut c = app.tabs[0].scene.navigation_camera();
+        c.snap_to_face(region.snap_direction(), glam::Mat4::IDENTITY);
+        c.rotation
+    }
+
+    /// A cube click defers the turn to the frame clock: the camera stays put on
+    /// the input's own frame, the `VIEW_ORIENT` track registers with `any_active`
+    /// (the `motion_frames` gate), and landing writes the exact snapped
+    /// orientation. This is the assertion that time advances through
+    /// `motion_frames`, not through an instant assignment.
+    #[test]
+    fn a_cube_click_defers_to_motion_frames_then_lands_square() {
+        let _gate = motion::test_gate_lock();
+        let mut app = app_with_view();
+        let was = motion::enabled();
+        motion::set_enabled(true);
+        motion::set(motion::VIEW_ORIENT, 1.0, 0);
+        motion::set(motion::SPACE_FOCUS, 1.0, 0);
+
+        let start = glam::Quat::from_rotation_x(0.6) * glam::Quat::from_rotation_y(0.4);
+        set_camera(&mut app, start);
+        let region = CubeRegion::Face(0);
+        let target = face_target(&app, region);
+        assert!(!quat_eq(start, target), "fixture must have somewhere to turn");
+
+        let _ = app.snap_view_preset(region);
+        assert!(
+            motion::running(motion::VIEW_ORIENT),
+            "the turn must hold a running track"
+        );
+        assert!(
+            motion::any_active(),
+            "the turn must register with any_active so motion_frames keeps coming"
+        );
+        assert!(
+            quat_eq(app.tabs[0].scene.camera.borrow().rotation, start),
+            "the camera must not jump on the input frame"
+        );
+        assert!(quat_eq(app.view_orient_to.unwrap(), target));
+
+        app.land_view_orient();
+        assert!(quat_eq(app.tabs[0].scene.camera.borrow().rotation, target));
+        assert!(!motion::running(motion::VIEW_ORIENT));
+        assert!(app.view_orient_to.is_none());
+        assert_eq!(app.view_orient_tab, usize::MAX);
+        motion::set_enabled(was);
+    }
+
+    /// A second click mid-turn reads the live (interpolated) orientation as its
+    /// new start, so rapid clicks chain instead of resetting to the old anchor.
+    #[test]
+    fn a_second_click_continues_from_the_current_orientation() {
+        let _gate = motion::test_gate_lock();
+        let mut app = app_with_view();
+        let was = motion::enabled();
+        motion::set_enabled(true);
+        motion::set(motion::VIEW_ORIENT, 1.0, 0);
+        motion::set(motion::SPACE_FOCUS, 1.0, 0);
+
+        let mid = glam::Quat::from_rotation_z(0.3) * glam::Quat::from_rotation_x(0.2);
+        set_camera(&mut app, mid);
+        let _ = app.snap_view_preset(CubeRegion::Face(1));
+        assert!(
+            quat_eq(app.view_orient_from.unwrap(), mid),
+            "the turn must start from the live orientation, not a reset anchor"
+        );
+        motion::set_enabled(was);
+    }
+
+    /// A running space settle (item 32) owns the frame: the orientation snaps
+    /// instantly instead of fighting it.
+    #[test]
+    fn a_running_space_settle_takes_priority_over_the_turn() {
+        let _gate = motion::test_gate_lock();
+        let mut app = app_with_view();
+        let was = motion::enabled();
+        motion::set_enabled(true);
+        motion::set(motion::VIEW_ORIENT, 1.0, 0);
+        let start = glam::Quat::from_rotation_x(0.6);
+        set_camera(&mut app, start);
+        let region = CubeRegion::Face(0);
+        let target = face_target(&app, region);
+
+        motion::replay(motion::SPACE_FOCUS, 1.0, 150);
+        assert!(motion::running(motion::SPACE_FOCUS));
+        let _ = app.snap_view_preset(region);
+        assert!(
+            app.view_orient_to.is_none(),
+            "space priority must take the instant path"
+        );
+        assert!(!motion::running(motion::VIEW_ORIENT));
+        assert!(quat_eq(app.tabs[0].scene.camera.borrow().rotation, target));
+        motion::set(motion::SPACE_FOCUS, 1.0, 0);
+        motion::set_enabled(was);
+    }
+
+    /// Reduced motion lands the snap in the input's own frame, with no track
+    /// left waiting for a `MotionTick` that will never come.
+    #[test]
+    fn reduced_motion_lands_the_snap_in_the_same_frame() {
+        let _gate = motion::test_gate_lock();
+        let mut app = app_with_view();
+        let was = motion::enabled();
+        motion::set_enabled(false);
+        motion::set(motion::SPACE_FOCUS, 1.0, 0);
+        let start = glam::Quat::from_rotation_x(0.6);
+        set_camera(&mut app, start);
+        let region = CubeRegion::Face(0);
+        let target = face_target(&app, region);
+
+        let _ = app.snap_view_preset(region);
+        assert!(app.view_orient_to.is_none());
+        assert!(!motion::running(motion::VIEW_ORIENT));
+        assert!(quat_eq(app.tabs[0].scene.camera.borrow().rotation, target));
+        motion::set_enabled(was);
+    }
+
+    /// The interpolation endpoints are exact: slerp at 0 is the start, at 1 the
+    /// target. This is what makes the landing square rather than approximate.
+    #[test]
+    fn slerp_endpoints_are_exact() {
+        let a = glam::Quat::from_rotation_x(0.2);
+        let b = glam::Quat::from_rotation_y(1.0);
+        assert!(quat_eq(a.slerp(b, 0.0), a));
+        assert!(quat_eq(a.slerp(b, 1.0), b));
+    }
+
+    /// Source-scan guard: the camera's snap layer stays instant (no motion, no
+    /// slerp), the ease lives only at the app dispatch, `MotionTick` drives the
+    /// turn, and the tick reads the track progress with space-settle priority.
+    #[test]
+    fn the_ease_lives_at_the_dispatch_not_in_the_camera() {
+        let cam = include_str!("../../scene/view/camera.rs");
+        assert!(
+            !cam.contains("motion::") && !cam.contains(".slerp("),
+            "camera snap methods must stay instant for mspace's pure decode"
+        );
+        let upd = include_str!("mod.rs");
+        assert!(
+            upd.contains("self.tick_view_orient();"),
+            "MotionTick must drive the orientation turn"
+        );
+        let vp = include_str!("viewport.rs");
+        assert!(
+            vp.contains("motion::value_or(motion::VIEW_ORIENT"),
+            "the tick must read the track progress"
+        );
+        assert!(
+            vp.contains("motion::running(motion::SPACE_FOCUS)"),
+            "a running space settle must take priority over the turn"
+        );
+    }
+}
+
+/// Batch 2 (items 11/12/13/14): snap & precision feedback. Every track here
+/// registers with the shared motion registry, so `any_active()` — the exact
+/// condition of the `motion_frames` subscription — covers them; item 14 also
+/// writes its eased progress back through `Message::MotionTick`.
+#[cfg(test)]
+mod snap_precision_motion_tests {
+    use super::*;
+    use crate::app::DraftFlowCAD;
+    use crate::ui::motion;
+    use std::time::Duration;
+
+    fn app_with_view() -> DraftFlowCAD {
+        let mut app = DraftFlowCAD::new_for_test();
+        app.automation_op(r#"{"op":"new"}"#);
+        app.tabs[0].scene.selection.borrow_mut().view.vp_size = (800.0, 600.0);
+        app
+    }
+
+    /// Item 11: the sector sweep fires once on the ortho takeover edge, its
+    /// time axis advances while `any_active()` holds the motion_frames
+    /// subscription open, and a still-engaged constraint never replays it.
+    #[test]
+    fn angle_sweep_fires_on_ortho_takeover_edge() {
+        let _gate = motion::test_gate_lock();
+        let was = motion::enabled();
+        motion::set_enabled(true);
+        let mut app = app_with_view();
+        app.automation_op(r#"{"op":"run","cmd":"LINE"}"#);
+        assert!(
+            app.tabs[0].active_cmd.is_some(),
+            "LINE must be waiting for its first point"
+        );
+        app.last_point = Some(glam::DVec3::ZERO);
+        app.ortho_mode = true;
+        // Cursor well off any axis: ortho must rotate it onto the nearest one.
+        let _ = app.on_viewport_move(Point::new(600.0, 180.0));
+        assert!(app.angle_snap_engaged, "ortho must have taken over");
+        assert!(app.angle_sweep.is_some(), "takeover must latch a sector");
+        assert!(motion::running(motion::ANGLE_SWEEP));
+        assert!(
+            motion::any_active(),
+            "the sweep must hold the motion_frames subscription open"
+        );
+        let v0 = motion::value_or(motion::ANGLE_SWEEP, -1.0);
+        std::thread::sleep(Duration::from_millis(30));
+        let v1 = motion::value_or(motion::ANGLE_SWEEP, -1.0);
+        assert!(v1 > v0, "time must advance the sweep");
+        // Still engaged on the next move: no replay, the clock keeps running.
+        let _ = app.on_viewport_move(Point::new(620.0, 170.0));
+        let v2 = motion::value_or(motion::ANGLE_SWEEP, -1.0);
+        assert!(v2 >= v1, "an engaged constraint must not restart the sweep");
+        std::thread::sleep(Duration::from_millis(120));
+        assert!(!motion::running(motion::ANGLE_SWEEP));
+        motion::set_enabled(was);
+    }
+
+    /// Item 12: the type label fades in on the acquisition edge and a snap
+    /// that merely slides (same type, same marker) does not replay it.
+    #[test]
+    fn snap_label_fades_in_on_acquisition() {
+        let _gate = motion::test_gate_lock();
+        let was = motion::enabled();
+        motion::set_enabled(true);
+        let mut app = app_with_view();
+        app.tabs[0].snap_result = Some(crate::snap::SnapResult {
+            world: glam::DVec3::new(10.0, 10.0, 0.0),
+            screen: Point::new(420.0, 280.0),
+            snap_type: crate::snap::SnapType::Endpoint,
+            tangent_obj: None,
+            extension_base: None,
+            extension_base2: None,
+            extension_origin: None,
+            extension_dir: None,
+            viewport: None,
+            source: None,
+            secondary_source: None,
+            model_point: None,
+        });
+        app.sync_overlay_motion();
+        assert!(motion::running(motion::SNAP_LABEL));
+        assert!(
+            motion::any_active(),
+            "the label must hold the motion_frames subscription open"
+        );
+        let v0 = motion::value_or(motion::SNAP_LABEL, -1.0);
+        std::thread::sleep(Duration::from_millis(30));
+        let v1 = motion::value_or(motion::SNAP_LABEL, -1.0);
+        assert!(v1 > v0, "time must advance the label fade");
+        // Same marker on the next sync: a slide, not an acquisition.
+        app.sync_overlay_motion();
+        let v2 = motion::value_or(motion::SNAP_LABEL, -1.0);
+        assert!(v2 >= v1, "a sliding snap must not replay the label");
+        std::thread::sleep(Duration::from_millis(120));
+        assert!(!motion::running(motion::SNAP_LABEL));
+        motion::set_enabled(was);
+    }
+
+    /// Item 13: only the first accepted point of a command run pulses; the
+    /// second point must not restart the clock, and a cancelled/restarted
+    /// command re-arms the pulse.
+    #[test]
+    fn first_point_pulse_once_per_command_run() {
+        let _gate = motion::test_gate_lock();
+        let was = motion::enabled();
+        motion::set_enabled(true);
+        let mut app = app_with_view();
+        assert!(app.accepted_snaps.is_empty());
+        assert!(app.record_accepted_snap(0, None, None, glam::DVec3::new(25.0, 15.0, 0.0)));
+        assert!(app.first_point_pulse.is_some());
+        assert!(motion::running(motion::FIRST_POINT_PULSE));
+        assert!(
+            motion::any_active(),
+            "the pulse must hold the motion_frames subscription open"
+        );
+        let v0 = motion::value_or(motion::FIRST_POINT_PULSE, -1.0);
+        std::thread::sleep(Duration::from_millis(20));
+        let v1 = motion::value_or(motion::FIRST_POINT_PULSE, -1.0);
+        assert!(v1 > v0, "time must advance the pulse");
+        // Second point: the list is non-empty, so no replay may reset the clock.
+        assert!(app.record_accepted_snap(0, None, None, glam::DVec3::new(60.0, 40.0, 0.0)));
+        let v2 = motion::value_or(motion::FIRST_POINT_PULSE, -1.0);
+        assert!(v2 >= v1, "the second point must not restart the pulse");
+        std::thread::sleep(Duration::from_millis(80));
+        assert!(!motion::running(motion::FIRST_POINT_PULSE));
+        // Cancel/restart clears the accepted list: the next first point replays.
+        app.reset_command_start_state(0);
+        assert!(app.accepted_snaps.is_empty());
+        assert!(app.record_accepted_snap(0, None, None, glam::DVec3::new(5.0, 5.0, 0.0)));
+        assert!(
+            motion::running(motion::FIRST_POINT_PULSE),
+            "a restarted command must pulse again"
+        );
+        motion::set_enabled(was);
+    }
+
+    /// Item 14: the rollover highlight migrates between cycle candidates via
+    /// a latched old handle whose eased progress is written back on
+    /// MotionTick (the motion_frames channel), lands cleanly, and with motion
+    /// disabled lands immediately instead of fading.
+    #[test]
+    fn cycle_hover_migrates_via_motion_tick() {
+        let _gate = motion::test_gate_lock();
+        let was = motion::enabled();
+        motion::set_enabled(true);
+        let mut app = app_with_view();
+        let h1 = codec::Handle::new(101);
+        let h2 = codec::Handle::new(202);
+        let _ = app.update(Message::CycleHover(Some(h1)));
+        assert!(
+            !motion::running(motion::CYCLE_MIGRATE),
+            "the first hover has no previous candidate to migrate from"
+        );
+        assert!(app.tabs[0].scene.cycle_fade_old.is_none());
+        let _ = app.update(Message::CycleHover(Some(h2)));
+        assert!(motion::running(motion::CYCLE_MIGRATE));
+        assert!(
+            motion::any_active(),
+            "the migration must hold the motion_frames subscription open"
+        );
+        assert_eq!(app.tabs[0].scene.cycle_fade_old, Some(h1));
+        assert_eq!(app.tabs[0].scene.cycle_fade_t, 0.0);
+        // The frame clock writes eased progress back into the scene. A real
+        // motion frame arrives ~16ms after the trigger, never at 0ms: at zero
+        // elapsed the eased value is legitimately 0, so let one frame-interval
+        // pass before the first tick.
+        std::thread::sleep(Duration::from_millis(10));
+        let _ = app.update(Message::MotionTick(std::time::Instant::now()));
+        let t1 = app.tabs[0].scene.cycle_fade_t;
+        assert!(t1 > 0.0 && t1 < 1.0, "MotionTick must advance the fade");
+        std::thread::sleep(Duration::from_millis(30));
+        let _ = app.update(Message::MotionTick(std::time::Instant::now()));
+        let t2 = app.tabs[0].scene.cycle_fade_t;
+        assert!(t2 > t1, "the fade must keep advancing across ticks");
+        std::thread::sleep(Duration::from_millis(70));
+        let _ = app.update(Message::MotionTick(std::time::Instant::now()));
+        assert!(!motion::running(motion::CYCLE_MIGRATE));
+        assert!(
+            app.tabs[0].scene.cycle_fade_old.is_none(),
+            "a landed fade must be cleared"
+        );
+        assert_eq!(app.tabs[0].scene.cycle_fade_t, 1.0);
+        // Motion disabled: the switch lands immediately, no fade is latched.
+        motion::set_enabled(false);
+        let _ = app.update(Message::CycleHover(Some(h1)));
+        let _ = app.update(Message::CycleHover(Some(h2)));
+        assert!(!motion::running(motion::CYCLE_MIGRATE));
+        assert!(
+            app.tabs[0].scene.cycle_fade_old.is_none(),
+            "motion off must land the highlight immediately"
+        );
+        motion::set_enabled(was);
+    }
+}
+
+/// Batch 3 (items 19/23/24/25/26/27/28): state visibility. Every pulse here
+/// registers with the shared motion registry, so `any_active()` — the exact
+/// condition of the `motion_frames` subscription — covers it. Item 19 is a
+/// regression guard on the existing ortho/polar grip guide: it has no time
+/// axis of its own (empty set, no new track).
+#[cfg(test)]
+mod state_visibility_motion_tests {
+    use super::*;
+    use crate::app::DraftFlowCAD;
+    use crate::ui::motion;
+    use std::time::{Duration, Instant};
+
+    /// Independent ease-out-quart fall oracle. Deliberately does NOT call
+    /// motion's own easing: a guard that reuses the code under test has no
+    /// discriminating power. Mirrors the production millisecond truncation
+    /// so the bracket below is exact, not approximate.
+    fn fall_oracle(started: Instant, at: Instant, peak: f32, settle: f32, fall_ms: u64) -> f32 {
+        let e = at.duration_since(started).as_millis() as i64;
+        if fall_ms == 0 || e >= fall_ms as i64 {
+            return settle;
+        }
+        let t = e.max(0) as f32 / fall_ms as f32;
+        settle + (peak - settle) * (1.0 - t).powi(4)
+    }
+
+    /// Contention-proof firing evidence: the track exists with exactly the
+    /// parameters the production path fires, and its start instant is owned
+    /// by this action (`not_before..=not_after` brackets the trigger call).
+    fn assert_pulse_fired(
+        key: &'static str,
+        fall_ms: u64,
+        not_before: Instant,
+        not_after: Instant,
+    ) {
+        let (from, peak, settle, rise, fall, started) = motion::track_snapshot(key)
+            .unwrap_or_else(|| panic!("{key} must have a track after the trigger"));
+        assert_eq!(
+            (from, peak, settle, rise, fall),
+            (0.0, 1.0, 0.0, 0, fall_ms),
+            "{key} firing parameters"
+        );
+        assert!(
+            started >= not_before && started <= not_after,
+            "{key} pulse must be started by this action, not a stale track"
+        );
+    }
+
+    /// The motion_frames subscription must be open while the pulse is
+    /// comfortably inside its window (half-window margin keeps the check
+    /// clear of the finish boundary). A contended trigger can itself outlast
+    /// the whole window; then the firing-parameter assertion is the evidence
+    /// and sampling `any_active` here would be a wall-clock race.
+    fn assert_subscription_while_inside(key: &'static str, fired_by: Instant) {
+        let (_, _, _, _, fall, started) = motion::track_snapshot(key).unwrap();
+        if fired_by.duration_since(started).as_millis() < (fall / 2) as u128 {
+            assert!(
+                motion::any_active(),
+                "{key} must hold the motion_frames subscription open"
+            );
+        }
+    }
+
+    /// The sampled value lies on the declared fall curve, bracketing the
+    /// read instant so scheduling jitter cannot fake a failure. Replaces
+    /// `v1 < v0` decay pairs: two on-curve samples prove monotone decay along
+    /// the whole curve, and they stay valid even when contention has already
+    /// carried the track past its window (both sides read `settle`).
+    fn assert_on_fall_curve(key: &'static str) {
+        let (_, peak, settle, rise, fall, started) = motion::track_snapshot(key).unwrap();
+        assert_eq!(rise, 0, "this guard covers rise-less pulses");
+        let t0 = Instant::now();
+        let v = motion::value_or(key, f32::NAN);
+        let t1 = Instant::now();
+        let hi = fall_oracle(started, t0, peak, settle, fall);
+        let lo = fall_oracle(started, t1, peak, settle, fall);
+        assert!(
+            v >= lo - 1e-4 && v <= hi + 1e-4,
+            "{key} value {v} off its fall curve [{lo}, {hi}]"
+        );
+    }
+
+    fn app_with_view() -> DraftFlowCAD {
+        let mut app = DraftFlowCAD::new_for_test();
+        app.automation_op(r#"{"op":"new"}"#);
+        app.tabs[0].scene.selection.borrow_mut().view.vp_size = (800.0, 600.0);
+        app
+    }
+
+    /// A horizontal line with grip 0 (its start) armed for dragging, snaps
+    /// disabled so the guide under test is the drafting construction ray and
+    /// not an object-snap acquisition.
+    fn app_with_armed_grip() -> (DraftFlowCAD, codec::Handle) {
+        use codec::{entities::Line, types::Vector3, EntityType};
+        let mut app = app_with_view();
+        app.snapper.snap_enabled = false;
+        app.snapper.grid_snap_on = false;
+        app.snapper.otrack_enabled = false;
+        app.ortho_mode = false;
+        app.polar_mode = false;
+        let handle = app.tabs[0].scene.add_entity(EntityType::Line(Line::from_points(
+            Vector3::ZERO,
+            Vector3::new(4.0, 0.0, 0.0),
+        )));
+        app.tabs[0].active_grip = Some(GripEdit::single(handle, 0, false, glam::DVec3::ZERO));
+        (app, handle)
+    }
+
+    fn cursor_for(app: &DraftFlowCAD, target: glam::DVec3) -> Point {
+        let v = app.tabs[0]
+            .scene
+            .camera
+            .borrow()
+            .project(
+                target,
+                iced::Rectangle::with_size(iced::Size::new(800.0, 600.0)),
+            )
+            .unwrap();
+        Point::new(v.x, v.y)
+    }
+
+    /// Item 19: dragging a grip with ORTHO on already exposes the constraint
+    /// axis through `otrack_active` (the overlay draws it as the tracking
+    /// guide); with ORTHO and polar off there is no guide. This guards the
+    /// existing mechanism — item 19 adds no new timeline (empty set).
+    #[test]
+    fn grip_drag_exposes_ortho_constraint_axis() {
+        let (mut app, _handle) = app_with_armed_grip();
+        let cursor = cursor_for(&app, glam::DVec3::new(3.0, 2.0, 0.0));
+        app.ortho_mode = true;
+        let _ = app.on_viewport_move(Point::new(cursor.x, cursor.y));
+        let (base, dir) = app
+            .otrack_active
+            .expect("ortho grip drag must expose the constraint axis");
+        assert_eq!(base, glam::DVec3::ZERO, "the guide starts at the grip");
+        assert!(
+            dir.y.abs() < 1e-9 && dir.x.abs() > 0.99,
+            "the cursor is nearer the X axis, the guide must lie on it: {dir:?}"
+        );
+        // Both drafting modes off: no construction ray, no guide.
+        app.ortho_mode = false;
+        let _ = app.on_viewport_move(Point::new(cursor.x, cursor.y));
+        assert!(
+            app.otrack_active.is_none(),
+            "without ortho/polar there is no constraint axis to show"
+        );
+        // The overlay really consumes the field (drawing path exists).
+        let view = include_str!("../view/mod.rs");
+        assert!(
+            view.contains("otrack_active"),
+            "the viewport overlay must draw the guide from otrack_active"
+        );
+    }
+
+    /// Item 23: turning a layer OFF dims its panel row for 120 ms; turning it
+    /// back ON fires no pulse (the geometry reappearing is its own feedback).
+    #[test]
+    fn layer_off_dims_row_then_settles() {
+        let _gate = motion::test_gate_lock();
+        let was = motion::enabled();
+        motion::set_enabled(true);
+        let mut app = app_with_view();
+        let before = Instant::now();
+        let _ = app.update(Message::LayerToggleVisible("0".to_string()));
+        let after = Instant::now();
+        assert!(
+            !app.tabs[0]
+                .layers
+                .layers
+                .iter()
+                .find(|l| l.name == "0")
+                .expect("layer 0 row")
+                .visible,
+            "the toggle must turn layer 0 off"
+        );
+        let key = motion::layer_off_key("0");
+        assert_pulse_fired(key, motion::LAYER_OFF_TIME, before, after);
+        assert_subscription_while_inside(key, after);
+        assert_on_fall_curve(key);
+        std::thread::sleep(Duration::from_millis(30));
+        assert_on_fall_curve(key);
+        std::thread::sleep(Duration::from_millis(130));
+        assert!(!motion::running(key), "the dim must settle after 120 ms");
+        // ON: no pulse — the start instant must not move.
+        let started = motion::track_snapshot(key).unwrap().5;
+        let _ = app.update(Message::LayerToggleVisible("0".to_string()));
+        assert!(
+            app.tabs[0]
+                .layers
+                .layers
+                .iter()
+                .find(|l| l.name == "0")
+                .unwrap()
+                .visible
+        );
+        assert_eq!(
+            motion::track_snapshot(key).unwrap().5,
+            started,
+            "turning ON must not fire a pulse"
+        );
+        // The layers panel really reads the per-layer key.
+        let layers = include_str!("../../ui/window/layers.rs");
+        assert!(
+            layers.contains("layer_off_key"),
+            "the layer row must consume the off-dim track"
+        );
+        motion::set_enabled(was);
+    }
+
+    /// Item 24: entering a different viewport pulses the border ring; staying
+    /// in the same viewport does not replay it.
+    #[test]
+    fn viewport_enter_pulses_ring_once() {
+        let _gate = motion::test_gate_lock();
+        let was = motion::enabled();
+        motion::set_enabled(true);
+        let mut app = app_with_view();
+        assert!(app.tabs[0].scene.active_viewport.is_none());
+        let h = codec::Handle::new(0x901);
+        let before = Instant::now();
+        let _ = app.update(Message::EnterViewport(h));
+        let after = Instant::now();
+        assert_pulse_fired(motion::VP_RING_PULSE, motion::VP_RING_PULSE_TIME, before, after);
+        assert_subscription_while_inside(motion::VP_RING_PULSE, after);
+        assert_on_fall_curve(motion::VP_RING_PULSE);
+        std::thread::sleep(Duration::from_millis(30));
+        assert_on_fall_curve(motion::VP_RING_PULSE);
+        // Re-entering the same viewport: context unchanged, no replay — the
+        // start instant must not move (stronger than comparing two samples).
+        let started = motion::track_snapshot(motion::VP_RING_PULSE).unwrap().5;
+        let _ = app.update(Message::EnterViewport(h));
+        assert_eq!(
+            motion::track_snapshot(motion::VP_RING_PULSE).unwrap().5,
+            started,
+            "a same-viewport enter must not restart the pulse"
+        );
+        std::thread::sleep(Duration::from_millis(130));
+        assert!(!motion::running(motion::VP_RING_PULSE));
+        motion::set_enabled(was);
+    }
+
+    /// Item 25: F7/F8 toggles bump their status-bar pill for 80 ms. The bump
+    /// is a quiet ink blend (MODE_PULSE_BLEND), never a flash.
+    #[test]
+    fn mode_toggles_bump_pill_quietly() {
+        let _gate = motion::test_gate_lock();
+        let was = motion::enabled();
+        motion::set_enabled(true);
+        let mut app = app_with_view();
+        let before = Instant::now();
+        let _ = app.update(Message::ToggleOrtho);
+        let after = Instant::now();
+        assert_pulse_fired(
+            motion::pulse_key("ST_ORTHO"),
+            motion::MODE_PULSE_TIME,
+            before,
+            after,
+        );
+        assert_subscription_while_inside(motion::pulse_key("ST_ORTHO"), after);
+        let before2 = Instant::now();
+        let _ = app.update(Message::ToggleSnapEnabled);
+        let after2 = Instant::now();
+        assert_pulse_fired(
+            motion::pulse_key("ST_OSNAP"),
+            motion::MODE_PULSE_TIME,
+            before2,
+            after2,
+        );
+        assert_on_fall_curve(motion::pulse_key("ST_ORTHO"));
+        std::thread::sleep(Duration::from_millis(30));
+        assert_on_fall_curve(motion::pulse_key("ST_ORTHO"));
+        std::thread::sleep(Duration::from_millis(90));
+        assert!(!motion::running(motion::pulse_key("ST_ORTHO")));
+        assert!(!motion::running(motion::pulse_key("ST_OSNAP")));
+        // The blend stays a quiet confirmation, not a flash.
+        let surface = include_str!("../../ui/kit/surface.rs");
+        assert!(
+            surface.contains("MODE_PULSE_BLEND: f32 = 0.22"),
+            "the pill bump must stay a 22% ink blend"
+        );
+        assert!(
+            surface.contains("motion::pulse_key(id)"),
+            "both pill ink paths must consume the bump"
+        );
+        motion::set_enabled(was);
+    }
+
+    /// Item 26: entering read-only fires a 150 ms edge pulse and keeps a faint
+    /// resident border; with motion reduced the pulse lands immediately but a
+    /// one-shot static window still shows, driven by its own subscription
+    /// channel (no track is running to hold motion_frames open).
+    #[test]
+    fn readonly_edge_pulses_then_resides() {
+        let _gate = motion::test_gate_lock();
+        let was = motion::enabled();
+        motion::set_enabled(true);
+        let mut app = app_with_view();
+        app.read_only = true;
+        let before = Instant::now();
+        app.fire_readonly_edge();
+        let after = Instant::now();
+        assert_pulse_fired(motion::READONLY_EDGE, motion::READONLY_EDGE_TIME, before, after);
+        assert_subscription_while_inside(motion::READONLY_EDGE, after);
+        assert!(app.readonly_edge_at.is_some());
+        assert_on_fall_curve(motion::READONLY_EDGE);
+        std::thread::sleep(Duration::from_millis(30));
+        assert_on_fall_curve(motion::READONLY_EDGE);
+        std::thread::sleep(Duration::from_millis(160));
+        assert!(!motion::running(motion::READONLY_EDGE));
+        // Motion reduced: pulse lands at once, the static one-shot window
+        // remains and has its own frame channel.
+        motion::set_enabled(false);
+        app.fire_readonly_edge();
+        assert!(!motion::running(motion::READONLY_EDGE));
+        assert_eq!(motion::value_or(motion::READONLY_EDGE, -1.0), 0.0);
+        assert!(
+            app.readonly_edge_at.is_some(),
+            "the static window latch must still be armed"
+        );
+        let view = include_str!("../view/mod.rs");
+        assert!(
+            view.contains("readonly_edge_tick"),
+            "the static window needs its own subscription channel"
+        );
+        assert!(
+            view.contains("0.16 + 0.69"),
+            "the resident border must stay faint after the pulse"
+        );
+        motion::set_enabled(was);
+    }
+
+    /// Item 27: command failures pulse the card border through the two error
+    /// choke points; warnings deliberately do not ride the track.
+    #[test]
+    fn command_error_pulses_card_not_warning() {
+        let _gate = motion::test_gate_lock();
+        let was = motion::enabled();
+        motion::set_enabled(true);
+        let mut app = app_with_view();
+        let before = Instant::now();
+        app.command_line.push_error("boom");
+        let after = Instant::now();
+        assert_pulse_fired(motion::CMD_ERROR_PULSE, motion::CMD_ERROR_PULSE_TIME, before, after);
+        assert_subscription_while_inside(motion::CMD_ERROR_PULSE, after);
+        assert_on_fall_curve(motion::CMD_ERROR_PULSE);
+        std::thread::sleep(Duration::from_millis(30));
+        assert_on_fall_curve(motion::CMD_ERROR_PULSE);
+        std::thread::sleep(Duration::from_millis(160));
+        assert!(!motion::running(motion::CMD_ERROR_PULSE));
+        // A warning is not a failed command: the start instant must not move.
+        let started = motion::track_snapshot(motion::CMD_ERROR_PULSE).unwrap().5;
+        app.command_line.push_warning("careful");
+        assert_eq!(
+            motion::track_snapshot(motion::CMD_ERROR_PULSE).unwrap().5,
+            started,
+            "warnings must not fire the failure pulse"
+        );
+        // A repeated retry failure still failed.
+        let before2 = Instant::now();
+        app.command_line.push_error_once("boom");
+        let after2 = Instant::now();
+        assert_pulse_fired(motion::CMD_ERROR_PULSE, motion::CMD_ERROR_PULSE_TIME, before2, after2);
+        std::thread::sleep(Duration::from_millis(160));
+        assert!(!motion::running(motion::CMD_ERROR_PULSE));
+        let cmdline = include_str!("../../ui/command_line.rs");
+        assert!(
+            cmdline.contains("CMD_ERROR_PULSE"),
+            "the card border must consume the error track"
+        );
+        motion::set_enabled(was);
+    }
+
+    /// Item 28: undo highlights the redo-dropdown rows it just created
+    /// (positional: row 0 = last undone operation); redo and any fresh edit
+    /// clear the highlight because the rows no longer name those operations.
+    #[test]
+    fn undo_highlights_redo_rows_positionally() {
+        let _gate = motion::test_gate_lock();
+        let was = motion::enabled();
+        motion::set_enabled(true);
+        let (mut app, handle) = app_with_armed_grip();
+        let cursor = cursor_for(&app, glam::DVec3::new(1.0, 3.0, 0.0));
+        let _ = app.on_viewport_move(Point::new(cursor.x, cursor.y));
+        let _ = app.on_viewport_left_release();
+        assert!(
+            !app.tabs[0].history.undo_stack.is_empty(),
+            "the grip edit must be undoable"
+        );
+        let before = Instant::now();
+        app.undo_steps(1);
+        let after = Instant::now();
+        assert_eq!(app.undo_highlight_steps, 1);
+        assert_pulse_fired(motion::UNDO_HIGHLIGHT, motion::UNDO_HIGHLIGHT_TIME, before, after);
+        assert_subscription_while_inside(motion::UNDO_HIGHLIGHT, after);
+        assert_on_fall_curve(motion::UNDO_HIGHLIGHT);
+        std::thread::sleep(Duration::from_millis(30));
+        assert_on_fall_curve(motion::UNDO_HIGHLIGHT);
+        // Redo moves the rows back: the highlight no longer names them.
+        app.redo_steps(1);
+        assert_eq!(app.undo_highlight_steps, 0);
+        // Undo again, then a fresh edit drops the redo stack: clear too.
+        app.undo_steps(1);
+        assert_eq!(app.undo_highlight_steps, 1);
+        app.tabs[0].active_grip = Some(GripEdit::single(handle, 0, false, glam::DVec3::ZERO));
+        let cursor = cursor_for(&app, glam::DVec3::new(2.0, 2.0, 0.0));
+        let _ = app.on_viewport_move(Point::new(cursor.x, cursor.y));
+        let _ = app.on_viewport_left_release();
+        assert_eq!(
+            app.undo_highlight_steps, 0,
+            "a fresh edit invalidates the highlighted redo rows"
+        );
+        std::thread::sleep(Duration::from_millis(110));
+        assert!(!motion::running(motion::UNDO_HIGHLIGHT));
+        // The redo dropdown really consumes the positional highlight.
+        let ribbon = include_str!("../../ui/ribbon/mod.rs");
+        assert!(
+            ribbon.contains("UNDO_HIGHLIGHT"),
+            "the redo rows must consume the highlight track"
+        );
+        motion::set_enabled(was);
+    }
+}
+
+#[cfg(test)]
+mod orbit_coast_tests {
+    use super::*;
+    use crate::app::DraftFlowCAD;
+    use crate::ui::motion;
+    use iced::time::Duration;
+
+    fn app_with_model_view() -> DraftFlowCAD {
+        let mut app = DraftFlowCAD::new_for_test();
+        app.automation_op(r#"{"op":"new"}"#);
+        app.tabs[0].scene.selection.borrow_mut().view.vp_size = (800.0, 600.0);
+        app
+    }
+
+    /// Feed the release estimator exactly the way a middle-drag orbit does:
+    /// cumulative SCREEN PIXELS, one sample per drag frame. Leaves the gesture
+    /// latched as active, as a live drag would be.
+    fn feed_drag(app: &mut DraftFlowCAD, px_per_frame: f32, frames: usize, frame_ms: u64) {
+        let t0 = Instant::now();
+        let mut cum = 0.0;
+        for k in 1..=frames {
+            cum += px_per_frame;
+            app.orbit_drag_yaw = cum * crate::scene::view::camera::Camera::ORBIT_RAD_PER_PX;
+            let at = t0 + Duration::from_millis(frame_ms * k as u64);
+            app.orbit_vel_yaw.push(at, app.orbit_drag_yaw);
+            std::thread::sleep(Duration::from_millis(frame_ms));
+        }
+        app.orbit_drag_active = true;
+    }
+
+    /// The camera's orientation. A top view's yaw is degenerate (a turn about
+    /// world +Z is a roll there), so the guards measure the rotation itself.
+    fn rotation(app: &DraftFlowCAD) -> glam::Quat {
+        app.tabs[0].scene.camera.borrow().rotation
+    }
+
+    /// Item 7: with the hand off the mouse and no event of any kind, the
+    /// released orbit keeps turning off the frame clock alone, and parks with
+    /// no track left asking for frames.
+    #[test]
+    fn a_released_orbit_coasts_with_no_further_input_then_parks() {
+        let _gate = motion::test_gate_lock();
+        motion::set_enabled(true);
+        motion::spring_stop(motion::ORBIT_GLIDE_YAW, 0.0);
+        motion::spring_stop(motion::ORBIT_GLIDE_PITCH, 0.0);
+        let mut app = app_with_model_view();
+        feed_drag(&mut app, 12.0, 6, 16);
+
+        let release_rot = rotation(&app);
+        app.end_orbit_gesture(0);
+        assert!(
+            motion::spring_active(motion::ORBIT_GLIDE_YAW),
+            "a flick over the floor must start a coast"
+        );
+        assert!(
+            motion::any_active(),
+            "the coast must register with any_active, or no frame would ever come"
+        );
+        assert!(!app.orbit_drag_active, "the gesture is over at release");
+
+        // Frames arrive from the subscription; nothing else touches the view.
+        let t0 = std::time::Instant::now();
+        let mut frames = 0u32;
+        let mut tick_total = std::time::Duration::ZERO;
+        while motion::spring_active(motion::ORBIT_GLIDE_YAW) && frames < 600 {
+            motion::tick_springs_dt(1.0 / 60.0);
+            let t = std::time::Instant::now();
+            app.tick_orbit_glide();
+            tick_total += t.elapsed();
+            frames += 1;
+        }
+        let stop_ms = t0.elapsed().as_secs_f64() * 1000.0;
+        let turned = release_rot.angle_between(rotation(&app));
+        let coast_px = app.orbit_glide_applied.0;
+        let tick_us = tick_total.as_secs_f64() * 1e6 / f64::from(frames.max(1));
+
+        assert!(
+            turned.abs() > 1e-3,
+            "the view must keep turning after release, turned {turned} rad"
+        );
+        assert!(
+            coast_px.abs() <= motion::ORBIT_COAST_MAX_PX + 0.5,
+            "coast {} px must stay under the {} px cap",
+            coast_px,
+            motion::ORBIT_COAST_MAX_PX
+        );
+        assert!(
+            !motion::spring_active(motion::ORBIT_GLIDE_YAW),
+            "the coast must park, leaving no track behind"
+        );
+        assert!(
+            motion::spring_at(motion::ORBIT_GLIDE_YAW)
+                .map(|p| p == app.orbit_glide_applied.0)
+                .unwrap_or(true),
+            "the parked track must hold the applied travel, so a re-press cannot rewind it"
+        );
+        println!(
+            "ORBITCOAST coast_px={coast_px:.2} stop_ms={stop_ms:.1} frames={frames} tick_us_per_frame={tick_us:.2}"
+        );
+    }
+
+    /// Item 7: under the release floor a flick starts no coast at all — the
+    /// view stops exactly where the drag left it.
+    #[test]
+    fn a_new_press_takes_over_the_coast_without_a_jump() {
+        let _gate = motion::test_gate_lock();
+        motion::set_enabled(true);
+        motion::spring_stop(motion::ORBIT_GLIDE_YAW, 0.0);
+        let mut app = app_with_model_view();
+        feed_drag(&mut app, 12.0, 6, 16);
+        app.end_orbit_gesture(0);
+        assert!(motion::spring_active(motion::ORBIT_GLIDE_YAW));
+
+        // A few coasting frames, then a press lands mid-coast.
+        for _ in 0..8 {
+            motion::tick_springs_dt(1.0 / 60.0);
+            app.tick_orbit_glide();
+        }
+        let mid = rotation(&app);
+        app.cancel_orbit_glide();
+        assert!(
+            !motion::spring_active(motion::ORBIT_GLIDE_YAW)
+                && !motion::spring_active(motion::ORBIT_GLIDE_PITCH),
+            "a press must park the coast"
+        );
+        assert_eq!(
+            rotation(&app),
+            mid,
+            "the press must take the view over from the angle on screen, with no jump"
+        );
+        assert_eq!(app.orbit_glide_applied, (0.0, 0.0));
+        assert_eq!(app.orbit_glide_tab, usize::MAX);
+
+        // A coast started after the take-over begins from that angle: the view
+        // keeps turning forward from where the press froze it.
+        feed_drag(&mut app, 4.0, 3, 16);
+        app.end_orbit_gesture(0);
+        assert!(motion::spring_active(motion::ORBIT_GLIDE_YAW));
+        let before = rotation(&app);
+        motion::tick_springs_dt(1.0 / 60.0);
+        app.tick_orbit_glide();
+        assert!(
+            rotation(&app) != before,
+            "the second coast must move the view on from the take-over angle"
+        );
+    }
 }

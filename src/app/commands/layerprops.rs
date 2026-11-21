@@ -1266,7 +1266,12 @@ impl DraftFlowCAD {
                                         ds.dimscale = val;
                                     }
                                     "dimlfac" => {
+                                        let before = ds.dimlfac;
                                         ds.dimlfac = val;
+                                        // The same unit switch as the DimStyle
+                                        // dialog's field: text eases across
+                                        // rather than re-reading in one frame.
+                                        crate::ui::motion::unit_chase(before, val);
                                     }
                                     "dimdle" => {
                                         ds.dimdle = val;

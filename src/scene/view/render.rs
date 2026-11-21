@@ -242,6 +242,17 @@ pub struct ViewportData {
     pub(in crate::scene) selected_handles: Arc<rustc_hash::FxHashSet<codec::Handle>>,
     /// Currently hovered selectable unit — solid meshes tint it orange.
     pub(in crate::scene) hover_handles: Arc<rustc_hash::FxHashSet<codec::Handle>>,
+    /// Batch 2 item 14: `(old group, new group, eased t)` while the cycling-list
+    /// preview cross-fade runs. Both sets are already expanded to selectable
+    /// groups and minus the real selection (matching the hover gather). The
+    /// xray overlay mixes the old candidate toward HOVER at strength `1 - t`
+    /// and the new one at strength `t`, so the rollover highlight migrates
+    /// instead of teleporting. `None` outside the fade.
+    pub(in crate::scene) cycle_fade: Option<(
+        rustc_hash::FxHashSet<codec::Handle>,
+        rustc_hash::FxHashSet<codec::Handle>,
+        f32,
+    )>,
     /// Bumped on selection / hover change. Paired with `wire_content_id` to
     /// decide when the xray overlay batch needs rebuilding.
     pub(in crate::scene) selection_generation: u64,
@@ -1070,6 +1081,7 @@ retained_contributors={}",
                     &vp.annotation_context_wires,
                     &draw_depths,
                     sel_color,
+                    vp.cycle_fade.as_ref(),
                 );
                 // Text highlight rides the same selection key: a pick / rollover
                 // recolours the selected / hovered glyphs without touching the
@@ -1083,6 +1095,7 @@ retained_contributors={}",
                     &vp.annotation_context_wires,
                     &draw_depths,
                     sel_color,
+                    vp.cycle_fade.as_ref(),
                 );
                 inner.cached_annotation_highlight_source =
                     Some(Arc::clone(&vp.annotation_context_wires));
@@ -4529,7 +4542,13 @@ impl Scene {
             if let Some(iw) = &self.interim_wire {
                 v.push(iw.clone());
             }
+            let ghost_start = v.len();
             v.extend(self.preview_ghost_wires.iter().cloned());
+            if self.preview_ghost_fade < 1.0 {
+                for wire in &mut v[ghost_start..] {
+                    wire.color[3] *= self.preview_ghost_fade;
+                }
+            }
             v.extend(self.preview_wires.iter().cloned());
             v.extend(self.constraint_hover_wires.iter().cloned());
             v.extend(cloud_2d_wires);
@@ -4902,6 +4921,22 @@ impl Scene {
             } else {
                 rustc_hash::FxHashSet::default()
             }),
+            cycle_fade: if show_interaction {
+                match (self.cycle_fade_old, self.hover_highlight) {
+                    (Some(old), Some(new)) if old != new => {
+                        let expand = |handle| {
+                            self.handles_expanded_for_selectable_groups(&[handle])
+                                .into_iter()
+                                .filter(|h| !self.selected.contains(h))
+                                .collect::<rustc_hash::FxHashSet<_>>()
+                        };
+                        Some((expand(old), expand(new), self.cycle_fade_t.clamp(0.0, 1.0)))
+                    }
+                    _ => None,
+                }
+            } else {
+                None
+            },
             selection_generation: self
                 .selection_generation
                 .wrapping_mul(2)

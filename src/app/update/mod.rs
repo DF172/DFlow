@@ -393,11 +393,206 @@ impl DraftFlowCAD {
             self.sync_underlay_tab();
         }
         self.sync_frame_dropdown();
+        // Edge-detects the snap marker and the selection marquee. Both are
+        // drawn by the stateless overlay, so their motion has to be latched
+        // here, on the one path every producer of `snap_result` and of the
+        // gesture flags passes through.
+        self.sync_overlay_motion();
+        // The UCS tripod is drawn from world axes; a UCS change is what makes
+        // them turn. Same edge-detection contract as above.
+        self.sync_ucs_motion();
         // Frame subscriptions are collected after this returns, so a track
         // started here still gets its ticks; a track started in `view` would
         // never see one.
         self.sync_motion();
         task
+    }
+
+    /// Latches the viewport overlay's cursor-driven motion: the snap marker's
+    /// acquisition pulse, its convergence onto a fresh point, the
+    /// interpolation between neighbouring snap candidates, and the
+    /// window↔crossing marquee cross-fade.
+    ///
+    /// The overlay is a stateless `canvas::Program` rebuilt every frame, and
+    /// `snap_result` is assigned from dozens of branches. Diffing the value
+    /// once per message — after the message has been handled — gives every one
+    /// of those producers the same edge detector, and keeps `canvas_fx`'s
+    /// production half free of clocks.
+    pub(super) fn sync_overlay_motion(&mut self) {
+        use crate::ui::motion;
+        let i = self.active_tab;
+        // Save-state dot (item 22). A tab switch lands its dot instantly —
+        // the dot describes a document, so switching documents must not look
+        // like one document changing state.
+        let dirty = self.tabs.get(i).is_some_and(|tab| tab.dirty);
+        if self.dirty_track_tab != i {
+            self.dirty_track_tab = i;
+            self.last_active_dirty = Some(dirty);
+            motion::set(motion::TAB_SAVE, if dirty { 1.0 } else { 0.0 }, 0);
+            // ViewCube orientation damping (item 5): a switch seats the turn on
+            // the drawing that started it, instantly, so the new tab never
+            // inherits another document's half-finished rotation (item 22).
+            if motion::running(motion::VIEW_ORIENT) {
+                self.land_view_orient();
+            }
+        } else if self.last_active_dirty != Some(dirty) {
+            self.last_active_dirty = Some(dirty);
+            motion::set(
+                motion::TAB_SAVE,
+                if dirty { 1.0 } else { 0.0 },
+                motion::TAB_SAVE_TIME,
+            );
+        }
+        if self.tabs.get(i).is_none_or(|tab| tab.is_start) {
+            self.snap_motion_tab = usize::MAX;
+            self.last_snap_marker = None;
+            self.snap_settle_from = None;
+            self.first_point_pulse = None;
+            self.angle_snap_engaged = false;
+            self.angle_sweep = None;
+            return;
+        }
+        let (current, pointer, box_marquee, box_crossing, poly_marquee, poly_crossing) = {
+            let tab = &self.tabs[i];
+            let sel = tab.scene.selection.borrow();
+            (
+                tab.snap_result.map(|s| (s.screen, s.snap_type)),
+                sel.input.last_move_pos,
+                sel.gesture.box_anchor.is_some() && sel.gesture.box_current.is_some(),
+                sel.gesture.box_crossing,
+                sel.gesture.poly_active,
+                sel.gesture.poly_crossing,
+            )
+        };
+        // Another drawing's snap is not this drawing's snap: reset without
+        // motion so a switch never pulses a stale point on the new tab.
+        if self.snap_motion_tab != i {
+            self.snap_motion_tab = i;
+            self.last_snap_marker = None;
+            self.snap_settle_from = None;
+            // Items 11/13: another drawing's first point and angle takeover
+            // are not this drawing's; drop them without replaying.
+            self.first_point_pulse = None;
+            self.angle_snap_engaged = false;
+            self.angle_sweep = None;
+        }
+        let acquired = match (self.last_snap_marker, current) {
+            (None, Some(_)) => true,
+            // A different snap mode at the same pixel is a different snap:
+            // endpoint → midpoint is an acquisition, not a slide.
+            (Some((_, was)), Some((_, now))) => was != now,
+            _ => false,
+        };
+        if let Some((screen, _)) = current {
+            if acquired {
+                // Come out of the pointer and pull onto the exact point. The
+                // pointer is where the marker effectively was; without it a
+                // re-acquired snap would fly in from its previous position.
+                self.snap_settle_from = Some(pointer.unwrap_or(screen));
+                motion::replay(motion::SNAP_SETTLE, 1.0, motion::SNAP_CONVERGE);
+                motion::pulse(
+                    motion::SNAP_PULSE,
+                    motion::SNAP_PULSE_PEAK,
+                    1.0,
+                    motion::SNAP_PULSE_RISE,
+                    motion::SNAP_PULSE_FALL,
+                );
+                // Type label fades in on the same acquisition edge (item 12);
+                // it disappears with the snap itself, so there is no fade-out.
+                motion::replay(motion::SNAP_LABEL, 1.0, motion::SNAP_LABEL_TIME);
+            }
+            // Interpolation, not restart: a snap point that drifts with the
+            // cursor keeps closing the 60 ms gap; an unchanged one mints
+            // nothing.
+            motion::chase(motion::SNAP_CANDIDATE_X, screen.x, motion::SNAP_CANDIDATE);
+            motion::chase(motion::SNAP_CANDIDATE_Y, screen.y, motion::SNAP_CANDIDATE);
+        } else {
+            self.snap_settle_from = None;
+        }
+        self.last_snap_marker = current;
+
+        // Window (blue, left→right) ↔ crossing (green, right→left). The flip
+        // happens while the drag is live, so it eases over instead of
+        // snapping to the other colour mid-gesture. A gesture boundary lands
+        // the blend at once: a new drag must start in its own colour.
+        let box_target = if box_crossing { 1.0 } else { 0.0 };
+        if box_marquee != self.last_box_marquee {
+            motion::set(motion::SELECT_CROSS_BOX, box_target, 0);
+        } else if box_marquee && box_crossing != self.last_box_crossing {
+            motion::set(motion::SELECT_CROSS_BOX, box_target, motion::SELECT_CROSSFADE);
+        }
+        self.last_box_marquee = box_marquee;
+        self.last_box_crossing = box_crossing;
+        let poly_target = if poly_crossing { 1.0 } else { 0.0 };
+        if poly_marquee != self.last_poly_marquee {
+            motion::set(motion::SELECT_CROSS_POLY, poly_target, 0);
+        } else if poly_marquee && poly_crossing != self.last_poly_crossing {
+            motion::set(motion::SELECT_CROSS_POLY, poly_target, motion::SELECT_CROSSFADE);
+        }
+        self.last_poly_marquee = poly_marquee;
+        self.last_poly_crossing = poly_crossing;
+    }
+
+    /// World-space orientation of the active UCS as a rotation. The tripod
+    /// only ever shows axis directions, so carrying one quaternion is enough.
+    fn ucs_axes_quat(x: glam::DVec3, y: glam::DVec3, z: glam::DVec3) -> glam::Quat {
+        glam::Quat::from_mat3(&glam::Mat3::from_cols(
+            x.as_vec3(),
+            y.as_vec3(),
+            z.as_vec3(),
+        ))
+        .normalize()
+    }
+
+    /// Latches a UCS change into a 150 ms turn. The axes are world-space, so
+    /// orbiting the camera never starts a turn — only the UCS itself moving
+    /// does, which is exactly when the icon's meaning changes.
+    pub(super) fn sync_ucs_motion(&mut self) {
+        use crate::ui::motion;
+        let i = self.active_tab;
+        let Some(tab) = self.tabs.get(i) else {
+            return;
+        };
+        let (_, x, y, z) = tab.ucs_xform().axes();
+        let target = Self::ucs_axes_quat(x, y, z);
+        let Some(to) = self.ucs_axes_to else {
+            self.ucs_axes_tab = i;
+            self.ucs_axes_from = Some(target);
+            self.ucs_axes_to = Some(target);
+            motion::set(motion::UCS_ROT, 1.0, 0);
+            return;
+        };
+        if self.ucs_axes_tab != i {
+            // A different drawing's UCS is not this one changing: seat it.
+            self.ucs_axes_tab = i;
+            self.ucs_axes_from = Some(target);
+            self.ucs_axes_to = Some(target);
+            motion::set(motion::UCS_ROT, 1.0, 0);
+            return;
+        }
+        if to.dot(target).abs() < 1.0 - 1e-6 {
+            // Start from wherever the icon is right now, not from the old
+            // target: two UCS changes in quick succession must not jump.
+            let t = motion::value_or(motion::UCS_ROT, 1.0);
+            let from = self.ucs_axes_from.unwrap_or(to).slerp(to, t);
+            self.ucs_axes_from = Some(from);
+            self.ucs_axes_to = Some(target);
+            motion::replay(motion::UCS_ROT, 1.0, motion::UCS_ROT_TIME);
+        }
+    }
+
+    /// Axes the tripod should be drawn with right now: `None` when the turn
+    /// has landed (the caller uses the document's own axes), otherwise the
+    /// slerped orientation between the old and new UCS.
+    pub(super) fn ucs_icon_axes(&self) -> Option<(glam::Vec3, glam::Vec3, glam::Vec3)> {
+        let t = crate::ui::motion::value_or(crate::ui::motion::UCS_ROT, 1.0);
+        if t >= 1.0 {
+            return None;
+        }
+        let from = self.ucs_axes_from?;
+        let to = self.ucs_axes_to?;
+        let q = from.slerp(to, t);
+        Some((q * glam::Vec3::X, q * glam::Vec3::Y, q * glam::Vec3::Z))
     }
 
     /// The Frames list on the ribbon shows the active drawing's frame state
@@ -451,6 +646,13 @@ impl DraftFlowCAD {
                     // guarantees, so surface the queue here rather than wait for
                     // a frame that may never come.
                     self.show_next_startup_modal();
+                    // Batch 3 item 26: the first workspace frame of a
+                    // read-only session announces its boundary. The splash
+                    // hand-off is the only production boot path (the plate is
+                    // built unconditionally), so this fires exactly once.
+                    if self.read_only {
+                        self.fire_readonly_edge();
+                    }
                 }
                 // The shown window is still cloaked. Two ticks is one full
                 // compose-and-present cycle, so lifting the cloak here reveals a
@@ -812,10 +1014,60 @@ impl DraftFlowCAD {
                 crate::ui::motion::hover(key, entered);
                 Task::none()
             }
-            Message::MotionTick(_) => {
+            Message::MotionTick(now) => {
+                // Springs integrate from the frame clock; the track registry
+                // samples wall-clock itself and needs no dt.
+                crate::ui::motion::tick_springs(now);
+                // Delivered after the springs integrate, so the camera moves
+                // by exactly this frame's share of the glide.
+                self.tick_view_glides(now);
+                // P2 batch 1 item 7: a released orbit keeps turning from the
+                // spring tracks alone, so this is the only thing that moves the
+                // view when the hand is off the mouse entirely.
+                self.tick_orbit_glide();
+                // P2 batch 1 item 6: 3D view fly-through, one per tab that has
+                // one. A scene without a flight pays a single `Option` test.
+                for tab in &mut self.tabs {
+                    tab.scene.tick_view_fly_if_any();
+                }
                 // A dialog that was dismissed is only still on screen because
                 // its fade has not landed yet; this is the tick that lands it.
                 self.settle_modal_exit();
+                // The drag-start ghost's dissolve is read from the scene at
+                // draw time, so the eased factor has to be written back while
+                // the track is still settling (item 17).
+                if crate::ui::motion::running(crate::ui::motion::GHOST_FADE) {
+                    let shown =
+                        crate::ui::motion::value_or(crate::ui::motion::GHOST_FADE, 1.0);
+                    for tab in &mut self.tabs {
+                        tab.scene.set_preview_ghost_fade(shown);
+                    }
+                }
+                // Cycling-preview cross-fade (batch 2 item 14): the render
+                // layer reads cycle_fade_t from the scene, so the eased share
+                // has to be written back every motion frame while the track
+                // runs; once it lands (or motion is disabled) the old
+                // candidate is dropped and the xray overlay rebuilt once.
+                if crate::ui::motion::running(crate::ui::motion::CYCLE_MIGRATE) {
+                    let t = crate::ui::motion::value_or(crate::ui::motion::CYCLE_MIGRATE, 1.0);
+                    for tab in &mut self.tabs {
+                        if tab.scene.cycle_fade_old.is_some() {
+                            tab.scene.cycle_fade_t = t;
+                            tab.scene.bump_selection();
+                        }
+                    }
+                } else {
+                    for tab in &mut self.tabs {
+                        tab.scene.clear_cycle_fade();
+                    }
+                }
+                // Paper↔model settle (item 32): push this frame's share of the
+                // extra zoom into the camera about the pane centre.
+                self.tick_space_focus();
+                // ViewCube orientation damping (item 5): slerp the camera toward
+                // the snapped orientation. Runs after the space settle so a
+                // running settle takes priority and lands the turn instead.
+                self.tick_view_orient();
                 Task::none()
             }
 
@@ -3346,6 +3598,20 @@ impl DraftFlowCAD {
                             {
                                 pl.visible = on;
                             }
+                            // Batch 3 item 23: turning a layer OFF dims its
+                            // panel row for 120 ms so the eye follows the state
+                            // change instead of reading the vanished geometry
+                            // as lost work. Turning ON needs no beat — the
+                            // geometry reappearing is its own feedback.
+                            if !on {
+                                crate::ui::motion::pulse(
+                                    crate::ui::motion::layer_off_key(name),
+                                    1.0,
+                                    0.0,
+                                    0,
+                                    crate::ui::motion::LAYER_OFF_TIME,
+                                );
+                            }
                         }
                         self.tabs[i].scene.invalidate_layer_visibility(&targets);
                         self.tabs[i].dirty = true;
@@ -3942,6 +4208,10 @@ impl DraftFlowCAD {
 
             Message::ViewportMiddleRelease => {
                 let i = self.active_tab;
+                // P2 batch 1 item 7: a released orbit coasts at the hand's
+                // last angular speed. It runs BEFORE the pivot is dropped
+                // below, because the coast keeps turning about that centre.
+                self.end_orbit_gesture(i);
                 let mut sel = self.tabs[i].scene.selection.borrow_mut();
                 sel.input.middle_down = false;
                 sel.input.middle_last_pos = None;
@@ -3949,6 +4219,8 @@ impl DraftFlowCAD {
                 // gesture recomputes it against the current selection. (#229)
                 sel.orbit.pivot = None;
                 drop(sel);
+                // A pan that was still moving coasts on its own velocity.
+                self.end_pan_gesture();
                 self.arm_hover_after_navigation(i);
                 Task::none()
             }
@@ -4149,6 +4421,16 @@ impl DraftFlowCAD {
             // ── Snap / mode toggles ───────────────────────────────────────
             Message::ToggleSnapEnabled => {
                 self.snapper.toggle_global();
+                // Batch 3 item 25: quiet 80 ms confirmation bump on the
+                // status-bar snap pill (F3). The pill's engaged-state walk
+                // already carries the on/off change; this only marks the edge.
+                crate::ui::motion::pulse(
+                    crate::ui::motion::pulse_key("ST_OSNAP"),
+                    1.0,
+                    0.0,
+                    0,
+                    crate::ui::motion::MODE_PULSE_TIME,
+                );
                 self.sync_vport_display(self.active_tab);
                 self.persist_settings_if_changed();
                 Task::none()
@@ -4209,6 +4491,16 @@ impl DraftFlowCAD {
                 if self.ortho_mode {
                     self.polar_mode = false;
                 }
+                // Batch 3 item 25: same quiet bump on the ortho pill (F8).
+                // F7 (grid) has no status-bar pill, so it gets no pulse —
+                // adding an icon would be new UI, outside this batch.
+                crate::ui::motion::pulse(
+                    crate::ui::motion::pulse_key("ST_ORTHO"),
+                    1.0,
+                    0.0,
+                    0,
+                    crate::ui::motion::MODE_PULSE_TIME,
+                );
                 // If the user manually toggles ortho during a command that
                 // suppressed it (e.g. RECTANG), the toggle is permanent —
                 // don't restore the pre-command state when the command ends.
@@ -4799,6 +5091,7 @@ impl DraftFlowCAD {
                 self.selection_cycling ^= true;
                 self.cycle_candidates = None;
                 self.tabs[self.active_tab].scene.set_hover_highlight(None);
+                self.tabs[self.active_tab].scene.clear_cycle_fade();
                 Task::none()
             }
             Message::CycleSelect(handle) => {
@@ -4808,6 +5101,7 @@ impl DraftFlowCAD {
                 self.cycle_candidates = None;
                 let i = self.active_tab;
                 self.tabs[i].scene.set_hover_highlight(None);
+                self.tabs[i].scene.clear_cycle_fade();
                 self.tabs[i].scene.select_entity(handle, false);
                 self.tabs[i].scene.expand_selection_for_groups(&[handle]);
                 self.refresh_properties();
@@ -4818,7 +5112,31 @@ impl DraftFlowCAD {
             }
             Message::CycleHover(handle) => {
                 let i = self.active_tab;
-                self.tabs[i].scene.set_hover_highlight(handle);
+                let scene = &mut self.tabs[i].scene;
+                let old = scene.hover_highlight;
+                scene.set_hover_highlight(handle);
+                // Batch 2 item 14: migrate the rollover highlight from the
+                // previous list-box candidate instead of teleporting it. The
+                // old handle is latched for a 60 ms RGB cross-fade; the eased
+                // progress is written back on MotionTick (motion_frames).
+                match (old, handle) {
+                    (Some(old), Some(new)) if old != new => {
+                        crate::ui::motion::replay(
+                            crate::ui::motion::CYCLE_MIGRATE,
+                            1.0,
+                            crate::ui::motion::CYCLE_MIGRATE_TIME,
+                        );
+                        if crate::ui::motion::running(crate::ui::motion::CYCLE_MIGRATE) {
+                            scene.cycle_fade_old = Some(old);
+                            scene.cycle_fade_t = 0.0;
+                            scene.bump_selection();
+                        } else {
+                            // Motion disabled: land immediately, no fade.
+                            scene.clear_cycle_fade();
+                        }
+                    }
+                    _ => scene.clear_cycle_fade(),
+                }
                 Task::none()
             }
             Message::CycleHoverExit(handle) => {
@@ -4827,12 +5145,14 @@ impl DraftFlowCAD {
                 let i = self.active_tab;
                 if self.tabs[i].scene.hover_highlight == Some(handle) {
                     self.tabs[i].scene.set_hover_highlight(None);
+                    self.tabs[i].scene.clear_cycle_fade();
                 }
                 Task::none()
             }
             Message::CycleCancel => {
                 self.cycle_candidates = None;
                 self.tabs[self.active_tab].scene.set_hover_highlight(None);
+                self.tabs[self.active_tab].scene.clear_cycle_fade();
                 Task::none()
             }
             Message::ToggleSelectionFilterPopup => {
@@ -7040,6 +7360,13 @@ impl DraftFlowCAD {
                     .properties
                     .edit_buf
                     .insert(crate::ui::properties::FieldKey::Geom(field), value);
+                // First keystroke is what makes the field uncommitted; the
+                // track is idempotent once it is already at 1.
+                crate::ui::motion::set(
+                    crate::ui::motion::PROP_DIRTY,
+                    1.0,
+                    crate::ui::motion::PROP_DIRTY_TIME,
+                );
                 Task::none()
             }
 
@@ -7055,9 +7382,25 @@ impl DraftFlowCAD {
 
             Message::PropSectionToggle(title) => {
                 let sections = &mut self.collapsed_property_sections;
-                if !sections.remove(&title) {
-                    sections.insert(title);
+                // `remove` answers "was collapsed"; the body eases between the
+                // two heights under one track, so the header's click starts a
+                // 160 ms squeeze rather than swapping the body out.
+                let was_collapsed = sections.remove(&title);
+                let now_collapsed = !was_collapsed;
+                if now_collapsed {
+                    sections.insert(title.clone());
                 }
+                let key = crate::ui::motion::section_key(&title);
+                if !crate::ui::motion::exists(key) {
+                    // No track yet: the paint has been reading the section's
+                    // own state, so seed the ease from where it actually is.
+                    crate::ui::motion::set(key, if was_collapsed { 0.0 } else { 1.0 }, 0);
+                }
+                crate::ui::motion::chase(
+                    key,
+                    if now_collapsed { 0.0 } else { 1.0 },
+                    crate::ui::motion::PROP_SECTION_TIME,
+                );
                 // Keep already-built panels in other open documents in sync,
                 // rather than waiting for each one to rebuild on selection.
                 let sections = self.collapsed_property_sections.clone();
@@ -7663,16 +8006,37 @@ impl DraftFlowCAD {
                 if self.ui_theme.name == "Custom" {
                     self.saved_custom_palette = Some(self.ui_theme.palette);
                 }
-                // Capture the outgoing root surface so the chrome cross-fades
-                // instead of snapping.
-                self.theme_fade_from = self.active_theme.palette().background.base.color;
+                // Item 45 (P1, batch 5): the *canvas* carries the 200 ms
+                // transition; the window ground and every text-bearing surface
+                // land on the new theme in this same frame. A ground that keeps
+                // blending while glyphs have already switched to the incoming
+                // text colour is precisely the same-colour window this item
+                // forbids, so the outgoing colour is captured for the canvas
+                // veil alone (see `theme_canvas_veil`).
+                let i = self.active_tab;
+                let old_canvas = self.tabs[i].scene.bg_color;
                 self.ui_theme.name = theme.to_string();
                 self.ui_theme.palette = crate::app::config::UiThemePalette::from_iced(theme.seed());
                 self.theme_color_inputs = self.ui_theme.palette.hex_values();
                 self.active_theme = theme;
                 self.sync_model_space_theme(true);
                 self.persist_settings_if_changed();
-                crate::ui::motion::set("theme:fade", 1.0, crate::ui::motion::NORMAL);
+                let new_canvas = self.tabs[i].scene.bg_color;
+                // Only a canvas that actually recoloured earns a veil: switching
+                // between two themes whose canvas ground is identical would hide
+                // the drawing for 200 ms only to reveal the same colour.
+                if old_canvas != new_canvas {
+                    self.theme_canvas_from = iced::Color::from_rgba(
+                        old_canvas[0], old_canvas[1], old_canvas[2], old_canvas[3],
+                    );
+                    crate::ui::motion::pulse(
+                        crate::ui::motion::THEME_VEIL,
+                        1.0,
+                        0.0,
+                        0,
+                        crate::ui::motion::THEME_VEIL_MS,
+                    );
+                }
                 Task::none()
             }
 
@@ -9573,6 +9937,21 @@ impl DraftFlowCAD {
                 let total = Instant::now();
                 if context_changed {
                     self.tabs[i].scene.clear_preview_wire();
+                    // Item 32: stepping into a viewport pushes the view in
+                    // from 1.02 to 1.0 over 150 ms.
+                    self.begin_space_focus(1.0);
+                    // Batch 3 item 24: the active viewport's border ring
+                    // brightens for 120 ms so the eye lands on the viewport
+                    // that just took focus. Model tiles have no border ring
+                    // (only dividers); their focus feedback is the item 32
+                    // push-in alone.
+                    crate::ui::motion::pulse(
+                        crate::ui::motion::VP_RING_PULSE,
+                        1.0,
+                        0.0,
+                        0,
+                        crate::ui::motion::VP_RING_PULSE_TIME,
+                    );
                 }
                 // Clear paper-space selection before entering model space.
                 self.tabs[i].scene.deselect_all();
@@ -9623,6 +10002,8 @@ impl DraftFlowCAD {
                 };
                 if context_changed {
                     self.tabs[i].scene.clear_preview_wire();
+                    // Item 32: leaving pulls the view back the other way.
+                    self.begin_space_focus(-1.0);
                 }
                 // Clear model-space selection before returning to paper space.
                 self.tabs[i].scene.deselect_all();
@@ -11666,6 +12047,425 @@ mod splash_gate_tests {
             SplashStatus::Phase(_) => {}
             other => panic!("a file loading behind the plate must keep its phase, got {other:?}"),
         }
+    }
+}
+
+/// The snap marker and the selection marquee are drawn by a stateless overlay,
+/// so their motion is latched by `sync_overlay_motion`, the one path every
+/// producer of `snap_result` and of the gesture flags goes through. These pin
+/// the four edges it owns — acquisition pulse, candidate interpolation,
+/// acquisition convergence, marquee direction flip — and that each one keeps
+/// `any_active` asking for frames.
+#[cfg(test)]
+mod overlay_motion_tests {
+    use crate::app::DraftFlowCAD;
+    use crate::snap::{SnapResult, SnapType};
+    use crate::ui::motion;
+    use iced::Point;
+
+    fn app() -> DraftFlowCAD {
+        let mut app = DraftFlowCAD::new_for_test();
+        app.automation_op(r#"{"op":"new"}"#);
+        app
+    }
+
+    fn snap_at(screen: Point, snap_type: SnapType) -> SnapResult {
+        SnapResult {
+            world: glam::DVec3::ZERO,
+            screen,
+            snap_type,
+            tangent_obj: None,
+            extension_base: None,
+            extension_base2: None,
+            extension_origin: None,
+            extension_dir: None,
+            viewport: None,
+            source: None,
+            secondary_source: None,
+            model_point: None,
+        }
+    }
+
+    fn at(key: &'static str, fallback: f32) -> f32 {
+        motion::value_or(key, fallback)
+    }
+
+    /// Item 8: a fresh snap pulses to 1.15 and settles back to 1, and the pulse
+    /// is a real track, so the frame loop keeps ticking while it runs.
+    #[test]
+    fn a_fresh_snap_pulses_and_keeps_frames_coming() {
+        let _lock = motion::test_gate_lock();
+        let was = motion::enabled();
+        let mut app = app();
+        // `new_for_test` seeds the gate from the OS; pin it after that.
+        motion::set_enabled(true);
+        app.tabs[0].snap_result = Some(snap_at(Point::new(64.0, 96.0), SnapType::Endpoint));
+        app.sync_overlay_motion();
+        assert!(
+            motion::running(motion::SNAP_PULSE),
+            "acquisition starts the pulse"
+        );
+        assert!(motion::any_active(), "the pulse must request frames");
+        std::thread::sleep(std::time::Duration::from_millis(160));
+        assert!(
+            !motion::running(motion::SNAP_PULSE),
+            "the pulse ends inside its 120 ms budget"
+        );
+        assert!(
+            (at(motion::SNAP_PULSE, 0.0) - 1.0).abs() < 1e-3,
+            "the marker settles back to its resting size"
+        );
+        motion::set_enabled(was);
+    }
+
+    /// Item 9: the marker chases a snap point that drifts with the cursor
+    /// instead of jumping. Re-syncing the same point mints nothing.
+    #[test]
+    fn a_drifting_snap_point_is_chased_not_jumped() {
+        let _lock = motion::test_gate_lock();
+        let was = motion::enabled();
+        let mut app = app();
+        // `new_for_test` seeds the gate from the OS; pin it after that.
+        motion::set_enabled(true);
+        app.tabs[0].snap_result = Some(snap_at(Point::new(40.0, 40.0), SnapType::Endpoint));
+        app.sync_overlay_motion();
+        std::thread::sleep(std::time::Duration::from_millis(140));
+        assert!((at(motion::SNAP_CANDIDATE_X, 0.0) - 40.0).abs() < 0.5);
+
+        app.tabs[0].snap_result = Some(snap_at(Point::new(240.0, 140.0), SnapType::Endpoint));
+        app.sync_overlay_motion();
+        assert!(
+            motion::running(motion::SNAP_CANDIDATE_X),
+            "a moving candidate interpolates"
+        );
+        assert!(motion::any_active(), "the chase must request frames");
+        let mid = at(motion::SNAP_CANDIDATE_X, 0.0);
+        assert!(mid > 35.0 && mid < 220.0, "no jump to the new point, got {mid}");
+        std::thread::sleep(std::time::Duration::from_millis(120));
+        assert!((at(motion::SNAP_CANDIDATE_X, 0.0) - 240.0).abs() < 0.5);
+        assert!((at(motion::SNAP_CANDIDATE_Y, 0.0) - 140.0).abs() < 0.5);
+
+        app.sync_overlay_motion();
+        assert!(
+            !motion::running(motion::SNAP_CANDIDATE_X),
+            "the same point again starts nothing"
+        );
+        motion::set_enabled(was);
+    }
+
+    /// Item 10: acquisition pulls the marker from the pointer onto the exact
+    /// snapped point over 80 ms. It is recorded here so the stateless view can
+    /// read one origin for the whole convergence.
+    #[test]
+    fn a_fresh_snap_converges_from_the_pointer() {
+        let _lock = motion::test_gate_lock();
+        let was = motion::enabled();
+        let mut app = app();
+        // `new_for_test` seeds the gate from the OS; pin it after that.
+        motion::set_enabled(true);
+        app.tabs[0].scene.selection.borrow_mut().input.last_move_pos =
+            Some(Point::new(120.0, 80.0));
+        app.tabs[0].snap_result = Some(snap_at(Point::new(300.0, 200.0), SnapType::Midpoint));
+        app.sync_overlay_motion();
+        assert!(motion::running(motion::SNAP_SETTLE));
+        assert!(motion::any_active(), "convergence must request frames");
+        assert_eq!(app.snap_settle_from, Some(Point::new(120.0, 80.0)));
+        assert!(at(motion::SNAP_SETTLE, 1.0) < 0.2, "starts at the pointer");
+        std::thread::sleep(std::time::Duration::from_millis(140));
+        assert!((at(motion::SNAP_SETTLE, 0.0) - 1.0).abs() < 1e-3);
+        motion::set_enabled(was);
+    }
+
+    /// Item 20: reversing a drag flips window ↔ crossing, and the colour eases
+    /// over instead of switching mid-gesture.
+    #[test]
+    fn a_marquee_direction_flip_cross_fades_once() {
+        let _lock = motion::test_gate_lock();
+        let was = motion::enabled();
+        let mut app = app();
+        // `new_for_test` seeds the gate from the OS; pin it after that.
+        motion::set_enabled(true);
+        {
+            let mut sel = app.tabs[0].scene.selection.borrow_mut();
+            sel.gesture.box_anchor = Some(Point::new(400.0, 300.0));
+            sel.gesture.box_current = Some(Point::new(410.0, 305.0));
+            sel.gesture.box_crossing = false;
+        }
+        app.sync_overlay_motion();
+        assert!(
+            !motion::running(motion::SELECT_CROSS_BOX),
+            "starting a drag lands its own colour at once"
+        );
+
+        app.tabs[0].scene.selection.borrow_mut().gesture.box_crossing = true;
+        app.sync_overlay_motion();
+        assert!(motion::running(motion::SELECT_CROSS_BOX));
+        assert!(motion::any_active(), "the cross-fade must request frames");
+        let mid = at(motion::SELECT_CROSS_BOX, 0.0);
+        assert!(
+            mid < 0.5,
+            "starts from the window colour and eases over, got {mid}"
+        );
+        std::thread::sleep(std::time::Duration::from_millis(100));
+        assert!((at(motion::SELECT_CROSS_BOX, 0.0) - 1.0).abs() < 1e-3);
+
+        app.sync_overlay_motion();
+        assert!(
+            !motion::running(motion::SELECT_CROSS_BOX),
+            "holding the same direction does not replay the fade"
+        );
+        motion::set_enabled(was);
+    }
+
+    /// Reduced motion: every one of these edges lands in the same frame and
+    /// asks for no frames at all.
+    #[test]
+    fn reduced_motion_lands_the_overlay_edges_at_once() {
+        let _lock = motion::test_gate_lock();
+        let was = motion::enabled();
+        let mut app = app();
+        motion::set_enabled(false);
+        app.tabs[0].snap_result = Some(snap_at(Point::new(300.0, 200.0), SnapType::Endpoint));
+        {
+            let mut sel = app.tabs[0].scene.selection.borrow_mut();
+            sel.gesture.box_anchor = Some(Point::new(1.0, 1.0));
+            sel.gesture.box_current = Some(Point::new(9.0, 9.0));
+            sel.gesture.box_crossing = true;
+        }
+        app.sync_overlay_motion();
+        assert!(!motion::any_active());
+        assert!((at(motion::SNAP_PULSE, 0.0) - 1.0).abs() < 1e-3);
+        assert!((at(motion::SNAP_SETTLE, 0.0) - 1.0).abs() < 1e-3);
+        assert!((at(motion::SNAP_CANDIDATE_X, 0.0) - 300.0).abs() < 1e-3);
+        assert!((at(motion::SELECT_CROSS_BOX, 0.0) - 1.0).abs() < 1e-3);
+        motion::set_enabled(was);
+    }
+}
+
+/// Batch C's status edges — the drag-start ghost, the uncommitted-field edge,
+/// the save dot, the UCS tripod turn and the paper↔model settle. Each one is a
+/// time-driven track, so each test pins that it keeps `any_active` asking for
+/// frames while it runs and lands exactly on its resting value. (Item 16's
+/// trim band is geometry, not a track; its assertion lives in `trim.rs`.)
+#[cfg(test)]
+mod batch_c_motion_tests {
+    use crate::app::{DraftFlowCAD, Message};
+    use crate::ui::motion;
+
+    fn app() -> DraftFlowCAD {
+        let mut app = DraftFlowCAD::new_for_test();
+        app.automation_op(r#"{"op":"new"}"#);
+        app
+    }
+
+    fn at(key: &'static str, fallback: f32) -> f32 {
+        motion::value_or(key, fallback)
+    }
+
+    /// Item 17: the original-position ghost starts at 30 % and dissolves over
+    /// the first 220 px of drag. The eased factor is written through
+    /// `GHOST_FADE` and multiplied into the scene's ghost wires at draw time.
+    #[test]
+    fn a_grip_ghost_dissolves_with_drag_distance() {
+        let _lock = motion::test_gate_lock();
+        let was = motion::enabled();
+        let mut app = app();
+        motion::set_enabled(true);
+        assert_eq!(motion::ghost_fade_for(0.0), 1.0);
+        assert!(
+            (motion::ghost_fade_for(motion::GHOST_FADE_DISTANCE / 2.0) - 0.5).abs() < 1e-3,
+            "half the fade distance is half the ghost"
+        );
+        assert_eq!(motion::ghost_fade_for(motion::GHOST_FADE_DISTANCE), 0.0);
+        assert_eq!(
+            motion::ghost_fade_for(motion::GHOST_FADE_DISTANCE * 3.0),
+            0.0,
+            "past the distance it stays gone instead of going negative"
+        );
+
+        // Seat the track at full strength, then drag halfway: the producer's
+        // write is a 120 ms ease, not a jump.
+        motion::set(motion::GHOST_FADE, 1.0, 0);
+        motion::set(
+            motion::GHOST_FADE,
+            motion::ghost_fade_for(motion::GHOST_FADE_DISTANCE / 2.0),
+            motion::GHOST_FADE_TIME,
+        );
+        assert!(
+            motion::running(motion::GHOST_FADE),
+            "the dissolve is a live track"
+        );
+        assert!(motion::any_active(), "the dissolve must request frames");
+        let start = at(motion::GHOST_FADE, 0.0);
+        assert!(start > 0.9, "it eases from the full outline, got {start}");
+        std::thread::sleep(std::time::Duration::from_millis(180));
+        assert!((at(motion::GHOST_FADE, 0.0) - 0.5).abs() < 1e-3);
+        app.tabs[0].scene.set_preview_ghost_fade(0.5);
+        assert!((app.tabs[0].scene.preview_ghost_fade - 0.5).abs() < 1e-6);
+        motion::set_enabled(was);
+    }
+
+    /// Item 21: the first keystroke in a property field turns its border to the
+    /// warning colour over 80 ms, and the edge is the input message itself.
+    #[test]
+    fn an_uncommitted_property_field_keeps_frames_coming() {
+        let _lock = motion::test_gate_lock();
+        let was = motion::enabled();
+        let mut app = app();
+        motion::set_enabled(true);
+        motion::set(motion::PROP_DIRTY, 0.0, 0);
+        let _ = app.update(Message::PropGeomInput {
+            field: "Radius",
+            value: "12".into(),
+        });
+        assert!(
+            motion::running(motion::PROP_DIRTY),
+            "typing starts the dirty edge"
+        );
+        assert!(motion::any_active(), "the dirty edge must request frames");
+        let mid = at(motion::PROP_DIRTY, 0.0);
+        assert!(mid < 1.0, "it eases in rather than snapping, got {mid}");
+        std::thread::sleep(std::time::Duration::from_millis(140));
+        assert!((at(motion::PROP_DIRTY, 0.0) - 1.0).abs() < 1e-3);
+        assert!(!motion::running(motion::PROP_DIRTY));
+        motion::set_enabled(was);
+    }
+
+    /// Item 22: the save dot eases 120 ms when the document's dirty state flips,
+    /// but switching to another document seats it instantly — a tab switch is a
+    /// different document, not this one changing state.
+    #[test]
+    fn a_save_state_flip_eases_and_a_tab_switch_lands_it() {
+        let _lock = motion::test_gate_lock();
+        let was = motion::enabled();
+        let mut app = app();
+        motion::set_enabled(true);
+        // Seat the dot on "saved".
+        app.tabs[0].dirty = false;
+        app.sync_overlay_motion();
+        motion::set(motion::TAB_SAVE, 0.0, 0);
+
+        app.tabs[0].dirty = true;
+        app.sync_overlay_motion();
+        assert!(
+            motion::running(motion::TAB_SAVE),
+            "a dirty edge eases the dot over"
+        );
+        assert!(motion::any_active(), "the save dot must request frames");
+        let mid = at(motion::TAB_SAVE, 0.0);
+        assert!(mid < 0.9, "it eases toward dirty, got {mid}");
+        std::thread::sleep(std::time::Duration::from_millis(200));
+        assert!((at(motion::TAB_SAVE, 0.0) - 1.0).abs() < 1e-3);
+
+        // A tab switch re-seats the dot with no motion.
+        app.dirty_track_tab = usize::MAX;
+        app.tabs[0].dirty = false;
+        app.sync_overlay_motion();
+        assert!(
+            !motion::running(motion::TAB_SAVE),
+            "a switch must not animate another document's dot"
+        );
+        assert!(at(motion::TAB_SAVE, 0.0).abs() < 1e-6);
+        motion::set_enabled(was);
+    }
+
+    /// Item 31: a UCS change turns the tripod 150 ms from where it is toward
+    /// the new world axes; an orbit that leaves the UCS alone mints nothing.
+    #[test]
+    fn a_ucs_change_turns_the_tripod() {
+        let _lock = motion::test_gate_lock();
+        let was = motion::enabled();
+        let mut app = app();
+        motion::set_enabled(true);
+        app.sync_ucs_motion();
+        app.sync_ucs_motion();
+        assert!(
+            !motion::running(motion::UCS_ROT),
+            "a settled UCS does not turn"
+        );
+        assert!(app.ucs_icon_axes().is_none(), "the icon uses the document axes");
+
+        app.automation_op(r#"{"op":"run","cmd":"UCS Z 90"}"#);
+        app.sync_ucs_motion();
+        assert!(
+            motion::running(motion::UCS_ROT),
+            "the command starts the turn"
+        );
+        assert!(motion::any_active(), "the turn must request frames");
+        // Let the blend leave the identity before sampling the arms.
+        std::thread::sleep(std::time::Duration::from_millis(70));
+        assert!(motion::running(motion::UCS_ROT), "the turn is still in flight");
+        let axes = app
+            .ucs_icon_axes()
+            .expect("mid-turn the icon is drawn from the blend");
+        // 90° about Z: the blended X axis has picked up a Y component, and has
+        // not yet reached it.
+        assert!(
+            axes.0.y > 0.0 && axes.0.y < 1.0,
+            "the X arm is partway to +Y, got {}",
+            axes.0.y
+        );
+        // Re-syncing the same UCS (an orbit) must not restart the turn.
+        app.sync_ucs_motion();
+        std::thread::sleep(std::time::Duration::from_millis(220));
+        assert!(!motion::running(motion::UCS_ROT));
+        assert!(
+            app.ucs_icon_axes().is_none(),
+            "a landed turn hands the icon back to the document axes"
+        );
+        motion::set_enabled(was);
+    }
+
+    /// Item 32: stepping into a viewport pushes in from 1.02 to 1.0 and stepping
+    /// back out reverses it, both landing exactly on the camera that was there.
+    #[test]
+    fn stepping_into_a_viewport_pushes_in_and_lands_without_drift() {
+        let _lock = motion::test_gate_lock();
+        let was = motion::enabled();
+        let mut app = app();
+        motion::set_enabled(true);
+        let i = app.active_tab;
+        app.tabs[i].scene.selection.borrow_mut().view.vp_size = (1280.0, 800.0);
+        let before = app.tabs[i].scene.camera.borrow().distance;
+
+        app.begin_space_focus(1.0);
+        assert!(
+            motion::running(motion::SPACE_FOCUS),
+            "the settle is a live track"
+        );
+        assert!(motion::any_active(), "the settle must request frames");
+        // The 2 % overshoot is a 1 ms rise, so sample a frame later, not at t=0.
+        std::thread::sleep(std::time::Duration::from_millis(20));
+        app.tick_space_focus();
+        let pushed = app.tabs[i].scene.camera.borrow().distance;
+        assert!(
+            pushed > before * 1.01,
+            "the view starts 2 % farther out, {before} -> {pushed}"
+        );
+
+        std::thread::sleep(std::time::Duration::from_millis(220));
+        app.tick_space_focus();
+        let after = app.tabs[i].scene.camera.borrow().distance;
+        assert!(
+            (after - before).abs() / before < 2e-3,
+            "the settle lands back on the same view, {before} -> {after}"
+        );
+        assert_eq!(app.space_focus_applied, 0.0);
+
+        // Stepping back out runs the same distance the other way.
+        app.begin_space_focus(-1.0);
+        std::thread::sleep(std::time::Duration::from_millis(20));
+        app.tick_space_focus();
+        let pulled = app.tabs[i].scene.camera.borrow().distance;
+        assert!(
+            pulled < after * 0.99,
+            "leaving starts 2 % closer, {after} -> {pulled}"
+        );
+        std::thread::sleep(std::time::Duration::from_millis(220));
+        app.tick_space_focus();
+        let rest = app.tabs[i].scene.camera.borrow().distance;
+        assert!((rest - before).abs() / before < 2e-3);
+        motion::set_enabled(was);
     }
 }
 

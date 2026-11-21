@@ -222,6 +222,212 @@ impl DraftFlowCAD {
     }
 
     /// The workspace proper: viewport, ribbon, tab bar, status bar.
+    /// Item 37: the Open button's progress ring.
+    ///
+    /// Reads the same measured counter the modal card used to paint, through
+    /// the same eased track, so the ring grows at the pace the bar did. An
+    /// unmeasured file (`basis_points == 0`) hands the ring a travelling arc
+    /// instead of a 0 % sliver, which would read as a stalled button.
+    fn open_ring(&self) -> Option<kit::Ring> {
+        let progress = self
+            .opening
+            .as_ref()
+            .filter(|p| p.recovery_error.is_none())?;
+        let basis = progress
+            .state
+            .basis_points
+            .load(std::sync::atomic::Ordering::Relaxed)
+            .min(10000);
+        let fraction = basis as f32 / 10000.0;
+        let sweep = (basis == 0).then(|| {
+            if crate::ui::motion::enabled() {
+                crate::ui::motion::tri_wave(
+                    iced::time::Instant::now()
+                        .saturating_duration_since(progress.started)
+                        .as_millis() as u64,
+                    crate::ui::motion::LOOP_MS,
+                )
+            } else {
+                0.5
+            }
+        });
+        Some(kit::Ring {
+            fraction: crate::ui::motion::value_or(crate::ui::motion::PROGRESS, fraction)
+                .clamp(0.0, 1.0),
+            sweep,
+            alpha: crate::ui::motion::value_or(crate::ui::motion::OPEN_RING, 1.0),
+        })
+    }
+
+    /// Item 38: the large-drawing reveal.
+    ///
+    /// The viewport is a GPU shader, so the sweep cannot happen inside it. This
+    /// is a same-ground mask of `COLS × ROWS` tiles that fade out in the order
+    /// [`crate::ui::motion::reveal_tile`] hands out, over the whole document
+    /// plane. The tiles take no mouse interaction, so a click during the half
+    /// second still reaches the canvas. No track — or a settled one — returns
+    /// `None`, so files that never needed the sweep pay nothing.
+    fn reveal_mask(ground: Color) -> Option<Element<'static, Message>> {
+        const COLS: usize = 6;
+        const ROWS: usize = 4;
+        let m = crate::ui::motion::value_or(crate::ui::motion::REVEAL, 1.0);
+        if !(m.is_finite() && m < 0.999) {
+            return None;
+        }
+        let tiles = COLS * ROWS;
+        let mut grid = column![].width(Fill).height(Fill);
+        for r in 0..ROWS {
+            let mut line = row![].width(Fill).height(Fill);
+            for c in 0..COLS {
+                let veil = 1.0 - crate::ui::motion::reveal_tile(m, r * COLS + c, tiles);
+                line = line.push(
+                    container(Space::new())
+                        .style(move |_| kit::document_style(ground.scale_alpha(veil), ""))
+                        .width(Fill)
+                        .height(Fill),
+                );
+            }
+            grid = grid.push(line);
+        }
+        Some(grid.into())
+    }
+
+    /// Item 40: the REGEN completion veil. One full-size quad in the canvas
+    /// ground colour at the fade's alpha: the first frame after a synchronous
+    /// rebuild reads a grey wash that fades back to full colour in
+    /// `REGEN_FADE_MS`. At settle the track reads 0 and this returns `None`,
+    /// so no extra layer (and no extra draw) remains. With motion disabled
+    /// the pulse never publishes, so the veil never appears.
+    fn regen_veil(ground: Color) -> Option<Element<'static, Message>> {
+        let v = crate::ui::motion::value_or(crate::ui::motion::REGEN_FADE, 0.0);
+        if !(v.is_finite() && v > 0.0) {
+            return None;
+        }
+        let alpha = v * crate::ui::motion::REGEN_VEIL_ALPHA;
+        Some(
+            container(Space::new())
+                .style(move |_| kit::document_style(ground.scale_alpha(alpha), ""))
+                .width(Fill)
+                .height(Fill)
+                .into(),
+        )
+    }
+
+    /// Item 41 (2026-11-20 degraded ruling): the render-mode switch veil.
+    /// One quad pinned to the switching viewport's own screen rect — never
+    /// the whole canvas — so neighbouring tiles and viewports keep their
+    /// pixels. `bounds` is the rect recorded at the switch (clamped to the
+    /// canvas); a viewport that did not switch carries `None` and gets no
+    /// veil at all. At settle the track reads 0 and this returns `None`, so
+    /// no extra layer remains. With motion disabled the pulse never
+    /// publishes, so the veil never appears.
+    fn render_mode_veil(
+        bounds: Option<iced::Rectangle>,
+        ground: Color,
+    ) -> Option<Element<'static, Message>> {
+        let rect = bounds?;
+        let v = crate::ui::motion::value_or(crate::ui::motion::RENDER_VEIL, 0.0);
+        if !(v.is_finite() && v > 0.0) {
+            return None;
+        }
+        let alpha = v * crate::ui::motion::RENDER_VEIL_ALPHA;
+        let quad = container(Space::new())
+            .style(move |_| kit::document_style(ground.scale_alpha(alpha), ""))
+            .width(iced::Length::Fixed(rect.width.max(1.0)))
+            .height(iced::Length::Fixed(rect.height.max(1.0)));
+        Some(
+            iced::widget::pin(quad)
+                .position(iced::Point::new(rect.x.max(0.0), rect.y.max(0.0)))
+                .into(),
+        )
+    }
+
+    /// Item 45 (P1, batch 5): the theme switch erase on the canvas. One
+    /// full-canvas quad in the *outgoing* canvas ground at a fading alpha — the
+    /// degradation this batch permits ("单 quad 旧底色擦除"), because iced keeps
+    /// no outgoing frame to cross-fade against. Chrome and every text-bearing
+    /// surface have already landed on the incoming theme when this is pushed,
+    /// so nothing readable ever sits on the fading wash. At settle the track
+    /// reads 0 and this returns `None`: no residual layer.
+    fn theme_canvas_veil(ground: Color) -> Option<Element<'static, Message>> {
+        let v = crate::ui::motion::value_or(crate::ui::motion::THEME_VEIL, 0.0);
+        if !(v.is_finite() && v > 0.0) {
+            return None;
+        }
+        let alpha = v * crate::ui::motion::THEME_VEIL_ALPHA;
+        Some(
+            container(Space::new())
+                .style(move |_| kit::document_style(ground.scale_alpha(alpha), ""))
+                .width(Fill)
+                .height(Fill)
+                .into(),
+        )
+    }
+
+    /// Item 46 (P1, batch 5): the MATCHPROP transfer line, projected into the
+    /// pane's canvas-local coordinates through the same camera the grips and the
+    /// UCS icon use. `None` when no transfer is playing, when the track has
+    /// settled, or when an anchor does not project — the line needs both ends,
+    /// so a missing anchor contributes no line rather than a guessed position.
+    fn matchprop_flow_layer(&self, is_paper: bool) -> Option<Element<'static, Message>> {
+        if !crate::ui::motion::running(crate::ui::motion::MATCHPROP_FLOW) {
+            return None;
+        }
+        let t = crate::ui::motion::value_or(crate::ui::motion::MATCHPROP_FLOW, 0.0);
+        if !(t.is_finite() && t > 0.0) {
+            return None;
+        }
+        let (from, targets) = self.matchprop_flow.as_ref()?;
+        let tab = &self.tabs[self.active_tab];
+        let (vw, vh) = tab.scene.selection.borrow().view.vp_size;
+        if vw < 1.0 || vh < 1.0 {
+            return None;
+        }
+        let (view_rot, eye, bounds) = if is_paper {
+            let (cam, full) = tab.scene.viewport_edit_frame((vw, vh))?;
+            (cam.view_proj_rte(full), cam.eye(), full)
+        } else {
+            let cam = tab.scene.camera.borrow();
+            let b = tab.scene.active_model_tile_bounds(vw, vh);
+            (cam.view_proj_rte(b), cam.eye(), b)
+        };
+        let project = |world: glam::DVec3| -> Option<iced::Point> {
+            let ndc = view_rot.project_point3((world - eye).as_vec3());
+            let p = iced::Point::new(
+                bounds.x + (ndc.x + 1.0) * 0.5 * bounds.width,
+                bounds.y + (1.0 - ndc.y) * 0.5 * bounds.height,
+            );
+            (p.x.is_finite() && p.y.is_finite()).then_some(p)
+        };
+        let start = project(*from)?;
+        let wires: Vec<(iced::Point, iced::Point)> = targets
+            .iter()
+            .filter_map(|target| project(*target).map(|end| (start, end)))
+            .collect();
+        if wires.is_empty() {
+            return None;
+        }
+        Some(crate::ui::overlay::matchprop_flow(
+            wires,
+            t,
+            &self.active_theme,
+        ))
+    }
+
+    /// Item 35 (C, 2026-11-20 ruling): the canvas scrim under the right-click
+    /// menu. A full-canvas glass plate whose tint is the scrim peak; the
+    /// MENU_SCRIM track drives its fade, so the blur channel opens only while
+    /// the scrim is actually on screen. At 0 this returns `None` — no reader,
+    /// no blur pass (the vendor renderer's zero-reader invariant). The track
+    /// is edged from `sync_motion`, never from here: view only reads.
+    fn menu_scrim() -> Option<Element<'static, Message>> {
+        let v = crate::ui::motion::value_or(crate::ui::motion::MENU_SCRIM, 0.0);
+        if !(v.is_finite() && v > 0.0) {
+            return None;
+        }
+        Some(kit::scrim_pane(crate::ui::motion::MENU_SCRIM))
+    }
+
     fn view_workspace(&self) -> Element<'_, Message> {
         // Tab stops are collected in paint order as the kit builds its
         // controls. Rebuilding the list every frame is what lets a control
@@ -500,6 +706,7 @@ impl DraftFlowCAD {
                         origin,
                         axes,
                         limits,
+                        ink: 1.0,
                     }
                 })
                 .collect();
@@ -533,7 +740,27 @@ bg={bg_ms:.1}ms n={view_count}"
             // `sel_ref` is a borrowed view for field reads; the widget owns
             // the Arc clone. No `selection` mutation occurs inside this block.
             let sel_ref = tab.scene.selection.borrow();
-            let snap_info = tab.snap_result.map(|s| (s.screen, s.snap_type));
+            // The marker is drawn where the overlay motion has it, not
+            // necessarily where the engine reports it: a candidate that
+            // drifts with the cursor is chased over 60 ms, and a fresh
+            // acquisition converges from the pointer over 80 ms. Both tracks
+            // are latched by `sync_overlay_motion`; with no track yet the
+            // point is drawn exactly.
+            let snap_info = tab.snap_result.map(|s| {
+                let base = iced::Point::new(
+                    crate::ui::motion::value_or(crate::ui::motion::SNAP_CANDIDATE_X, s.screen.x),
+                    crate::ui::motion::value_or(crate::ui::motion::SNAP_CANDIDATE_Y, s.screen.y),
+                );
+                let from = self.snap_settle_from.unwrap_or(base);
+                let settle = crate::ui::motion::value_or(crate::ui::motion::SNAP_SETTLE, 1.0);
+                (
+                    iced::Point::new(
+                        from.x + (base.x - from.x) * settle,
+                        from.y + (base.y - from.y) * settle,
+                    ),
+                    s.snap_type,
+                )
+            });
             let snap_ext_base = tab.snap_result.and_then(|s| s.extension_base);
             let snap_ext_base2 = tab.snap_result.and_then(|s| s.extension_base2);
 
@@ -633,6 +860,7 @@ bg={bg_ms:.1}ms n={view_count}"
                             shape,
                             is_hot,
                             is_hovered,
+                            hover_w: grip_hover_weight(owner, grip_id, is_hovered),
                             dir,
                         }
                     })
@@ -691,7 +919,10 @@ bg={bg_ms:.1}ms n={view_count}"
             let ucs_icons: Vec<crate::ui::overlay::UcsIconParams> = if !self.show_ucs_icon {
                 vec![]
             } else if let Some((vp_cam, full)) = tab.scene.viewport_edit_frame((vw, vh)) {
-                let (_, ux, uy, uz) = tab.ucs_xform().axes();
+                let (ux, uy, uz) = self.ucs_icon_axes().unwrap_or_else(|| {
+                    let (_, x, y, z) = tab.ucs_xform().axes();
+                    (x.as_vec3(), y.as_vec3(), z.as_vec3())
+                });
                 let origin_screen = self
                     .ucs_icon_at_origin
                     .then(|| {
@@ -703,7 +934,7 @@ bg={bg_ms:.1}ms n={view_count}"
                 vec![crate::ui::overlay::UcsIconParams {
                     view_proj: vp_cam.view_proj_rte(full),
                     bounds: full,
-                    axes: (ux.as_vec3(), uy.as_vec3(), uz.as_vec3()),
+                    axes: (ux, uy, uz),
                     origin_screen,
                     hover: self.ucs_icon_hover,
                     selected: self.ucs_icon_selected,
@@ -712,7 +943,10 @@ bg={bg_ms:.1}ms n={view_count}"
                 // One icon per Model pane — each at its own UCS origin, projected
                 // through that pane's camera at its pane rect. Only the active
                 // pane carries the interactive hover / selected grips.
-                let (_, ux, uy, uz) = tab.ucs_xform().axes();
+                let (ux, uy, uz) = self.ucs_icon_axes().unwrap_or_else(|| {
+                    let (_, x, y, z) = tab.ucs_xform().axes();
+                    (x.as_vec3(), y.as_vec3(), z.as_vec3())
+                });
                 let origin_w = tab.ucs_origin_world();
                 let active = tab.scene.active_model_tile.get();
                 let live = tab.scene.camera.borrow().clone();
@@ -743,7 +977,7 @@ bg={bg_ms:.1}ms n={view_count}"
                         crate::ui::overlay::UcsIconParams {
                             view_proj: cam.view_proj_rte(b),
                             bounds: b,
-                            axes: (ux.as_vec3(), uy.as_vec3(), uz.as_vec3()),
+                            axes: (ux, uy, uz),
                             origin_screen,
                             hover: i == active && self.ucs_icon_hover,
                             selected: i == active && self.ucs_icon_selected,
@@ -919,6 +1153,10 @@ bg={bg_ms:.1}ms n={view_count}"
             crate::ui::overlay::selection_overlay(
                 std::sync::Arc::clone(&tab.scene.selection),
                 snap_info,
+                // Item 11 / item 13: app-level one-shots, published only for
+                // the active tab by the update layer and reset on a switch.
+                self.angle_sweep,
+                self.first_point_pulse,
                 snap_ext_base,
                 snap_ext_base2,
                 grips,
@@ -1285,6 +1523,81 @@ bg={bg_ms:.1}ms n={view_count}"
             .height(Fill)
         };
 
+        // Item 45 (P1, batch 5): the theme switch erase. Same gates and the
+        // same stack position as the two veils below — above the drawing and its
+        // markers, below every input layer, so it never eats a click.
+        if !thumbnail_capture_clean && !self.layout_settling && !tab.is_start {
+            if let Some(veil) = Self::theme_canvas_veil(self.theme_canvas_from) {
+                viewport_stack = viewport_stack.push(veil);
+            }
+        }
+
+        // Item 46 (P1, batch 5): the MATCHPROP transfer line. Above the drawing
+        // and below every input layer, like the veils above, so the flow never
+        // eats a click and never paints over a menu.
+        if !thumbnail_capture_clean && !self.layout_settling && !tab.is_start {
+            if let Some(flow) = self.matchprop_flow_layer(is_paper) {
+                viewport_stack = viewport_stack.push(flow);
+            }
+        }
+
+        // Item 40: the REGEN completion fade sits above the drawing and its
+        // markers but below the read-only edge, the reveal mask and every
+        // input layer, so a fade never eats a click. Captures, the settling
+        // layout and the start tab never wear it.
+        if !thumbnail_capture_clean && !self.layout_settling && !tab.is_start {
+            if let Some(veil) = Self::regen_veil(if is_paper { desk_color } else { bg_color }) {
+                viewport_stack = viewport_stack.push(veil);
+            }
+        }
+
+        // Item 41 (2026-11-20 degraded ruling): the render-mode switch veil,
+        // pinned to the switching viewport's own rect. Same gates and same
+        // stack position as the REGEN veil — above the drawing and its
+        // markers, below every input layer, so it never eats a click.
+        if !thumbnail_capture_clean && !self.layout_settling && !tab.is_start {
+            if let Some(veil) = Self::render_mode_veil(
+                tab.render_mode_veil,
+                if is_paper { desk_color } else { bg_color },
+            ) {
+                viewport_stack = viewport_stack.push(veil);
+            }
+        }
+
+        // Batch 3 item 26: a read-only session wears a faint persistent
+        // boundary so "cannot save" stays legible without a modal. The pulse
+        // rides the motion track for 150 ms on the first workspace frame;
+        // with motion reduced the persistent border is gated off and a
+        // static 150 ms wall-clock window (readonly_edge_at) carries the
+        // one-shot hint instead — no easing, just present then gone.
+        if self.read_only && !thumbnail_capture_clean && !tab.is_start {
+            let edge_alpha = if crate::ui::motion::enabled() {
+                0.16 + 0.69 * crate::ui::motion::value_or(crate::ui::motion::READONLY_EDGE, 0.0)
+            } else if self.readonly_edge_at.is_some_and(|t| {
+                t.elapsed().as_millis() < crate::ui::motion::READONLY_EDGE_TIME as u128
+            }) {
+                0.85
+            } else {
+                0.0
+            };
+            if edge_alpha > 0.0 {
+                let edge = container(Space::new().width(Fill).height(Fill)).style(
+                    move |theme: &Theme| {
+                        let mut s = kit::frame_style(theme.palette().primary.base.color, "");
+                        s.border.color = s.border.color.scale_alpha(edge_alpha);
+                        s
+                    },
+                );
+                viewport_stack = viewport_stack.push(edge);
+            }
+        }
+
+        if !thumbnail_capture_clean && !self.layout_settling && !tab.is_start {
+            if let Some(mask) = Self::reveal_mask(if is_paper { desk_color } else { bg_color }) {
+                viewport_stack = viewport_stack.push(mask);
+            }
+        }
+
         if !thumbnail_capture_clean && !self.layout_settling {
             if let Some(pivot) = self.spacemouse_pivot_overlay() {
                 viewport_stack = viewport_stack.push(pivot);
@@ -1381,7 +1694,22 @@ bg={bg_ms:.1}ms n={view_count}"
                         .height(iced::Length::Fixed(vh)),
                 )
                 .style(move |theme: &Theme| {
-                    kit::frame_style(theme.palette().primary.base.color, "")
+                    let mut style = kit::frame_style(theme.palette().primary.base.color, "");
+                    // Batch 3 item 24: on the focus-enter edge the ring walks
+                    // toward a brightened accent for 120 ms, then settles back
+                    // to the resting accent. The ring is an Element over the
+                    // shader-drawn viewport, so this is chrome, not canvas.
+                    let p = crate::ui::motion::value_or(crate::ui::motion::VP_RING_PULSE, 0.0);
+                    if p > 0.0 {
+                        let bright = crate::ui::motion::mix(
+                            theme.palette().primary.base.color,
+                            iced::Color::WHITE,
+                            0.55,
+                        );
+                        style.border.color =
+                            crate::ui::motion::mix(style.border.color, bright, p);
+                    }
+                    style
                 });
                 let border_layer = iced::widget::pin(border_frame).position(iced::Point::new(x, y));
                 viewport_stack = viewport_stack.push(border_layer);
@@ -1782,6 +2110,13 @@ bg={bg_ms:.1}ms n={view_count}"
                                 *pt,
                                 items,
                                 &self.active_theme,
+                                // P2 batch 1 item 15: the type-name ink of the
+                                // arriving / departing row is driven by the
+                                // 60 ms cross-fade the CycleHover handler
+                                // started; the overlay only reads it.
+                                tab.scene.hover_highlight,
+                                tab.scene.cycle_fade_old,
+                                tab.scene.cycle_fade_t,
                             ),
                         );
                     }
@@ -1796,6 +2131,21 @@ bg={bg_ms:.1}ms n={view_count}"
                     let sel = tab.scene.selection.borrow();
                     (sel.menu.open_at, sel.menu.ui.highlighted)
                 };
+                // Item 35 (C, 2026-11-20 ruling): the scrim softens the canvas
+                // under the menu. Pushed BEFORE the menu so the menu's opaque
+                // paper sits on top, and click-transparent (GlassPlate has no
+                // mouse_interaction). While the menu is open the track is
+                // rising or held at 1; after it closes the track falls to 0 and
+                // menu_scrim() returns None — no reader, no blur pass.
+                if !thumbnail_capture_clean && !self.layout_settling {
+                    if ctx_pos.is_some()
+                        || crate::ui::motion::value_or(crate::ui::motion::MENU_SCRIM, 0.0) > 0.0
+                    {
+                        if let Some(scrim) = Self::menu_scrim() {
+                            viewport_stack = viewport_stack.push(scrim);
+                        }
+                    }
+                }
                 if let Some(p) = ctx_pos {
                     let menu = self.current_context_menu();
                     viewport_stack = viewport_stack.push(viewport_context_menu_overlay(
@@ -2054,6 +2404,7 @@ bg={bg_ms:.1}ms n={view_count}"
                     .active_cmd
                     .as_ref()
                     .map(|c| c.name());
+                let open_ring = self.open_ring();
                 let (app_bar, tools) = self.ribbon.chrome(
                     is_paper,
                     self.tabs[self.active_tab].is_start,
@@ -2063,6 +2414,7 @@ bg={bg_ms:.1}ms n={view_count}"
                     running,
                     tab.scene.document.entity_count(),
                     self.tabs.iter().position(|t| t.is_start),
+                    open_ring,
                     &self.active_theme,
                 );
                 let bar: Element<'_, Message> = {
@@ -2228,14 +2580,14 @@ bg={bg_ms:.1}ms n={view_count}"
                 .width(Fill)
                 .height(Fill)
         })
-        // Root surface cross-fades on theme switch: SetTheme captured the
-        // outgoing background and the track eases the blend over NORMAL ms. The
-        // outgoing colour is *data* (it is whatever the previous theme was), so
-        // the screen hands it to the kit and the kit still owns the paint.
-        .style({
-            let fade_from = self.theme_fade_from;
-            move |theme: &Theme| kit::page_style(fade_from, theme, "theme:fade")
-        })
+        // Item 45 (P1, batch 5): the window ground lands on the new theme in the
+        // switch frame and does not blend. The canvas is where the 200 ms
+        // transition lives (`theme_canvas_veil`), because the canvas carries no
+        // theme-coloured text: a ground that keeps blending under glyphs that
+        // already switched is the same-colour window the item forbids. An empty
+        // track name is `fade("") == 1.0`, i.e. bit-identical to the theme's own
+        // base (see kit_contract_tests on `page_style`).
+        .style(|theme: &Theme| kit::page_style(theme.palette().background.base.color, theme, ""))
         .width(Fill)
         .height(Fill);
         mark("statusbar");
@@ -2278,6 +2630,15 @@ bg={bg_ms:.1}ms n={view_count}"
                     self.tabs[self.active_tab].is_start,
                     &self.recent_colors,
                     &self.active_theme,
+                    // Item 28: highlight only while the pulse is live, so a
+                    // stale step count never tints rows after the 100ms window.
+                    if self.undo_highlight_steps > 0
+                        && crate::ui::motion::running(crate::ui::motion::UNDO_HIGHLIGHT)
+                    {
+                        Some(self.undo_highlight_steps)
+                    } else {
+                        None
+                    },
                 )
                 .unwrap_or_else(|| iced::widget::Space::new().width(0).height(0).into())
         };
@@ -2303,23 +2664,7 @@ bg={bg_ms:.1}ms n={view_count}"
             iced::widget::Space::new().width(0).height(0).into()
         };
 
-        let open_progress_layer: Element<'_, Message> = if let Some(p) = self
-            .opening
-            .as_ref()
-            .filter(|progress| progress.recovery_error.is_none())
-        {
-            crate::ui::window::open_progress::view(p, iced::time::Instant::now())
-        } else {
-            iced::widget::Space::new().width(0).height(0).into()
-        };
-
-        let composed = stack![
-            main_ui,
-            dropdown_layer,
-            qselect_layer,
-            snap_override_layer,
-            open_progress_layer,
-        ];
+        let composed = stack![main_ui, dropdown_layer, qselect_layer, snap_override_layer];
 
         // If the Plot Style editor was launched from PLOT, keep the Plot dialog
         // rendered underneath as its blocked parent.
@@ -2474,10 +2819,13 @@ bg={bg_ms:.1}ms n={view_count}"
 impl DraftFlowCAD {
     pub fn subscription(&self) -> Subscription<Message> {
         use iced::event;
-        // Only request per-frame ticks while something on screen is animating
-        // (currently just the open-progress indicator). Without this gate the
-        // app burned 2-3% CPU continuously redrawing an unchanged view.
-        // See #18.
+        // Only request per-frame ticks while a file is actually opening. This
+        // is the one counter whose value the paint reads outside a track: the
+        // ribbon's ring sweeps at an unknown fraction and the progress chase
+        // needs a redraw even when motion is switched off. Every other
+        // time-driven effect rides `motion_frames` below and registers with
+        // `any_active`. Without this gate the app burned 2-3% CPU
+        // continuously redrawing an unchanged view. See #18.
         let needs_frames = self
             .opening
             .as_ref()
@@ -2507,6 +2855,21 @@ impl DraftFlowCAD {
         // entry disappears at the moment its visible window expires.
         // The subscription auto-stops once no entry is expiring.
         let history_tick = if self.command_line.has_expiring_history() {
+            window::frames().map(Message::Tick)
+        } else {
+            Subscription::none()
+        };
+        // Batch 3 item 26: with motion reduced, the read-only one-shot hint
+        // is a static 150 ms wall-clock window, not a track — so no
+        // motion_frames subscription would ever redraw it away. This channel
+        // keeps frames coming until the window expires, then auto-stops
+        // (same pattern as history_tick). With motion enabled the pulse track
+        // already holds motion_frames open and this stays none.
+        let readonly_edge_tick = if !crate::ui::motion::enabled()
+            && self.readonly_edge_at.is_some_and(|t| {
+                t.elapsed().as_millis() < crate::ui::motion::READONLY_EDGE_TIME as u128
+            })
+        {
             window::frames().map(Message::Tick)
         } else {
             Subscription::none()
@@ -2803,6 +3166,7 @@ impl DraftFlowCAD {
             motion_frames,
             splash_frames,
             history_tick,
+            readonly_edge_tick,
             layout_settle,
             grip_dwell,
             hover_dwell,
@@ -2935,9 +3299,22 @@ pub(super) fn doc_tab_bar<'a>(
                     kit::muted(shown, "")
                 }
             });
-        let title_inner: Element<'_, Message> = if tab.dirty {
+        // Save-state dot (item 22): the active document's dot arrives and
+        // leaves over 120 ms; a background tab shows its dot exactly, since
+        // only the edited tab has a motion story to tell.
+        let save_t = crate::ui::motion::value_or(
+            crate::ui::motion::TAB_SAVE,
+            if tab.dirty { 1.0 } else { 0.0 },
+        );
+        let dot_alpha = if is_active { save_t } else { 1.0 };
+        let show_dot = tab.dirty || (is_active && save_t > 0.002);
+        let title_inner: Element<'_, Message> = if show_dot {
             row![
-                crate::ui::icons::themed_warning(crate::ui::icons::DIRTY_DOT, 14.0),
+                crate::ui::icons::themed_warning_alpha(
+                    crate::ui::icons::DIRTY_DOT,
+                    14.0,
+                    dot_alpha,
+                ),
                 tab_name,
             ]
             .spacing(tokens::GAP_CONTROL)
@@ -4089,6 +4466,402 @@ mod tests {
         assert!(crate::ui::style::common::canvas_is_light(bg));
     }
 
+    /// Item 40: the veil is present on the completion frame and gone
+    /// (`None`, no layer at all) once the fall settles — no residual wash.
+    #[test]
+    fn regen_veil_fades_to_nothing_after_settle() {
+        let _gate = crate::ui::motion::test_gate_lock();
+        crate::ui::motion::set_enabled(true);
+        crate::ui::motion::pulse(
+            crate::ui::motion::REGEN_FADE,
+            1.0,
+            0.0,
+            0,
+            crate::ui::motion::REGEN_FADE_MS,
+        );
+        assert!(
+            DraftFlowCAD::regen_veil(Color::BLACK).is_some(),
+            "the completion frame must wear the veil",
+        );
+        std::thread::sleep(std::time::Duration::from_millis(
+            crate::ui::motion::REGEN_FADE_MS + 60,
+        ));
+        assert_eq!(
+            crate::ui::motion::value_or(crate::ui::motion::REGEN_FADE, -1.0),
+            0.0,
+            "the settled fade must read exactly zero",
+        );
+        assert!(
+            DraftFlowCAD::regen_veil(Color::BLACK).is_none(),
+            "a settled fade must leave no layer behind",
+        );
+    }
+
+    /// Item 40: per-frame cost of building the veil element, measured on the
+    /// same CPU surface as `fps_probe_2000_scroll` (Element construction, no
+    /// GPU). Prints p95/worst for the veil against the plain quad baseline;
+    /// the veil must stay far below the 20 ms scroll gate. The veil is not in
+    /// the layers panel subtree, so the scroll probe path is untouched.
+    #[test]
+    fn regen_veil_frame_cost_stays_within_budget() {
+        let _gate = crate::ui::motion::test_gate_lock();
+        crate::ui::motion::set_enabled(true);
+        crate::ui::motion::pulse(
+            crate::ui::motion::REGEN_FADE,
+            1.0,
+            0.0,
+            0,
+            crate::ui::motion::REGEN_FADE_MS,
+        );
+        let mut veil_ns: Vec<u64> = Vec::with_capacity(120);
+        let mut base_ns: Vec<u64> = Vec::with_capacity(120);
+        for _ in 0..120 {
+            let t = std::time::Instant::now();
+            let veil = DraftFlowCAD::regen_veil(Color::BLACK);
+            veil_ns.push(t.elapsed().as_nanos() as u64);
+            assert!(veil.is_some(), "the probe must run while the fade is live");
+            let t = std::time::Instant::now();
+            let _base: Element<'static, Message> =
+                container(Space::new()).width(Fill).height(Fill).into();
+            base_ns.push(t.elapsed().as_nanos() as u64);
+        }
+        let p95 = |v: &mut Vec<u64>| {
+            v.sort_unstable();
+            v[113] as f64 / 1e6
+        };
+        let veil_p95 = p95(&mut veil_ns);
+        let base_p95 = p95(&mut base_ns);
+        let veil_worst = *veil_ns.last().unwrap() as f64 / 1e6;
+        let base_worst = *base_ns.last().unwrap() as f64 / 1e6;
+        println!(
+            "REGEN_VEIL_PROBE veil_p95_ms={veil_p95:.4} veil_worst_ms={veil_worst:.4} \
+             base_p95_ms={base_p95:.4} base_worst_ms={base_worst:.4} \
+             delta_p95_ms={:.4}",
+            veil_p95 - base_p95,
+        );
+        assert!(
+            veil_p95 <= 5.0,
+            "veil construction p95 {veil_p95:.4} ms exceeds the 5 ms budget",
+        );
+    }
+
+    /// Item 24 (2026-11-20 chairman ruling): model tiles wear dividers only —
+    /// no focus ring or border wrapper. Focus feedback is item 32's push-in,
+    /// not a ring. This pins the ruling, not an omission: `ModelTile` must not
+    /// grow a ring/border field, the pane separator must stay
+    /// `model_pane_dividers`, and the only active-viewport ring in the canvas
+    /// view must stay gated to paper space.
+    #[test]
+    fn the_model_tiles_have_no_focus_ring_only_dividers() {
+        let scene = include_str!("../../scene/mod.rs");
+        let start = scene
+            .find("pub(crate) struct ModelTile {")
+            .expect("the ModelTile struct");
+        let end = scene[start..]
+            .find("\n}")
+            .map(|o| start + o)
+            .expect("the end of ModelTile");
+        // Skip the struct header line itself: it also begins with `pub(crate) `
+        // and would otherwise be parsed as a field named `struct ModelTile {`.
+        let fields_start = scene[start..end]
+            .find('\n')
+            .map(|o| start + o + 1)
+            .expect("the ModelTile header line");
+        let body = &scene[fields_start..end];
+        let lower = body.to_lowercase();
+        assert!(
+            !lower.contains("ring") && !lower.contains("border"),
+            "ModelTile grew a ring/border carrier against the 2026-11-20 ruling"
+        );
+        for line in body.lines() {
+            let line = line.trim_start();
+            if let Some(rest) = line.strip_prefix("pub(crate) ") {
+                let name = rest.split(':').next().unwrap_or("").trim();
+                assert!(
+                    matches!(name, "rect" | "camera" | "render_mode" | "grid_on" | "snap_on"),
+                    "ModelTile grew field `{name}` outside the ruled set — focus \
+                     feedback is item 32's push-in, not a ring (2026-11-20 ruling)"
+                );
+            }
+        }
+        let view = include_str!("mod.rs");
+        let prod = view.split("\n#[cfg(test)]").next().unwrap_or(view);
+        assert!(
+            prod.contains("tab.scene.model_pane_dividers("),
+            "the model panes lost their dividers: the ruled separator is gone"
+        );
+        assert!(
+            prod.contains("if is_paper && !tab.is_start {"),
+            "the active-viewport ring is no longer gated to paper space: model \
+             tiles would grow a ring against the 2026-11-20 ruling"
+        );
+    }
+
+    /// Item 41 (2026-11-20 degraded ruling): the switch veil is present on the
+    /// switch frame, a rapid second switch re-pulses the SAME key (one track,
+    /// peak unchanged, value never above the peak — no stacking), and once the
+    /// fall settles the track reads exactly 0 and the veil is `None`: no
+    /// residual quad, no residual layer.
+    #[test]
+    fn render_mode_veil_settles_to_none_and_never_stacks() {
+        let _gate = crate::ui::motion::test_gate_lock();
+        crate::ui::motion::set_enabled(true);
+        let rect = iced::Rectangle {
+            x: 10.0,
+            y: 20.0,
+            width: 300.0,
+            height: 200.0,
+        };
+        crate::ui::motion::pulse(
+            crate::ui::motion::RENDER_VEIL,
+            1.0,
+            0.0,
+            0,
+            crate::ui::motion::RENDER_VEIL_MS,
+        );
+        assert!(
+            DraftFlowCAD::render_mode_veil(Some(rect), Color::BLACK).is_some(),
+            "the switch frame must wear the veil",
+        );
+        // A second switch across the threshold before the first settles.
+        crate::ui::motion::pulse(
+            crate::ui::motion::RENDER_VEIL,
+            1.0,
+            0.0,
+            0,
+            crate::ui::motion::RENDER_VEIL_MS,
+        );
+        let snap = crate::ui::motion::track_snapshot(crate::ui::motion::RENDER_VEIL)
+            .expect("one veil track");
+        assert_eq!(snap.1, 1.0, "the re-pulse changed the peak");
+        assert_eq!(snap.2, 0.0, "the veil must settle to nothing");
+        assert_eq!(snap.3, 0, "the rise must stay 0 (peak on the switch frame)");
+        assert_eq!(snap.4, crate::ui::motion::RENDER_VEIL_MS);
+        let v = crate::ui::motion::value_or(crate::ui::motion::RENDER_VEIL, -1.0);
+        assert!(
+            v <= 1.0 + f32::EPSILON,
+            "the re-pulse stacked the veil: value {v} exceeds the peak",
+        );
+        std::thread::sleep(std::time::Duration::from_millis(
+            crate::ui::motion::RENDER_VEIL_MS + 60,
+        ));
+        assert_eq!(
+            crate::ui::motion::value_or(crate::ui::motion::RENDER_VEIL, -1.0),
+            0.0,
+            "the settled veil must read exactly zero",
+        );
+        assert!(
+            DraftFlowCAD::render_mode_veil(Some(rect), Color::BLACK).is_none(),
+            "a settled veil must leave no layer behind",
+        );
+    }
+
+    /// Item 41 isolation proof: the veil is per-viewport, never canvas-wide.
+    /// A viewport that did not switch carries no bounds and gets no veil; the
+    /// carrier is a quad pinned to the recorded rect (Fixed size + position),
+    /// not a Fill wash; and the canvas view feeds it the tab's own
+    /// per-viewport record.
+    #[test]
+    fn render_mode_veil_is_pinned_to_its_own_viewport() {
+        let _gate = crate::ui::motion::test_gate_lock();
+        crate::ui::motion::set_enabled(true);
+        crate::ui::motion::pulse(
+            crate::ui::motion::RENDER_VEIL,
+            1.0,
+            0.0,
+            0,
+            crate::ui::motion::RENDER_VEIL_MS,
+        );
+        let mine = iced::Rectangle {
+            x: 40.0,
+            y: 60.0,
+            width: 320.0,
+            height: 240.0,
+        };
+        assert!(
+            DraftFlowCAD::render_mode_veil(Some(mine), Color::BLACK).is_some(),
+            "the switching viewport must wear the veil",
+        );
+        assert!(
+            DraftFlowCAD::render_mode_veil(None, Color::BLACK).is_none(),
+            "a viewport that did not switch must get no veil at all",
+        );
+        let view = include_str!("mod.rs");
+        let prod = view.split("\n#[cfg(test)]").next().unwrap_or(view);
+        let start = prod
+            .find("fn render_mode_veil(")
+            .expect("the veil builder");
+        let end = prod[start..]
+            .find("\n    fn ")
+            .map(|o| start + o)
+            .unwrap_or(prod.len());
+        let body = &prod[start..end];
+        assert!(
+            body.contains("iced::widget::pin(") && body.contains(".position("),
+            "the veil must be pinned to its viewport's rect",
+        );
+        assert!(
+            !body.contains("Fill"),
+            "the veil must not fill the whole canvas: neighbouring viewports \
+             would be washed too",
+        );
+        assert!(
+            prod.contains("tab.render_mode_veil,"),
+            "the canvas view no longer feeds the veil the tab's own \
+             per-viewport bounds",
+        );
+    }
+
+    /// Item 41: per-frame cost of building the switch-veil element, measured
+    /// on the same CPU surface as `fps_probe_2000_scroll` (Element
+    /// construction, no GPU). Prints p95/worst against the plain quad
+    /// baseline; the veil must stay far below the 20 ms scroll gate.
+    #[test]
+    fn render_mode_veil_frame_cost_stays_within_budget() {
+        let _gate = crate::ui::motion::test_gate_lock();
+        crate::ui::motion::set_enabled(true);
+        crate::ui::motion::pulse(
+            crate::ui::motion::RENDER_VEIL,
+            1.0,
+            0.0,
+            0,
+            crate::ui::motion::RENDER_VEIL_MS,
+        );
+        let rect = iced::Rectangle {
+            x: 40.0,
+            y: 60.0,
+            width: 320.0,
+            height: 240.0,
+        };
+        let mut veil_ns: Vec<u64> = Vec::with_capacity(120);
+        let mut base_ns: Vec<u64> = Vec::with_capacity(120);
+        for _ in 0..120 {
+            let t = std::time::Instant::now();
+            let veil = DraftFlowCAD::render_mode_veil(Some(rect), Color::BLACK);
+            veil_ns.push(t.elapsed().as_nanos() as u64);
+            assert!(veil.is_some(), "the probe must run while the veil is live");
+            let t = std::time::Instant::now();
+            let _base: Element<'static, Message> =
+                container(Space::new()).width(Fill).height(Fill).into();
+            base_ns.push(t.elapsed().as_nanos() as u64);
+        }
+        let p95 = |v: &mut Vec<u64>| {
+            v.sort_unstable();
+            v[113] as f64 / 1e6
+        };
+        let veil_p95 = p95(&mut veil_ns);
+        let base_p95 = p95(&mut base_ns);
+        let veil_worst = *veil_ns.last().unwrap() as f64 / 1e6;
+        let base_worst = *base_ns.last().unwrap() as f64 / 1e6;
+        println!(
+            "RENDER_VEIL_PROBE veil_p95_ms={veil_p95:.4} veil_worst_ms={veil_worst:.4} \
+             base_p95_ms={base_p95:.4} base_worst_ms={base_worst:.4} \
+             delta_p95_ms={:.4}",
+            veil_p95 - base_p95,
+        );
+        assert!(
+            veil_p95 <= 5.0,
+            "switch-veil construction p95 {veil_p95:.4} ms exceeds the 5 ms budget",
+        );
+    }
+
+    /// Item 35 (C): the scrim rises while the menu is open and, once the menu
+    /// closes and the track settles, reads exactly 0 and returns `None` — no
+    /// backdrop reader is pushed, so the frame keeps the zero-blur-pass path.
+    /// The canvas view pushes the scrim BEFORE the menu (the menu's opaque
+    /// paper sits on top) and carries the kit scrim carrier.
+    #[test]
+    fn menu_scrim_fades_out_and_leaves_no_reader() {
+        let _gate = crate::ui::motion::test_gate_lock();
+        crate::ui::motion::set_enabled(true);
+        // Open edge, exactly as sync_motion publishes it: anchor at 0, rise.
+        crate::ui::motion::set(crate::ui::motion::MENU_SCRIM, 0.0, 0);
+        crate::ui::motion::set(
+            crate::ui::motion::MENU_SCRIM,
+            1.0,
+            crate::ui::motion::MENU_SCRIM_IN_MS,
+        );
+        std::thread::sleep(std::time::Duration::from_millis(20));
+        assert!(
+            DraftFlowCAD::menu_scrim().is_some(),
+            "the open menu must wear a scrim",
+        );
+        // Close edge: fall back to 0.
+        crate::ui::motion::set(
+            crate::ui::motion::MENU_SCRIM,
+            0.0,
+            crate::ui::motion::MENU_SCRIM_OUT_MS,
+        );
+        std::thread::sleep(std::time::Duration::from_millis(
+            crate::ui::motion::MENU_SCRIM_OUT_MS + 60,
+        ));
+        assert_eq!(
+            crate::ui::motion::value_or(crate::ui::motion::MENU_SCRIM, -1.0),
+            0.0,
+            "the settled scrim must read exactly zero",
+        );
+        assert!(
+            DraftFlowCAD::menu_scrim().is_none(),
+            "a closed menu must leave no backdrop reader: the frame would keep \
+             a blur pass open for nothing",
+        );
+        let view = include_str!("mod.rs");
+        let prod = view.split("\n#[cfg(test)]").next().unwrap_or(view);
+        assert!(
+            prod.contains("kit::scrim_pane("),
+            "the canvas lost its scrim carrier: the menu background would not soften",
+        );
+        let scrim_at = prod.find("Self::menu_scrim()").expect("the scrim push");
+        let menu_at = prod
+            .find("viewport_context_menu_overlay(")
+            .expect("the menu push");
+        assert!(
+            scrim_at < menu_at,
+            "the scrim must be pushed under the menu, not over it",
+        );
+    }
+
+    /// Item 35: per-frame cost of building the scrim element (Element
+    /// construction, no GPU), same surface as the scroll probe. The track is
+    /// held at its peak for the measurement; the fade semantics are covered
+    /// by `menu_scrim_fades_out_and_leaves_no_reader`.
+    #[test]
+    fn menu_scrim_frame_cost_stays_within_budget() {
+        let _gate = crate::ui::motion::test_gate_lock();
+        crate::ui::motion::set_enabled(true);
+        crate::ui::motion::set(crate::ui::motion::MENU_SCRIM, 1.0, 0);
+        let mut scrim_ns: Vec<u64> = Vec::with_capacity(120);
+        let mut base_ns: Vec<u64> = Vec::with_capacity(120);
+        for _ in 0..120 {
+            let t = std::time::Instant::now();
+            let scrim = DraftFlowCAD::menu_scrim();
+            scrim_ns.push(t.elapsed().as_nanos() as u64);
+            assert!(scrim.is_some(), "the probe must run while the scrim is live");
+            let t = std::time::Instant::now();
+            let _base: Element<'static, Message> =
+                container(Space::new()).width(Fill).height(Fill).into();
+            base_ns.push(t.elapsed().as_nanos() as u64);
+        }
+        let p95 = |v: &mut Vec<u64>| {
+            v.sort_unstable();
+            v[113] as f64 / 1e6
+        };
+        let scrim_p95 = p95(&mut scrim_ns);
+        let base_p95 = p95(&mut base_ns);
+        let scrim_worst = *scrim_ns.last().unwrap() as f64 / 1e6;
+        let base_worst = *base_ns.last().unwrap() as f64 / 1e6;
+        println!(
+            "MENU_SCRIM_PROBE scrim_p95_ms={scrim_p95:.4} scrim_worst_ms={scrim_worst:.4} \
+             base_p95_ms={base_p95:.4} base_worst_ms={base_worst:.4} \
+             delta_p95_ms={:.4}",
+            scrim_p95 - base_p95,
+        );
+        assert!(
+            scrim_p95 <= 5.0,
+            "scrim construction p95 {scrim_p95:.4} ms exceeds the 5 ms budget",
+        );
+    }
+
     /// The [+] step on the keep-recent-files box is built eagerly from an
     /// uncapped user string (`RecentLimitInput` keeps every ASCII digit):
     /// `18446744073709551615` parses to `usize::MAX`, and the plain
@@ -4127,4 +4900,283 @@ mod tests {
             );
         }
     }
+
+    /// Item 45 (P1, batch 5): the theme switch puts the outgoing canvas ground
+    /// on the canvas and nothing else. The window ground — the surface every
+    /// text-bearing panel sits on when it is glass — does not blend, so no
+    /// glyph ever reads against a half-switched backdrop; the canvas carries
+    /// the 200 ms because it holds no theme-coloured text. Once the erase
+    /// settles the track reads exactly 0 and the layer is `None`.
+    #[test]
+    fn theme_veil_erases_the_canvas_and_never_blends_text() {
+        let _gate = crate::ui::motion::test_gate_lock();
+        crate::ui::motion::set_enabled(true);
+        crate::ui::motion::pulse(
+            crate::ui::motion::THEME_VEIL,
+            1.0,
+            0.0,
+            0,
+            crate::ui::motion::THEME_VEIL_MS,
+        );
+        assert!(
+            DraftFlowCAD::theme_canvas_veil(Color::BLACK).is_some(),
+            "the switch frame must wear the erase on the canvas",
+        );
+        let update = include_str!("../update/mod.rs");
+        assert!(
+            update.contains("crate::ui::motion::THEME_VEIL"),
+            "SetTheme no longer starts the canvas erase",
+        );
+        assert!(
+            !update.contains("\"theme:fade\""),
+            "the window ground is blending again: every glyph on a glass panel \
+             would cross the incoming text colour against the outgoing ground — \
+             the same-colour window item 45 forbids",
+        );
+        let view = include_str!("mod.rs");
+        let prod = view.split("\n#[cfg(test)]").next().unwrap_or(view);
+        assert!(
+            !prod.contains("theme:fade"),
+            "the page style still reads a fade track",
+        );
+        assert!(
+            prod.contains("kit::page_style(theme.palette().background.base.color, theme, \"\")"),
+            "the window ground must land on the incoming theme in the switch frame",
+        );
+        assert!(
+            prod.contains("Self::theme_canvas_veil(self.theme_canvas_from)"),
+            "the canvas lost its erase layer",
+        );
+        std::thread::sleep(std::time::Duration::from_millis(
+            crate::ui::motion::THEME_VEIL_MS + 60,
+        ));
+        assert_eq!(
+            crate::ui::motion::value_or(crate::ui::motion::THEME_VEIL, -1.0),
+            0.0,
+            "the settled erase must read exactly zero",
+        );
+        assert!(
+            DraftFlowCAD::theme_canvas_veil(Color::BLACK).is_none(),
+            "a settled switch must leave no extra canvas layer",
+        );
+    }
+
+    /// Item 45: per-frame cost of building the erase element on the switch
+    /// frame itself (peak alpha). Same CPU surface as the other probes — Element
+    /// construction, no GPU — and the same 5 ms budget.
+    #[test]
+    fn theme_veil_frame_cost_stays_within_budget() {
+        let _gate = crate::ui::motion::test_gate_lock();
+        crate::ui::motion::set_enabled(true);
+        crate::ui::motion::pulse(
+            crate::ui::motion::THEME_VEIL,
+            1.0,
+            0.0,
+            0,
+            crate::ui::motion::THEME_VEIL_MS,
+        );
+        let mut veil_ns: Vec<u64> = Vec::with_capacity(120);
+        let mut base_ns: Vec<u64> = Vec::with_capacity(120);
+        for _ in 0..120 {
+            let t = std::time::Instant::now();
+            let veil = DraftFlowCAD::theme_canvas_veil(Color::BLACK);
+            veil_ns.push(t.elapsed().as_nanos() as u64);
+            assert!(veil.is_some(), "the probe must run while the erase is live");
+            let t = std::time::Instant::now();
+            let _base: Element<'static, Message> =
+                container(Space::new()).width(Fill).height(Fill).into();
+            base_ns.push(t.elapsed().as_nanos() as u64);
+        }
+        let p95 = |v: &mut Vec<u64>| {
+            v.sort_unstable();
+            v[113] as f64 / 1e6
+        };
+        let veil_p95 = p95(&mut veil_ns);
+        let base_p95 = p95(&mut base_ns);
+        let veil_worst = *veil_ns.last().unwrap() as f64 / 1e6;
+        let base_worst = *base_ns.last().unwrap() as f64 / 1e6;
+        println!(
+            "THEME_VEIL_PROBE veil_p95_ms={veil_p95:.4} veil_worst_ms={veil_worst:.4} \
+             base_p95_ms={base_p95:.4} base_worst_ms={base_worst:.4} \
+             delta_p95_ms={:.4}",
+            veil_p95 - base_p95,
+        );
+        assert!(
+            veil_p95 <= 5.0,
+            "theme-erase construction p95 {veil_p95:.4} ms exceeds the 5 ms budget",
+        );
+    }
+
+    /// Item 46 (P1, batch 5): the transfer line needs both ends. A transfer
+    /// with no destination never reaches the plant (the empty-destination guard
+    /// in `handle_match_properties` returns before any anchor is read), the view
+    /// refuses to draw without both anchors and without a running beat, and a
+    /// settled beat leaves no frame subscription behind.
+    #[test]
+    fn matchprop_flow_needs_both_ends_and_settles_to_nothing() {
+        let _gate = crate::ui::motion::test_gate_lock();
+        crate::ui::motion::set_enabled(true);
+        assert_eq!(
+            crate::ui::overlay::matchprop_flow_draw_calls(3),
+            6,
+            "each destination costs one line and one head",
+        );
+        let driver = include_str!("../command_driver/property_match.rs");
+        let empty = driver
+            .find("if dest.is_empty()")
+            .expect("the empty-destination guard must stay");
+        let plant = driver
+            .find("MATCHPROP_FLOW")
+            .expect("the flow plant must exist");
+        assert!(
+            empty < plant,
+            "the flow is planted before the empty-destination guard: a transfer \
+             with no target would draw a line to nowhere",
+        );
+        assert!(
+            driver.contains("entity_world_center"),
+            "the endpoints must come from the scene, never from a guessed position",
+        );
+        let view = include_str!("mod.rs");
+        let prod = view.split("\n#[cfg(test)]").next().unwrap_or(view);
+        assert!(
+            prod.contains("running(crate::ui::motion::MATCHPROP_FLOW)"),
+            "the layer must be gated on a running beat",
+        );
+        assert!(
+            prod.contains("self.matchprop_flow.as_ref()?"),
+            "the layer must refuse to draw without both anchor sets",
+        );
+        crate::ui::motion::replay(
+            crate::ui::motion::MATCHPROP_FLOW,
+            1.0,
+            crate::ui::motion::MATCHPROP_FLOW_MS,
+        );
+        assert!(
+            crate::ui::motion::running(crate::ui::motion::MATCHPROP_FLOW),
+            "a fresh transfer must ask for frames",
+        );
+        std::thread::sleep(std::time::Duration::from_millis(
+            crate::ui::motion::MATCHPROP_FLOW_MS + 60,
+        ));
+        assert!(
+            !crate::ui::motion::running(crate::ui::motion::MATCHPROP_FLOW),
+            "a settled transfer must leave no frame subscription",
+        );
+    }
+
+    /// Item 47 (P1, batch 5): one evaluation plants one beat. Ten consecutive
+    /// evaluations — the drag-a-parameter case — restart that same key, so the
+    /// graph keeps exactly one flow track and its peak never sums. The head is
+    /// drawn only while the beat runs, so an idle graph costs no geometry.
+    #[test]
+    fn node_graph_flow_keeps_one_track_and_overwrites_previous() {
+        let _gate = crate::ui::motion::test_gate_lock();
+        crate::ui::motion::set_enabled(true);
+        let before = crate::ui::motion::track_count();
+        for _ in 0..10 {
+            crate::ui::motion::replay(
+                crate::ui::motion::GRAPH_FLOW,
+                1.0,
+                crate::ui::motion::GRAPH_FLOW_MS,
+            );
+        }
+        let after = crate::ui::motion::track_count();
+        assert!(
+            after <= before + 1,
+            "ten evaluations minted {} tracks: a drag would pile up a queue \
+             instead of overwriting the previous beat",
+            after - before,
+        );
+        let snap = crate::ui::motion::track_snapshot(crate::ui::motion::GRAPH_FLOW)
+            .expect("the flow track must exist after an evaluation");
+        assert_eq!(snap.1, 1.0, "the beat peak must stay 1.0, never summed");
+        let app_graph = include_str!("../node_graph.rs");
+        let eval_at = app_graph
+            .find("engine.evaluate(&mut host)")
+            .expect("the evaluation call must stay");
+        let plant_at = app_graph
+            .find("crate::ui::motion::GRAPH_FLOW")
+            .expect("the flow plant must exist");
+        assert!(
+            eval_at < plant_at,
+            "the beat must be planted by the evaluation, not before it: an \
+             unchanged graph would flash on every redraw",
+        );
+        let ui_graph = include_str!("../../ui/node_graph.rs");
+        assert!(
+            ui_graph.contains("running(crate::ui::motion::GRAPH_FLOW)"),
+            "the wires must be gated on a running beat",
+        );
+        assert!(
+            ui_graph.contains("if self.flow_t > 0.0"),
+            "the wires must draw no head at rest",
+        );
+        std::thread::sleep(std::time::Duration::from_millis(
+            crate::ui::motion::GRAPH_FLOW_MS + 60,
+        ));
+        assert!(
+            !crate::ui::motion::running(crate::ui::motion::GRAPH_FLOW),
+            "a settled beat must leave no frame subscription",
+        );
+    }
+
+    /// Item 30 — over a multi-selection only the handle the pointer sits on
+    /// owns a hover track; the other selected grips read 0 and keep painting
+    /// the plain handle, so N selected grips do not animate together.
+    #[test]
+    fn grip_hover_track_belongs_only_to_the_hovered_handle() {
+        let _gate = crate::ui::motion::test_gate_lock();
+        crate::ui::motion::set_enabled(true);
+        let owner = codec::Handle::new(7);
+        let before = crate::ui::motion::track_count();
+
+        for id in 0..3usize {
+            let w = grip_hover_weight(Some(owner), id, id == 1);
+            let key = crate::ui::motion::grip_hover_key(&format!("{owner:?}:{id}"));
+            if id == 1 {
+                assert!(
+                    crate::ui::motion::exists(key),
+                    "the hovered grip must own a track"
+                );
+                assert!(w >= 0.0);
+            } else {
+                assert_eq!(w, 0.0, "grip {id} painted a hover without the pointer");
+                assert!(!crate::ui::motion::exists(key), "grip {id} minted a track");
+            }
+        }
+        assert_eq!(
+            crate::ui::motion::track_count(),
+            before + 1,
+            "a multi-selection must mint exactly one hover track"
+        );
+
+        // All three resting: nothing is left asking for frames.
+        for id in 0..3usize {
+            assert_eq!(grip_hover_weight(Some(owner), id, false), 0.0);
+        }
+        let live = (0..3usize).any(|id| {
+            crate::ui::motion::running(crate::ui::motion::grip_hover_key(&format!(
+                "{owner:?}:{id}"
+            )))
+        });
+        assert!(!live, "a departed hover must not keep the frame loop alive");
+    }
+}
+
+/// Item 30: hover fade weight for one grip handle.
+///
+/// The track is keyed by the owning handle and the grip index, so only the
+/// handle the pointer sits on owns a running track; the rest of a
+/// multi-selection reads 0 and keeps painting the plain handle. `edge_ramp` is
+/// edge-latched, so scanning across handles costs one track write per crossing
+/// rather than one per frame, and a 40 ms leave-then-re-enter carries on from
+/// the value it had already reached instead of restarting at zero.
+fn grip_hover_weight(owner: Option<codec::Handle>, grip_id: usize, is_hovered: bool) -> f32 {
+    let Some(owner) = owner else {
+        return 0.0;
+    };
+    let key = crate::ui::motion::grip_hover_key(&format!("{owner:?}:{grip_id}"));
+    crate::ui::motion::edge_ramp(key, is_hovered, crate::ui::motion::GRIP_HOVER);
+    crate::ui::motion::value(key)
 }

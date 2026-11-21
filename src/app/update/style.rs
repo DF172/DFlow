@@ -401,7 +401,12 @@ impl DraftFlowCAD {
         } else {
             set_f64!(dimscale, self.ds_dimscale);
         }
+        // A DIMLFAC change is the style-level form of a unit switch: the text
+        // eases from the old ratio to the new one instead of re-reading every
+        // measurement on the drawing in one frame.
+        let dimlfac_before = ds.dimlfac;
         set_f64!(dimlfac, self.ds_dimlfac);
+        crate::ui::motion::unit_chase(dimlfac_before, ds.dimlfac);
         set_f64!(dimtp, self.ds_dimtp);
         set_f64!(dimtm, self.ds_dimtm);
         set_f64!(dimtfac, self.ds_dimtfac);

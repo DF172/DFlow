@@ -506,6 +506,7 @@ fn test_selected_circle_arc_ellipse_highlight_overlay() {
         &[],
         &depth,
         Some([0.0, 1.0, 1.0, 1.0]),
+        None,
     );
 
     assert_eq!(pipeline.gpu_selected_circles.len(), 1);
@@ -521,6 +522,7 @@ fn test_selected_circle_arc_ellipse_highlight_overlay() {
         &hover_handles,
         &[],
         &depth,
+        None,
         None,
     );
     assert_eq!(pipeline.gpu_selected_circles.len(), 1);
@@ -538,6 +540,7 @@ fn test_selected_circle_arc_ellipse_highlight_overlay() {
         &circle_hover,
         &[],
         &depth,
+        None,
         None,
     );
     assert_eq!(pipeline.gpu_selected_circles.len(), 1);
@@ -857,6 +860,7 @@ fn test_selected_ellipse_overlay() {
         &[],
         &depth,
         Some([0.0, 1.0, 1.0, 1.0]),
+        None,
     );
 
     assert_eq!(pipeline.gpu_selected_ellipses.len(), 1);
@@ -872,6 +876,7 @@ fn test_selected_ellipse_overlay() {
         &hover_handles,
         &[],
         &depth,
+        None,
         None,
     );
     assert_eq!(pipeline.gpu_selected_ellipses.len(), 1);
@@ -889,6 +894,7 @@ fn test_selected_ellipse_overlay() {
         &ellipse_hover,
         &[],
         &depth,
+        None,
         None,
     );
     assert_eq!(pipeline.gpu_selected_ellipses.len(), 1);
@@ -1020,4 +1026,146 @@ fn test_pline_arc_switch_preview_and_render() {
             device.poll(wgpu::PollType::wait_indefinitely()).unwrap();
         }
     }
+}
+
+/// Batch 3 X1: measured frame cost of the item-14 cycling cross-fade on the
+/// highlight overlay path, plus proof that the base block-geometry cache is
+/// unaffected by the fade.
+///
+/// Premise correction (verified against the tree): the brief assumed the fade
+/// makes the block geometry cache miss every frame. It does not —
+/// `upload_selected_wires` passes `cache: None` to all four
+/// `BlockWireGpu::from_wires` calls, so the highlight path has no cache at all
+/// (steady hover rebuilds every frame too), and the base path's cache key
+/// carries the wire's own colour, which the fade never touches. The real fade
+/// increment is the hover group splitting into old + new: one extra
+/// gather/classify/emit round per frame.
+///
+/// Fixture: 2 cycling candidates × 128 overlapping block instances = 256
+/// highlighted wires. 128 members per selectable group is far beyond a real
+/// dense block array at one pick point (typically < 20); this is an
+/// upper-bound stress in the spirit of the 2000-line fps gate fixture.
+#[test]
+#[ignore = "requires a GPU adapter"]
+fn x1_cycle_fade_highlight_frame_cost() {
+    let instance = wgpu::Instance::new(wgpu::InstanceDescriptor::new_without_display_handle());
+    let adapter = block_on(instance.request_adapter(&wgpu::RequestAdapterOptions::default()))
+        .expect("GPU adapter");
+    let (device, queue) = block_on(adapter.request_device(&wgpu::DeviceDescriptor {
+        required_limits: adapter.limits(),
+        ..Default::default()
+    }))
+    .expect("GPU device");
+    let mut pipeline = Pipeline::new(&device, &queue, wgpu::TextureFormat::Bgra8UnormSrgb);
+    let depth = rustc_hash::FxHashMap::default();
+
+    let h_old = Handle::new(9001);
+    let h_new = Handle::new(9002);
+    let mut wires: Vec<WireModel> = Vec::new();
+    let mut index = rustc_hash::FxHashMap::default();
+    for (group, handle) in [h_old, h_new].iter().enumerate() {
+        let mut idxs = Vec::new();
+        for k in 0..128u32 {
+            let mut w = WireModel::default();
+            w.name = format!("x1_{}_{}", handle.value(), k);
+            w.points = vec![
+                [0.0, 0.0, 0.0],
+                [1.0, 0.0, 0.0],
+                [1.0, 1.0, 0.0],
+                [0.0, 1.0, 0.0],
+                [0.0, 0.0, 0.0],
+            ];
+            w.color = [0.8, 0.8, 0.8, 1.0];
+            w.render_instance = Some(crate::scene::model::instance_model::RenderInstance {
+                source_id: 77,
+                translation: [group as f64 * 0.02 + k as f64 * 0.001, 0.0, 0.0],
+            });
+            idxs.push(wires.len() as u32);
+            wires.push(w);
+        }
+        index.insert(handle.value(), idxs);
+    }
+    pipeline.wire_handle_index = std::sync::Arc::new(index);
+
+    let selected = rustc_hash::FxHashSet::default();
+    let mut hover_steady = rustc_hash::FxHashSet::default();
+    hover_steady.insert(h_new);
+    let mut hover_fade = rustc_hash::FxHashSet::default();
+    hover_fade.insert(h_old);
+    hover_fade.insert(h_new);
+    let mut old_set = rustc_hash::FxHashSet::default();
+    old_set.insert(h_old);
+    let mut new_set = rustc_hash::FxHashSet::default();
+    new_set.insert(h_new);
+
+    // Warm-up: the first upload allocates arenas/buffers; exclude it.
+    pipeline.upload_selected_wires(
+        &device, &queue, &wires, &selected, &hover_steady, &[], &depth, None, None,
+    );
+
+    let mut steady_ms = Vec::new();
+    for _ in 0..4 {
+        let t0 = std::time::Instant::now();
+        pipeline.upload_selected_wires(
+            &device, &queue, &wires, &selected, &hover_steady, &[], &depth, None, None,
+        );
+        steady_ms.push(t0.elapsed().as_secs_f64() * 1000.0);
+    }
+    let mut fade_ms = Vec::new();
+    for t in [0.25f32, 0.5, 0.75, 1.0] {
+        let fade = (old_set.clone(), new_set.clone(), t);
+        let t0 = std::time::Instant::now();
+        pipeline.upload_selected_wires(
+            &device, &queue, &wires, &selected, &hover_fade, &[], &depth, None, Some(&fade),
+        );
+        fade_ms.push(t0.elapsed().as_secs_f64() * 1000.0);
+    }
+    fn median(v: &[f64]) -> f64 {
+        let mut s = v.to_vec();
+        s.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        (s[1] + s[2]) / 2.0
+    }
+    let steady_total: f64 = steady_ms.iter().sum();
+    let fade_total: f64 = fade_ms.iter().sum();
+    let steady_med = median(&steady_ms);
+    let fade_med = median(&fade_ms);
+    eprintln!(
+        "X1 steady (1 group, 128 wires): 4-frame total={steady_total:.3}ms median={steady_med:.3}ms per={steady_ms:?}"
+    );
+    eprintln!(
+        "X1 fade (2 groups, 256 wires): 4-frame total={fade_total:.3}ms median={fade_med:.3}ms per={fade_ms:?}"
+    );
+    eprintln!(
+        "X1 fade increment: total={:.3}ms median={:.3}ms ratio={:.2}",
+        fade_total - steady_total,
+        fade_med - steady_med,
+        fade_med / steady_med
+    );
+    assert!(steady_total > 0.0 && fade_total > 0.0);
+    assert!(
+        !pipeline.gpu_selected_block_wires.is_empty(),
+        "the block highlight path must have uploaded"
+    );
+
+    // Base path: the fade never touches base colours, so the block geometry
+    // cache must hand out the same records on the second build (pointer
+    // equality is the hit proof; a miss would emit fresh records).
+    let refs: Vec<&WireModel> = wires.iter().collect();
+    let mut cache = wire_gpu::BlockGeometryCache::default();
+    let first = pipeline.upload_block_wires(&device, &queue, &refs, &depth, &mut cache);
+    let second = pipeline.upload_block_wires(&device, &queue, &refs, &depth, &mut cache);
+    assert_eq!(first.len(), 1, "256 条同 source 同 mesh_edge 同色的 wire 必须合并为 1 个批次");
+    assert_eq!(first.len(), second.len());
+    for (a, b) in first.iter().zip(second.iter()) {
+        assert_eq!(
+            a.geometry_id(),
+            b.geometry_id(),
+            "base block cache must hit: the fade does not change base colours"
+        );
+    }
+    eprintln!(
+        "X1 base cache: {}/{} geometry_id pointers identical across builds",
+        first.len(),
+        wires.len()
+    );
 }

@@ -3624,6 +3624,12 @@ impl DraftFlowCAD {
 
     pub(super) fn on_prop_geom_commit(&mut self, field: &'static str) -> Task<Message> {
         use crate::ui::window::named_parameters::ParamField;
+        // Whatever happens below, this field is no longer uncommitted.
+        crate::ui::motion::set(
+            crate::ui::motion::PROP_DIRTY,
+            0.0,
+            crate::ui::motion::PROP_DIRTY_TIME,
+        );
         // A dynamic dimension's Name/Expression rows edit its parameter.
         let dynamic_field = match field {
             "dyn_constraint_name" => Some(ParamField::Name),

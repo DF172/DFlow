@@ -851,7 +851,7 @@ fn bench_ui_ribbon_view_construction(runner: &mut BenchmarkRunner) {
     // Warm-up for allocator and tree settling
     let theme = iced::Theme::Light;
     for _ in 0..10 {
-        let _ = black_box(ribbon.chrome(false, false, 0, 0, false, None, 0, None, &theme));
+        let _ = black_box(ribbon.chrome(false, false, 0, 0, false, None, 0, None, None, &theme));
     }
 
     let n = if runner.quick_mode { 20 } else { 100 };
@@ -861,7 +861,7 @@ fn bench_ui_ribbon_view_construction(runner: &mut BenchmarkRunner) {
     for _ in 0..runs {
         let t0 = Instant::now();
         for _ in 0..n {
-            let elem = ribbon.chrome(false, false, 0, 0, false, None, 0, None, &theme);
+            let elem = ribbon.chrome(false, false, 0, 0, false, None, 0, None, None, &theme);
             black_box(elem);
         }
         let per_us = (t0.elapsed().as_micros() as f64) / (n as f64);
@@ -997,6 +997,7 @@ fn bench_ui_grid_geometry(runner: &mut BenchmarkRunner) {
             origin: origin1,
             axes: axes1,
             limits: limits1,
+            ink: 1.0,
         };
         let params2 = GridParams {
             view_rot: view_rot2,
@@ -1008,6 +1009,7 @@ fn bench_ui_grid_geometry(runner: &mut BenchmarkRunner) {
             origin: origin2,
             axes: axes2,
             limits: limits2,
+            ink: 1.0,
         };
         let grids = vec![params1, params2];
         let canvas_bounds = Rectangle {
@@ -1532,6 +1534,7 @@ fn build_selection_overlay_element(
             shape: GripShape::Square,
             is_hot: false,
             is_hovered: false,
+            hover_w: 0.0,
             dir: None,
         })
         .collect();
@@ -1553,6 +1556,8 @@ fn build_selection_overlay_element(
     selection_overlay(
         selection,
         Some((Point::new(400.0, 300.0), SnapType::Endpoint)),
+        None,
+        None,
         None,
         None,
         grips,

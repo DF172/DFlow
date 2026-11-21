@@ -146,6 +146,24 @@ impl DraftFlowCAD {
                 .map(|handle| (handle, crate::scene::ChangeKind::Modified))
                 .collect();
             self.tabs[i].scene.bump_entities(&changes);
+            // Item 46: the transfer line, from the source anchor to each
+            // destination anchor. Anchors are the same rendered-wire centres the
+            // camera centres on; a handle that yields none simply contributes no
+            // line, and an empty destination set (handled above) plays nothing.
+            if let Some(from) = self.tabs[i].scene.entity_world_center(src) {
+                let targets: Vec<glam::DVec3> = dest
+                    .iter()
+                    .filter_map(|handle| self.tabs[i].scene.entity_world_center(*handle))
+                    .collect();
+                if !targets.is_empty() {
+                    self.matchprop_flow = Some((from, targets));
+                    crate::ui::motion::replay(
+                        crate::ui::motion::MATCHPROP_FLOW,
+                        1.0,
+                        crate::ui::motion::MATCHPROP_FLOW_MS,
+                    );
+                }
+            }
             self.command_line
                 .push_info(crate::tf!("Properties matched to {} object(s).", dest.len()).as_ref());
             // Clear the consumed target selection and keep prompting.

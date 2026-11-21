@@ -22,6 +22,13 @@ impl Scene {
         self.preview_ghost_wires = wires;
     }
 
+    /// Remaining visibility of the drag-start ghost. Written by the drag path
+    /// as the cursor travels; the renderer multiplies it into every ghost
+    /// colour, so the published wires stay immutable (no per-move re-clone).
+    pub fn set_preview_ghost_fade(&mut self, fade: f32) {
+        self.preview_ghost_fade = fade.clamp(0.0, 1.0);
+    }
+
     /// Publish all edited hatches as one live fill overlay.
     pub fn set_preview_hatches(&mut self, handles: &[Handle]) {
         let mut models = Vec::new();
