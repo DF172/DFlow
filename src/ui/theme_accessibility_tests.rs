@@ -328,7 +328,7 @@ fn status_pills_are_measured_where_they_are_painted() {
     use iced::widget::button;
     use iced::{Background, Gradient};
 
-    const RUNGS: [(&'static str, f32); 2] = [("aatest:pill-rest", 0.0), ("aatest:pill-lift", 1.0)];
+    const RUNGS: [(&str, f32); 2] = [("aatest:pill-rest", 0.0), ("aatest:pill-lift", 1.0)];
     let statuses = [
         button::Status::Active,
         button::Status::Hovered,
@@ -2958,7 +2958,7 @@ fn a_placement_free_edge_is_provably_impossible() {
         for &a in ys {
             for &b in ys {
                 let t = ((a + 0.05) * (b + 0.05)).sqrt() - 0.05;
-                if t >= 0.0 && t <= 1.0 {
+                if (0.0..=1.0).contains(&t) {
                     cands.push(t);
                 }
             }

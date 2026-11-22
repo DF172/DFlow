@@ -112,7 +112,7 @@ impl BenchmarkRunner {
         let max = samples[n - 1];
         let sum: f64 = samples.iter().sum();
         let mean = sum / (n as f64);
-        let median = if n % 2 == 0 {
+        let median = if n.is_multiple_of(2) {
             (samples[n / 2 - 1] + samples[n / 2]) * 0.5
         } else {
             samples[n / 2]

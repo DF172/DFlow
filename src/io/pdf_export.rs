@@ -2545,7 +2545,7 @@ pub(crate) fn pdf_stream_text(bytes: &[u8]) -> String {
     for start in 0..bytes.len().saturating_sub(2) {
         // zlib streams start with a 2-byte header: deflate method, valid check.
         let (cmf, flg) = (bytes[start], bytes[start + 1]);
-        if cmf & 0x0f != 8 || ((cmf as u16) << 8 | flg as u16) % 31 != 0 {
+        if cmf & 0x0f != 8 || !((cmf as u16) << 8 | flg as u16).is_multiple_of(31) {
             continue;
         }
         let mut decoded = Vec::new();

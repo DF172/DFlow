@@ -3377,7 +3377,7 @@ mod metrics_depth_tests {
             add_owned(
                 &mut document,
                 prev,
-                EntityType::Insert(Insert::new(&format!("B{i}"), Vector3::ZERO)),
+                EntityType::Insert(Insert::new(format!("B{i}"), Vector3::ZERO)),
             );
             prev = cur;
         }
@@ -3423,7 +3423,7 @@ mod metrics_depth_tests {
             add_owned(
                 &mut document,
                 prev,
-                EntityType::Insert(Insert::new(&format!("B{i}"), Vector3::ZERO)),
+                EntityType::Insert(Insert::new(format!("B{i}"), Vector3::ZERO)),
             );
             prev = cur;
         }

@@ -940,7 +940,7 @@ fn text_audit_system_spellcheck_flags_misspelled_words() {
 
     if sp["available"].as_bool() == Some(true) {
         // Backend should be reported (e.g. "windows" on Windows)
-        assert!(sp["backend"].as_str().unwrap().len() > 0);
+        assert!(!sp["backend"].as_str().unwrap().is_empty());
         assert!(sp["language"].as_str().is_some());
 
         // "cirtuit" and "conected" should be flagged as unrecognized

@@ -2445,9 +2445,7 @@ mod tests {
                 (1.0 - ndc.y) * 0.5 * bounds.height,
             )
         };
-        let _ = app.update(Message::ViewportMove(iced::Point::new(
-            sx as f32, sy as f32,
-        )));
+        let _ = app.update(Message::ViewportMove(iced::Point::new(sx, sy)));
 
         assert!(
             app.tabs[i].snap_result.is_some(),
@@ -2502,9 +2500,7 @@ mod tests {
                 (1.0 - ndc.y) * 0.5 * bounds.height,
             )
         };
-        let _ = app.update(Message::ViewportMove(iced::Point::new(
-            sx as f32, sy as f32,
-        )));
+        let _ = app.update(Message::ViewportMove(iced::Point::new(sx, sy)));
         assert!(
             app.tabs[i].snap_result.is_some(),
             "no object-snap marker while a user_select is pending"

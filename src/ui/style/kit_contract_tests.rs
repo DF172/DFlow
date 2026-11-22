@@ -2163,7 +2163,7 @@ fn is_word_char(c: char) -> bool {
 }
 
 fn strip_leading_spaces_tabs(s: &str) -> &str {
-    s.trim_start_matches(|c: char| c == ' ' || c == '\t')
+    s.trim_start_matches([' ', '\t'])
 }
 
 fn starts_with_ascii_digit(s: &str) -> bool {
@@ -2286,8 +2286,7 @@ fn padding_off_ladder(line: &str) -> bool {
         inner.push(ch);
     }
     inner
-        .replace('[', " ")
-        .replace(']', " ")
+        .replace(['[', ']'], " ")
         .split(',')
         .any(is_pad_literal_element)
 }
@@ -4793,7 +4792,7 @@ fn surface_tiers_separate_in_every_theme() {
         let page = common::lstar(base);
 
         let surfaces: [Color; 4] = RANKS.map(|rank| tokens::surface(&theme, rank));
-        let rungs: [f32; 4] = surfaces.map(|c| common::lstar(c));
+        let rungs: [f32; 4] = surfaces.map(common::lstar);
 
         // DraftFlow's two schemes carry an explicit sheet whose rungs answer
         // different questions (panel, inner plate, paper, file card), so the
@@ -4934,7 +4933,7 @@ fn brand_ladder_has_measurable_steps() {
             seq[1], seq[2], seq[3], seq[4],
         );
         assert!(
-            spread >= 1.0 && spread <= 25.0,
+            (1.0..=25.0).contains(&spread),
             "{theme}: total plane spread {spread:.2} L* is outside the 1–25 window",
         );
 
@@ -5326,7 +5325,7 @@ impl Source {
             tokens::sunk(theme),
         ];
         ladder.extend(RANKS.iter().map(|rank| tokens::surface(theme, *rank)));
-        if ladder.iter().any(|rung| *rung == plate) {
+        if ladder.contains(&plate) {
             return Source::Ladder;
         }
         if CONTROL_RUNGS

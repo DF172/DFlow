@@ -5030,7 +5030,7 @@ mod grid_key_tests {
         };
         let pane1 = baseline_params();
         let pane2 = baseline_params();
-        let both = vec![pane1.clone(), pane2.clone()];
+        let both = vec![pane1, pane2];
         let baseline = GridKey::from_grids(&both, bounds, GridStyle::default());
 
         let mut pane2_changed = pane2;

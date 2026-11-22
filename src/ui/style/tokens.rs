@@ -1885,7 +1885,7 @@ mod tests {
         for lift in [0.0f32, 1.0, 2.0, 3.0, 9.0] {
             let a = elevation(&theme, lift).color.a;
             assert!(
-                a >= 0.0 && a <= 1.0,
+                (0.0..=1.0).contains(&a),
                 "{theme} at lift {lift}: alpha {a} escapes gamut"
             );
         }

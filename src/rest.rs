@@ -1554,7 +1554,7 @@ mod tests {
     fn oversize_request_line_is_refused_with_431() {
         let (client, mut server) = loopback_pair();
         let mut payload = b"GET /".to_vec();
-        payload.extend(std::iter::repeat(b'A').take(1024 * 1024));
+        payload.extend(std::iter::repeat_n(b'A', 1024 * 1024));
         payload.extend_from_slice(b" HTTP/1.1\r\n\r\n");
         let writer = spawn_writer(&client, payload);
 
@@ -1579,7 +1579,7 @@ mod tests {
         let mut payload = b"GET /api/v1/state HTTP/1.1\r\n".to_vec();
         for _ in 0..80 {
             payload.extend_from_slice(b"X-Pad: ");
-            payload.extend(std::iter::repeat(b'a').take(1024));
+            payload.extend(std::iter::repeat_n(b'a', 1024));
             payload.extend_from_slice(b"\r\n");
         }
         payload.extend_from_slice(b"\r\n");

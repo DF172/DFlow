@@ -690,7 +690,7 @@ mod tests {
 
         // 1. Identical images -> changed: false
         let diff_same = compute_visual_diff(&base, &base, &p2w);
-        assert_eq!(diff_same.changed, false);
+        assert!(!diff_same.changed);
         assert_eq!(diff_same.change_percentage, 0.0);
         assert_eq!(diff_same.changed_pixels, 0);
         assert!(diff_same.dirty_pixel_bounds.is_none());
@@ -704,7 +704,7 @@ mod tests {
         }
 
         let diff_mod = compute_visual_diff(&base, &curr, &p2w);
-        assert_eq!(diff_mod.changed, true);
+        assert!(diff_mod.changed);
         assert_eq!(diff_mod.changed_pixels, 400);
         assert!(diff_mod.change_percentage > 1.0);
 

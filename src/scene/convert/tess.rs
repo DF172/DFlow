@@ -391,8 +391,8 @@ fn section_symbol_wires(
             lines.push(nan);
             lines.push(tip);
             lines.push(base);
-            let mut it = g.dim_lines.chunks_exact(2);
-            while let Some([p0, p1]) = it.next() {
+            let (pairs, _) = g.dim_lines.as_chunks::<2>();
+            for [p0, p1] in pairs {
                 lines.push(nan);
                 lines.push([p0[0] as f64, p0[1] as f64, 0.0]);
                 lines.push([p1[0] as f64, p1[1] as f64, 0.0]);

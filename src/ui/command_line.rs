@@ -1681,7 +1681,7 @@ mod tests {
         line.push_error(error);
         line.push_output(output);
 
-        let expected = vec![
+        let expected = [
             format!("❯ {} {command}", t!("Command:")),
             format!("{INFO_PREFIX}{info}"),
             format!("{ERROR_PREFIX}{}: {error}", t!("Invalid").to_uppercase()),

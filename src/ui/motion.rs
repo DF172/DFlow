@@ -1834,7 +1834,7 @@ mod gate_tests {
         replay_entrance(keys);
         let now = Instant::now();
         for t in (0..PANEL).step_by(10) {
-            let at = now + Duration::from_millis(t as u64);
+            let at = now + Duration::from_millis(t);
             let slot = |i: usize| {
                 TRACKS.with(|tr| tr.borrow().get(keys[i]).map(|k| k.value(at)).unwrap_or(1.0))
             };
@@ -2126,7 +2126,7 @@ mod batch_d_tests {
         assert!(running(DOCK_DROP), "the preview fade must start running");
         assert!(any_active(), "the preview fade must ask for frames");
         assert!(value(DOCK_DROP) < 1.0, "the fade must start before its end");
-        settle_wait(DOCK_DROP_TIME as u64 + 40);
+        settle_wait(DOCK_DROP_TIME + 40);
         assert_eq!(value(DOCK_DROP), 1.0);
         assert!(!running(DOCK_DROP), "the fade must stop asking for frames");
     }
@@ -2146,7 +2146,7 @@ mod batch_d_tests {
         assert!(exists(key));
         assert!(running(key), "the squeeze must start running");
         assert!(any_active(), "the squeeze must ask for frames");
-        settle_wait(PROP_SECTION_TIME as u64 + 40);
+        settle_wait(PROP_SECTION_TIME + 40);
         assert_eq!(value(key), 0.0, "the section must reach its closed height");
         assert!(!running(key));
     }
@@ -2161,10 +2161,10 @@ mod batch_d_tests {
         assert!(running(OPEN_RING), "the rim must fade in with the load");
         assert!(any_active(), "the rim fade must ask for frames");
         assert!(value(OPEN_RING) < 1.0);
-        settle_wait(OPEN_RING_TIME as u64 + 40);
+        settle_wait(OPEN_RING_TIME + 40);
         assert_eq!(value_or(OPEN_RING, 0.0), 1.0);
         rise(OPEN_RING, false, OPEN_RING_TIME);
-        settle_wait(OPEN_RING_TIME as u64 + 40);
+        settle_wait(OPEN_RING_TIME + 40);
         assert_eq!(value(OPEN_RING), 0.0, "a finished load must drop the rim");
     }
 
@@ -2198,7 +2198,7 @@ mod batch_d_tests {
         replay(REVEAL, 1.0, REVEAL_TIME);
         assert!(running(REVEAL), "the sweep must start running");
         assert!(any_active(), "the sweep must ask for frames");
-        settle_wait(REVEAL_TIME as u64 + 40);
+        settle_wait(REVEAL_TIME + 40);
         assert_eq!(value(REVEAL), 1.0);
         assert!(!running(REVEAL), "the sweep must stop asking for frames");
     }
@@ -2218,7 +2218,7 @@ mod batch_d_tests {
             start < 0.1,
             "the chase must start near the old/new ratio (1/25.4), got {start}"
         );
-        settle_wait(CHASE_MS as u64 + 40);
+        settle_wait(CHASE_MS + 40);
         assert!(
             (value(UNIT_CHASE) - 1.0).abs() < 1e-4,
             "the chase must land on 1.0"

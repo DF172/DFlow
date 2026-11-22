@@ -49,7 +49,7 @@ fn dock_app() -> DraftFlowCAD {
     app.show_block_palette = true;
     let i = app.active_tab;
     app.tabs[i].scene.selection.borrow_mut().view.vp_size = (1600.0, 900.0);
-    app.win_size = (1600.0, 900.0).into();
+    app.win_size = (1600.0, 900.0);
     app
 }
 

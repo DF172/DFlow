@@ -4500,7 +4500,7 @@ mod insert_unit_scale_tests {
     fn astronomical_units_use_precise_si_values() {
         assert_eq!(insunits_to_mm(18), Some(1.495_978_707e14));
         assert_eq!(insunits_to_mm(19), Some(9.460_730_472_580_8e18));
-        assert_eq!(insunits_to_mm(20), Some(3.085_677_581_491_367_3e19));
+        assert_eq!(insunits_to_mm(20), Some(3.085_677_581_491_367e19));
         assert_ne!(format_unit_factor(1.0e-7), "0.0000");
     }
 
@@ -5133,7 +5133,7 @@ mod grip_limit_tests {
         }
         app.refresh_selected_grips();
         assert!(
-            app.tabs[i].selected_grips.len() > 0,
+            !app.tabs[i].selected_grips.is_empty(),
             "zero must read as unlimited, not as a limit of none",
         );
     }

@@ -1176,7 +1176,7 @@ mod cfb_memory_tests {
         let sector = 4096usize;
         let model_count = 300usize;
         let entry_count = 2 + model_count * 2;
-        let dir_sectors = (entry_count * 128 + sector - 1) / sector;
+        let dir_sectors = (entry_count * 128).div_ceil(sector);
         let payload_len = 4 << 20;
         let payload_sectors = payload_len / sector;
         // Sectors: 0..dir_sectors directory; then 2 FAT; then payload.

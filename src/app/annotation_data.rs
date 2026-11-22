@@ -1044,7 +1044,7 @@ impl DraftFlowCAD {
             }
         }
         let mut state = DataExtractionState {
-            selection_handles: selection_handles,
+            selection_handles,
             ..Default::default()
         };
         state.objects = counts

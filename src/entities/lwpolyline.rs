@@ -1676,7 +1676,7 @@ mod tests {
 
     fn make_test_lwpolyline(count: usize, constant_width: f64) -> LwPolyline {
         let mut pl = LwPolyline {
-            constant_width: constant_width,
+            constant_width,
             ..Default::default()
         };
         for i in 0..count {

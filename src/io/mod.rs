@@ -1377,7 +1377,7 @@ mod backup_fault_tests {
                 .as_nanos(),
             name
         ));
-        std::fs::write(&path.with_extension("dwg"), b"previous version").unwrap();
+        std::fs::write(path.with_extension("dwg"), b"previous version").unwrap();
         path.with_extension("dwg")
     }
 

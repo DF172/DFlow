@@ -1131,7 +1131,7 @@ fn bench_ui_plotstyle_layer_usage(runner: &mut BenchmarkRunner) {
 
     let mut doc = CadDocument::new();
     for i in 0..200 {
-        let mut layer = codec::tables::Layer::new(&format!("LAYER_{i:03}"));
+        let mut layer = codec::tables::Layer::new(format!("LAYER_{i:03}"));
         layer.handle = doc.allocate_handle();
         layer.color = codec::types::Color::Index((i % 8 + 1) as u8);
         let _ = doc.layers.add(layer);

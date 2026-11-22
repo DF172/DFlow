@@ -130,7 +130,7 @@ fn median(times: &[f64]) -> f64 {
     let mut sorted = times.to_vec();
     sorted.sort_by(|a, b| a.total_cmp(b));
     let n = sorted.len();
-    if n % 2 == 0 {
+    if n.is_multiple_of(2) {
         (sorted[n / 2 - 1] + sorted[n / 2]) * 0.5
     } else {
         sorted[n / 2]

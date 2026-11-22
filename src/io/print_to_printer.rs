@@ -1553,7 +1553,9 @@ mod printer_properties_tests {
         .expect("spooled output should rasterise");
         let dark = page
             .pixels
-            .chunks_exact(4)
+            .as_chunks::<4>()
+            .0
+            .iter()
             .filter(|px| px[0] < 100 && px[1] < 100 && px[2] < 100)
             .count();
         std::fs::remove_file(&plot).ok();
