@@ -2168,10 +2168,7 @@ impl Snapper {
                         continue;
                     };
                     let si = &screen_pts[i];
-                    for j in (i + 1)..in_range_wires.len() {
-                        let Some(wire_j) = in_range_wires.get(j) else {
-                            continue;
-                        };
+                    for (j, wire_j) in in_range_wires.iter().enumerate().skip(i + 1) {
                         let sj = &screen_pts[j];
                         for ai in 0..wire_i.points.len().saturating_sub(1) {
                             let sa0 = si[ai];

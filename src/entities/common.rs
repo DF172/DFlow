@@ -187,6 +187,8 @@ fn format_signed_length(value: f64) -> String {
                 format!(" {}/{}", n, d)
             };
             let unit_suffix = if ctx.lunits == 4 { "\"" } else { "" };
+            // Float literals cannot be used as patterns, so the guard stays.
+            #[allow(clippy::redundant_guards)]
             match feet {
                 Some(f) if f == 0.0 => {
                     format!("{}{:.0}{}{}", sign, whole, frac_str, unit_suffix)

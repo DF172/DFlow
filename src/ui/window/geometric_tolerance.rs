@@ -204,22 +204,22 @@ impl State {
                 state.tolerances[0].value = frame.to_string();
                 state.symbol_tail.clear();
             } else {
-                for index in 0..2 {
+                for (index, entry) in state.tolerances.iter_mut().enumerate().take(2) {
                     if let Some(cell) = cells.get(index + 1) {
                         let (cell, diameter) = remove_escape(cell, "n")
                             .map_or_else(|| ((*cell).to_string(), false), |value| (value, true));
                         let (value, material) = parse_material(&cell);
-                        state.tolerances[index] = ToleranceEntry {
+                        *entry = ToleranceEntry {
                             diameter,
                             value,
                             material,
                         };
                     }
                 }
-                for index in 0..3 {
+                for (index, entry) in state.datums.iter_mut().enumerate().take(3) {
                     if let Some(cell) = cells.get(index + 3) {
                         let (value, material) = parse_material(cell);
-                        state.datums[index] = DatumEntry { value, material };
+                        *entry = DatumEntry { value, material };
                     }
                 }
             }

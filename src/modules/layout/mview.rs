@@ -853,9 +853,8 @@ impl CadCommand for MviewCommand {
     fn input_kind(&self) -> InputKind {
         if self.step == Step::ClipLength
             || (self.step == Step::Polygon && (self.arc_sub.is_scalar() || self.chord_step()))
+            || self.step == Step::ChooseView
         {
-            InputKind::FreeText
-        } else if self.step == Step::ChooseView {
             InputKind::FreeText
         } else if self.step == Step::RectangleFirst
             || self.step == Step::ClipChoice

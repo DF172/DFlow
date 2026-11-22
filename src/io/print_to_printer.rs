@@ -1473,16 +1473,15 @@ mod printer_properties_tests {
         use printpdf::{Color, Mm, PdfDocument, PdfPage as OutputPage, PdfSaveOptions, Rgb};
 
         let mut document = PdfDocument::new("gdi ink test");
-        let mut ops = Vec::new();
         // A big black block in the middle of an A4 page.
-        ops.push(printpdf::Op::SetFillColor {
+        let mut ops = vec![printpdf::Op::SetFillColor {
             col: Color::Rgb(Rgb {
                 r: 0.0,
                 g: 0.0,
                 b: 0.0,
                 icc_profile: None,
             }),
-        });
+        }];
         // printpdf 0.9's DrawRectangle never paints (its serializer always
         // ends the path with `n`), so the ink must be a filled polygon — the
         // same op the plot pipeline draws hatches with.
@@ -1576,15 +1575,14 @@ mod printer_properties_tests {
         use printpdf::{Color, Mm, PdfDocument, PdfPage as OutputPage, PdfSaveOptions, Rgb};
 
         let mut document = PdfDocument::new("gdi orientation test");
-        let mut ops = Vec::new();
-        ops.push(printpdf::Op::SetFillColor {
+        let mut ops = vec![printpdf::Op::SetFillColor {
             col: Color::Rgb(Rgb {
                 r: 0.0,
                 g: 0.0,
                 b: 0.0,
                 icc_profile: None,
             }),
-        });
+        }];
         ops.push(printpdf::Op::DrawPolygon {
             polygon: printpdf::Polygon {
                 rings: vec![printpdf::PolygonRing {

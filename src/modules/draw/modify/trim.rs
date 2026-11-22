@@ -1620,7 +1620,7 @@ fn trim_xline(orig: &XLineEnt, ts: &[f64], t_click: f64) -> Vec<EntityType> {
     let curve = xline_curve(orig);
     trim_intervals(&curve, ts, t_click)
         .into_iter()
-        .filter_map(|(ta, tb)| {
+        .map(|(ta, tb)| {
             let pa = pt(ta);
             let pb = pt(tb);
             let ext_neg = ta.is_infinite();
@@ -1631,7 +1631,7 @@ fn trim_xline(orig: &XLineEnt, ts: &[f64], t_click: f64) -> Vec<EntityType> {
                     // Whole XLine survived (shouldn't happen after a real trim)
                     let mut x = orig.clone();
                     x.common.handle = Handle::NULL;
-                    Some(EntityType::XLine(x))
+                    EntityType::XLine(x)
                 }
                 (true, false) => {
                     // Extends toward -infinity: Ray at pb pointing in -dir
@@ -1642,7 +1642,7 @@ fn trim_xline(orig: &XLineEnt, ts: &[f64], t_click: f64) -> Vec<EntityType> {
                     let mut r = r;
                     r.common = orig.common.clone();
                     r.common.handle = Handle::NULL;
-                    Some(EntityType::Ray(r))
+                    EntityType::Ray(r)
                 }
                 (false, true) => {
                     // Extends toward +infinity: Ray at pa pointing in +dir
@@ -1651,7 +1651,7 @@ fn trim_xline(orig: &XLineEnt, ts: &[f64], t_click: f64) -> Vec<EntityType> {
                     let mut r = r;
                     r.common = orig.common.clone();
                     r.common.handle = Handle::NULL;
-                    Some(EntityType::Ray(r))
+                    EntityType::Ray(r)
                 }
                 (false, false) => {
                     // Finite segment
@@ -1662,7 +1662,7 @@ fn trim_xline(orig: &XLineEnt, ts: &[f64], t_click: f64) -> Vec<EntityType> {
                     l.common.handle = Handle::NULL;
                     l.start = Vector3::new(pa[0], pa[1], pa[2]);
                     l.end = Vector3::new(pb[0], pb[1], pb[2]);
-                    Some(EntityType::Line(l))
+                    EntityType::Line(l)
                 }
             }
         })

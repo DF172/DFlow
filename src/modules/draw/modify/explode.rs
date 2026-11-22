@@ -258,7 +258,6 @@ fn explode_polyline2d(p: &Polyline2D) -> Vec<EntityType> {
                 end: Vector3::new(end[0], end[1], end[2]),
                 thickness: p.thickness,
                 normal,
-                ..LineEnt::new()
             }));
         } else if let Some(arc) =
             bulge_to_arc(p0, p1, v0.bulge, elevation, &p.common, p.thickness, normal)
@@ -328,7 +327,6 @@ fn explode_lwpolyline(p: &LwPolyline) -> Vec<EntityType> {
                 end: Vector3::new(p1[0], p1[1], elevation),
                 thickness: p.thickness,
                 normal: p.normal,
-                ..LineEnt::new()
             };
             result.push(EntityType::Line(line));
         } else {
@@ -383,7 +381,6 @@ fn bulge_to_arc(
         end_angle,
         thickness,
         normal,
-        ..ArcEnt::new()
     };
     Some(EntityType::Arc(arc))
 }
@@ -1608,6 +1605,12 @@ impl ExplodeCommand {
     #[allow(dead_code)]
     pub fn new() -> Self {
         Self
+    }
+}
+
+impl Default for ExplodeCommand {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

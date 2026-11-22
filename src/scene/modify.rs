@@ -1884,12 +1884,12 @@ impl Scene {
         self.record_solid_history_before(handle);
         let mut created = false;
         if self.document.solid_history_graph(handle).is_none() {
+            // Guards stay on the arm: non-matching values return early.
+            #[allow(clippy::collapsible_match)]
             let create = match field {
                 crate::scene::model::solid_history::PROP_HISTORY => {
                     if value.eq_ignore_ascii_case("Record") {
                         true
-                    } else if value.eq_ignore_ascii_case("None") {
-                        return false;
                     } else {
                         return false;
                     }
@@ -1899,8 +1899,6 @@ impl Scene {
                 {
                     if value.eq_ignore_ascii_case("Yes") {
                         true
-                    } else if value.eq_ignore_ascii_case("No") {
-                        return false;
                     } else {
                         return false;
                     }

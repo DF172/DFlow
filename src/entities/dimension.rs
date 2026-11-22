@@ -5548,9 +5548,7 @@ fn append_diameter_dimension(
     } else if text_is_outside {
         // The leader carries the text; the arrowheads keep the circle.
         false
-    } else if text_outside {
-        true
-    } else if diameter < 2.0 * params.arrow_len {
+    } else if text_outside || diameter < 2.0 * params.arrow_len {
         true
     } else if diameter < params.text_width + 2.0 * params.arrow_len {
         match params.dimatfit {

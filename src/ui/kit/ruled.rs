@@ -223,7 +223,6 @@ impl<M> Widget<M, Theme, iced::Renderer> for Ruled<'_, M> {
                 width,
                 y: bounds.y + bounds.height - self.thickness,
                 height: self.thickness,
-                ..bounds
             },
         };
         renderer.fill_quad(

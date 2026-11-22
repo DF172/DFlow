@@ -3195,10 +3195,7 @@ pub fn run() {
         rx,
         backlog: VecDeque::new(),
     };
-    loop {
-        let Some(line) = pump.next() else {
-            break;
-        };
+    while let Some(line) = pump.next() {
         // Serve the in-flight request with the old schema first (it was made
         // against it), then exit so the client respawns a fresh bridge. This
         // ordering means a rebuild never fails a call that is already running.

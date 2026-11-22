@@ -284,7 +284,6 @@ impl<'a, M> Widget<M, Theme, Renderer> for Entrance<'a, M> {
         let prev = ALPHA.replace(self.alpha);
         let faded = renderer::Style {
             text_color: style.text_color.scale_alpha(self.alpha),
-            ..*style
         };
         self.content
             .as_widget()

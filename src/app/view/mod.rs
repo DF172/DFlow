@@ -793,15 +793,17 @@ bg={bg_ms:.1}ms n={view_count}"
                     .then_some(sel_h)
                     .flatten()
                     .and_then(|h| {
-                        let indexed = match tab.scene.document.get_entity(h) {
-                            Some(codec::EntityType::LwPolyline(_))
-                            | Some(codec::EntityType::Polyline2D(_))
-                            | Some(codec::EntityType::Polyline3D(_))
-                            | Some(codec::EntityType::Spline(_))
-                            | Some(codec::EntityType::Face3D(_))
-                            | Some(codec::EntityType::PolygonMesh(_)) => true,
-                            _ => false,
-                        };
+                        let indexed = matches!(
+                            tab.scene.document.get_entity(h),
+                            Some(
+                                codec::EntityType::LwPolyline(_)
+                                    | codec::EntityType::Polyline2D(_)
+                                    | codec::EntityType::Polyline3D(_)
+                                    | codec::EntityType::Spline(_)
+                                    | codec::EntityType::Face3D(_)
+                                    | codec::EntityType::PolygonMesh(_)
+                            )
+                        );
                         indexed.then_some(tab.properties.prop_vertex)
                     });
                 // In-viewport grips are model-space; project them with the

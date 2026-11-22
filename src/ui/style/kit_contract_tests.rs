@@ -2139,7 +2139,6 @@ struct Counts {
     size_unexpected_hosts: Vec<String>,
     builtin_style_call: usize,
     vendor_style_fns: usize,
-    vendor_text_size_fns: usize,
 }
 
 fn collect_rs_files(dir: &Path, out: &mut Vec<PathBuf>) {
@@ -2371,8 +2370,6 @@ fn blank_literals(src: &str) -> Vec<char> {
                 }
                 blank(&mut c, i, e.min(n));
                 i = e.min(n);
-            } else if ch == 'b' && i + 1 < n && c[i + 1] == '\'' {
-                i += 1;
             } else {
                 i += 1;
             }
@@ -2544,7 +2541,6 @@ fn scan_src() -> Counts {
 
     let mut c = Counts {
         vendor_style_fns: style_fns.len(),
-        vendor_text_size_fns: text_size_fns.len(),
         ..Default::default()
     };
     for path in files {

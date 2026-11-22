@@ -95,11 +95,13 @@ fn eigen(m: DMat3) -> ([f64; 3], [DVec3; 3]) {
         let t =
             (if theta >= 0.0 { 1.0 } else { -1.0 }) / (theta.abs() + (theta * theta + 1.0).sqrt());
         let (c, s) = (1.0 / (t * t + 1.0).sqrt(), t / (t * t + 1.0).sqrt());
-        for k in 0..3 {
-            let (akp, akq) = (a[k][p], a[k][q]);
-            a[k][p] = c * akp - s * akq;
-            a[k][q] = s * akp + c * akq;
+        for row in a.iter_mut() {
+            let (akp, akq) = (row[p], row[q]);
+            row[p] = c * akp - s * akq;
+            row[q] = s * akp + c * akq;
         }
+        // Column rotation reads two different rows; an index loop is required.
+        #[allow(clippy::needless_range_loop)]
         for k in 0..3 {
             let (apk, aqk) = (a[p][k], a[q][k]);
             a[p][k] = c * apk - s * aqk;

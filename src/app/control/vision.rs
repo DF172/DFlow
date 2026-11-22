@@ -93,8 +93,7 @@ pub(crate) fn draw_som_badge(
         if let Some(digit) = ch.to_digit(10) {
             let d = digit as usize;
             if d < 10 {
-                for r in 0..7 {
-                    let row_bits = DIGITS_5X7[d][r];
+                for (r, &row_bits) in DIGITS_5X7[d].iter().enumerate() {
                     for c in 0..5 {
                         if (row_bits & (1 << (4 - c))) != 0 {
                             let px = cur_x + c;

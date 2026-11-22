@@ -145,6 +145,7 @@ pub fn restore_window_if_minimized() -> bool {
         SetWindowPos, ShowWindow, HWND_BOTTOM, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE,
         SW_SHOWNOACTIVATE,
     };
+    #[allow(clippy::upper_case_acronyms)] // Win32 ABI type name
     type BOOL = i32;
 
     struct Context {

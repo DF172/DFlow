@@ -1027,7 +1027,7 @@ impl DraftFlowCAD {
                 .iter()
                 .map(|(k, v)| (k.clone(), *v))
                 .collect();
-            items.sort_by(|a, b| b.1.cmp(&a.1));
+            items.sort_by_key(|item| std::cmp::Reverse(item.1));
             items.truncate(200);
             self.block_freq = items.into_iter().collect();
         }

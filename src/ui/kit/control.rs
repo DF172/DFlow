@@ -361,7 +361,6 @@ pub fn state_pill<'a, M: 'a>(
     let body = row![
         dot,
         text(label).size(tokens::TEXT_LABEL).style({
-            let ink = ink;
             move |theme: &Theme| match draftflow_colors(theme) {
                 Some(colors) => label::color_style(if live { colors.ink } else { ink }),
                 None => label::muted_style(theme),

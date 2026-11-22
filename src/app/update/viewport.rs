@@ -2972,11 +2972,7 @@ impl DraftFlowCAD {
             // the click and shift the returned wires back to the
             // offset-relative frame the renderer expects (model space
             // only; paper-space entities use sheet coordinates).
-            let wo_local = if self.tabs[i].scene.current_layout == "Model" {
-                [0.0_f64; 3]
-            } else {
-                [0.0; 3]
-            };
+            let wo_local = [0.0_f64; 3];
             let wo_f = glam::DVec3::new(wo_local[0], wo_local[1], wo_local[2]);
             let effective_wcs = effective + wo_f;
 
@@ -4611,11 +4607,7 @@ impl DraftFlowCAD {
             // entities are already in sheet coordinates). Without this,
             // TRIM/EXTEND/FILLET pick the wrong side on UTM-scale files.
             let pick_wcs = {
-                let wo = if self.tabs[i].scene.current_layout == "Model" {
-                    [0.0_f64; 3]
-                } else {
-                    [0.0; 3]
-                };
+                let wo = [0.0_f64; 3];
                 world_pt + glam::DVec3::new(wo[0], wo[1], wo[2])
             };
 
@@ -5466,6 +5458,8 @@ was_selected={}",
                         }
                     }
                 } else {
+                    // The `is_none` branch above returns, so this is Some.
+                    #[allow(clippy::unnecessary_unwrap)]
                     let a = box_anchor.unwrap();
                     let box_points = [
                         a,

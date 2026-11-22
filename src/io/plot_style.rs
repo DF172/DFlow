@@ -293,8 +293,8 @@ impl PlotStyleTable {
             }
             "fill patterns.ctb" => {
                 let mut table = Self::identity(FILL_PATTERNS_PLOT_STYLE);
-                for aci in 1..=9usize {
-                    table.aci_entries[aci].fill_style = 63 + aci as u8;
+                for (aci, entry) in table.aci_entries.iter_mut().enumerate().take(10).skip(1) {
+                    entry.fill_style = 63 + aci as u8;
                 }
                 Ok(table)
             }

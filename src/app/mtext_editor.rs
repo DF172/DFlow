@@ -1356,8 +1356,8 @@ impl super::DraftFlowCAD {
             let last = para_of(last_cell);
             let mut doc = cells_to_doc(&para0, &cells);
             let end = last.min(doc.paragraphs.len().saturating_sub(1));
-            for p in first..=end {
-                doc.paragraphs[p].properties.alignment = want;
+            for para in &mut doc.paragraphs[first..=end] {
+                para.properties.alignment = want;
             }
             ed.content = text_editor::Content::with_text(&doc.to_mtext_string());
             ed.caret_blink_on = true;

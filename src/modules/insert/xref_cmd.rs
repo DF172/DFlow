@@ -159,9 +159,8 @@ impl CadCommand for XrefCommand {
                 };
                 self.step = Step::NewPath { name: name.clone() };
                 CmdResult::ReportMeasurement(format!(
-                    "{}\n{}",
-                    format!("xref name: \"{}\"", name),
-                    format!("Old path: {}", display_path(&old))
+                    "xref name: \"{name}\"\nOld path: {}",
+                    display_path(&old)
                 ))
             }
             Step::NewPath { name } => CmdResult::Dispatch(format!("XREF Path {name} {value}")),

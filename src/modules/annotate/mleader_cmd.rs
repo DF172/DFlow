@@ -46,6 +46,8 @@ pub struct MLeaderCommand {
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
+// Variant names mirror the DXF creation-order keywords.
+#[allow(clippy::enum_variant_names)]
 enum CreationOrder {
     ArrowFirst,
     LandingFirst,

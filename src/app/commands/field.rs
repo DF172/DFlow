@@ -418,19 +418,15 @@ impl DraftFlowCAD {
         };
         let (code, objects) = state.code();
         let value = state.preview.clone();
-        let field = Some((code, objects));
+        let field = (code, objects);
         match state.target {
             FieldTarget::NewText => {
                 self.close_active_modal();
                 let defaults = crate::scene::creation_style::current_text_defaults(
                     &self.tabs[i].scene.document,
                 );
-                let command = FieldPlaceCommand::new(
-                    value,
-                    field.expect("set above"),
-                    defaults.style_name,
-                    defaults.height,
-                );
+                let command =
+                    FieldPlaceCommand::new(value, field, defaults.style_name, defaults.height);
                 self.reset_command_start_state(i);
                 self.command_line.push_info(&command.prompt());
                 self.tabs[i].active_cmd = Some(Box::new(command));
@@ -440,14 +436,14 @@ impl DraftFlowCAD {
             FieldTarget::AttdefDefault => {
                 if let Some(dialog) = self.attdef_dialog.as_mut() {
                     dialog.default = value;
-                    dialog.field = field;
+                    dialog.field = Some(field);
                 }
                 self.open_modal(crate::app::ModalKind::AttDef);
             }
             FieldTarget::AttdefEdit => {
                 if let Some(edit) = self.attdef_edit.as_mut() {
                     edit.default = value;
-                    edit.field = field;
+                    edit.field = Some(field);
                     edit.field_changed = true;
                 }
                 self.open_modal(crate::app::ModalKind::AttDefEdit);

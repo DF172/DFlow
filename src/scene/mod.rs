@@ -269,7 +269,7 @@ impl Scene {
     /// their own points and are left alone; non-solids are untouched.
     /// Idempotent: a wire already carrying 3D snaps is skipped, so shared
     /// memo entries can pass through every assembly path safely.
-    pub(crate) fn attach_solid_snaps(&self, handle: Handle, wires: &mut Vec<WireModel>) {
+    pub(crate) fn attach_solid_snaps(&self, handle: Handle, wires: &mut [WireModel]) {
         use crate::scene::model::wire_model::SnapHint;
         let points = self.solid_snap_points(handle);
         if points.is_empty() {
@@ -429,7 +429,7 @@ impl Scene {
             let start = candidate.start as usize;
             let mut v = [glam::DVec3::ZERO; 3];
             let mut ok = true;
-            for slot in 0..3 {
+            for (slot, target) in v.iter_mut().enumerate() {
                 let Some(&index) = lod.indices.get(start + slot) else {
                     ok = false;
                     break;
@@ -444,12 +444,12 @@ impl Scene {
                     ok = false;
                     break;
                 };
-                v[slot] = glam::DVec3::new(
+                *target = glam::DVec3::new(
                     high[0] as f64 + low[0] as f64,
                     high[1] as f64 + low[1] as f64,
                     high[2] as f64 + low[2] as f64,
                 );
-                if !v[slot].is_finite() {
+                if !target.is_finite() {
                     ok = false;
                     break;
                 }
@@ -1642,9 +1642,7 @@ fn offset_centroid(e: &EntityType, model_block: Handle, prep: &OffsetPrep) -> Op
         set.contains(&h)
     } else if c.owner_handle == model_block {
         true
-    } else if !c.owner_handle.is_null() {
-        false
-    } else if prep.owned_by_other_block.contains(&h) {
+    } else if !c.owner_handle.is_null() || prep.owned_by_other_block.contains(&h) {
         false
     } else {
         // owner null + h not enumerated by any block: legacy permissive
@@ -2778,6 +2776,8 @@ impl Scene {
             // One pane mapped to tile 0 — matches the single default tile above.
             model_panes: iced::widget::pane_grid::State::new(0).0,
             model_pane_min_px: std::sync::Arc::new(std::sync::atomic::AtomicU32::new(0)),
+            // Single-threaded UI state; the Arc is historical.
+            #[allow(clippy::arc_with_non_send_sync)]
             selection: std::sync::Arc::new(std::cell::RefCell::new(SelectionState::default())),
             document: CadDocument::new(),
             last_created_dimension: None,
@@ -8928,12 +8928,16 @@ impl Scene {
             *self.viewport_style_override_cache.borrow_mut() =
                 Some((self.geometry_epoch, overridden));
         }
-        self.viewport_style_override_cache
+        let overridden = self
+            .viewport_style_override_cache
             .borrow()
             .as_ref()
-            .is_some_and(|(_, overridden)| overridden.contains(&viewport))
-            .then_some(viewport.value())
-            .unwrap_or(0)
+            .is_some_and(|(_, overridden)| overridden.contains(&viewport));
+        if overridden {
+            viewport.value()
+        } else {
+            0
+        }
     }
 
     /// Hatch / 2-D-solid fills for a content viewport, with its frozen layers
@@ -12866,14 +12870,14 @@ mod section_tests {
             bottom_height: 2.0,
             indicator_alpha: 70,
             indicator_color: Color::from_index(9),
-            back_line_vertices: (depth > 0.0)
-                .then(|| {
-                    vertices
-                        .iter()
-                        .map(|point| *point + Vector3::new(-depth, 0.0, 0.0))
-                        .collect()
-                })
-                .unwrap_or_default(),
+            back_line_vertices: if depth > 0.0 {
+                vertices
+                    .iter()
+                    .map(|point| *point + Vector3::new(-depth, 0.0, 0.0))
+                    .collect()
+            } else {
+                Default::default()
+            },
             vertices,
             settings_handle: Handle::NULL,
         }

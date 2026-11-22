@@ -2121,7 +2121,7 @@ impl DraftFlowCAD {
                         self.ribbon.close_dropdown();
                         crate::ui::motion::start_intro();
                     }
-                    if self.tabs[idx].is_start
+                    if (self.tabs[idx].is_start
                         && matches!(
                             self.active_modal,
                             Some(
@@ -2129,10 +2129,9 @@ impl DraftFlowCAD {
                                     | super::ModalKind::LayerStateManager
                                     | super::ModalKind::LayerStateEditor
                             )
-                        )
+                        ))
+                        || self.active_modal == Some(super::ModalKind::LayerStateEditor)
                     {
-                        self.close_active_modal();
-                    } else if self.active_modal == Some(super::ModalKind::LayerStateEditor) {
                         self.close_active_modal();
                     } else if self.active_modal == Some(super::ModalKind::LayerStateManager) {
                         let mut names: Vec<String> = self.tabs[idx]

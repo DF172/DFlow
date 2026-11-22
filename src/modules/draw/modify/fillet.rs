@@ -1117,11 +1117,9 @@ fn fillet_line_arc(
         let arc_click_angle = arc_angle_at(ac, click_arc);
         let arc_click_clamped = clamp_angle_to_arc(arc_click_angle, a_start, a_end);
         // Keep the arc side from i_clamped toward the click
-        let new_arc = if {
-            let sp_to_click = arc_span(i_clamped, arc_click_clamped);
-            let sp_click_to_end = arc_span(arc_click_clamped, a_end);
-            sp_to_click <= sp_click_to_end
-        } {
+        let sp_to_click = arc_span(i_clamped, arc_click_clamped);
+        let sp_click_to_end = arc_span(arc_click_clamped, a_end);
+        let new_arc = if sp_to_click <= sp_click_to_end {
             trim_arc(arc, i_clamped, a_end)
         } else {
             trim_arc(arc, a_start, i_clamped)

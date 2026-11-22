@@ -1523,6 +1523,8 @@ fn build_selection_overlay_element(
     use DraftFlowCAD::scene::parametric_constraints::GlyphEntry;
     use DraftFlowCAD::snap::SnapType;
 
+    // Single-threaded bench fixture; the Arc is kept for parity with the app.
+    #[allow(clippy::arc_with_non_send_sync)]
     let selection = Arc::new(std::cell::RefCell::new(SelectionState::default()));
     let grips: Vec<GripMarker> = (0..n_grips)
         .map(|i| GripMarker {
