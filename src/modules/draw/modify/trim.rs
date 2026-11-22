@@ -1384,9 +1384,7 @@ fn trim_lwpolyline(poly: &LwPolyline, cx: f64, cy: f64, geos: &[Geo]) -> Option<
                 break;
             }
         }
-        let Some((lo, hi)) = removed else {
-            return None;
-        };
+        let (lo, hi) = removed?;
         let mut s1 = lo;
         while s1 <= hi {
             s1 += total;
@@ -1409,9 +1407,7 @@ fn trim_lwpolyline(poly: &LwPolyline, cx: f64, cy: f64, geos: &[Geo]) -> Option<
                 break;
             }
         }
-        let Some((lo, hi)) = removed else {
-            return None;
-        };
+        let (lo, hi) = removed?;
         if lo > 1e-6 {
             if let Some(piece) = extract_sub_polyline(poly, 0.0, lo) {
                 out.push(EntityType::LwPolyline(piece));

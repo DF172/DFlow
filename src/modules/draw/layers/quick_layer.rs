@@ -99,12 +99,9 @@ impl QuickLayerCommand {
         let mut gaps = 0usize;
 
         for wanted in query.chars() {
-            let Some(relative) = chars[cursor..]
+            let relative = chars[cursor..]
                 .iter()
-                .position(|candidate| *candidate == wanted)
-            else {
-                return None;
-            };
+                .position(|candidate| *candidate == wanted)?;
 
             gaps += relative;
             cursor += relative + 1;

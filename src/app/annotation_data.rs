@@ -1308,7 +1308,7 @@ impl DraftFlowCAD {
     pub(super) fn on_data_link_browse(&mut self) -> Task<Message> {
         Task::perform(
             async {
-                let Some(handle) = crate::sys::file_dialog()
+                let handle = crate::sys::file_dialog()
                     .set_title(crate::t!("Choose a Spreadsheet File").as_ref())
                     .add_filter(
                         crate::t!("Spreadsheet Files").as_ref(),
@@ -1316,10 +1316,7 @@ impl DraftFlowCAD {
                     )
                     .add_filter(crate::t!("All Files").as_ref(), &["*"])
                     .pick_file()
-                    .await
-                else {
-                    return None;
-                };
+                    .await?;
                 let path = crate::sys::handle_path(&handle);
                 // The browser forgets the file the moment the pick resolves:
                 // keep its bytes so preview, save, and later re-opens read

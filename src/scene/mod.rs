@@ -350,7 +350,7 @@ impl Scene {
                             screen: [f32; 2],
                             d2: f32,
                             handle: Handle| {
-            if !(d2 < radius2) || !in_bounds(screen) {
+            if d2.is_nan() || d2 >= radius2 || !in_bounds(screen) {
                 return;
             }
             let (tier, sub) = (snap_tier(snap_type), snap_priority(snap_type));

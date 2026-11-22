@@ -1101,7 +1101,7 @@ fn clip_unbounded_to_bounds(
     if forward_only {
         entered = entered.max(0.0);
     }
-    if !(entered <= exited) || !entered.is_finite() || !exited.is_finite() {
+    if entered > exited || !entered.is_finite() || !exited.is_finite() {
         return None;
     }
     let start = [base[0] + entered * dx, base[1] + entered * dy];

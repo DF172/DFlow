@@ -597,14 +597,11 @@ impl CadCommand for MLeaderCommand {
                 if text.is_empty() {
                     return None;
                 }
-                let Some(layer) = self
+                let layer = self
                     .layers
                     .iter()
                     .find(|layer| layer.eq_ignore_ascii_case(text))
-                    .cloned()
-                else {
-                    return None;
-                };
+                    .cloned()?;
                 self.layer = layer;
                 self.step = Step::Options;
             }
@@ -615,13 +612,10 @@ impl CadCommand for MLeaderCommand {
             }
             Step::SelectMText => return None,
             Step::BlockSource => {
-                let Some((_, handle)) = self
+                let (_, handle) = self
                     .block_sources
                     .iter()
-                    .find(|(name, _)| name.eq_ignore_ascii_case(text))
-                else {
-                    return None;
-                };
+                    .find(|(name, _)| name.eq_ignore_ascii_case(text))?;
                 self.block_handle = Some(*handle);
                 self.content_type = LeaderContentType::Block;
                 self.step = Step::Options;

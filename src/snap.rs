@@ -1487,7 +1487,7 @@ impl Snapper {
             // degenerate geometry is rejected: with priority selection a NaN
             // would otherwise pass the gate and be chosen on rank alone,
             // feeding a NaN snap point to the renderer. (#118)
-            if !(d2 < radius2) {
+            if d2.is_nan() || d2 >= radius2 {
                 return;
             }
             let (tier, sub) = (snap_tier(snap_type), snap_priority(snap_type));
@@ -4092,7 +4092,7 @@ pub(crate) fn foot_on_triangle(
     let ac = c - a;
     let n = ab.cross(ac);
     let n2 = n.length_squared();
-    if !(n2 > 1e-24) {
+    if n2.is_nan() || n2 <= 1e-24 {
         return None;
     }
     let dist = (base - a).dot(n) / n2.sqrt();
