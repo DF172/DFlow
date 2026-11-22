@@ -186,6 +186,7 @@ pub struct CountPalette {
     /// on with all of model space (kept with the user settings).
     pub invalid_choice: u8,
     /// The list's references for (document tab id, geometry epoch, area).
+    #[allow(clippy::type_complexity)]
     pub list_cache: std::cell::RefCell<
         Option<(
             u64,

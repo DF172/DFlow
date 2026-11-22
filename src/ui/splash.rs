@@ -462,8 +462,7 @@ fn scale(w: f32, h: f32) -> f32 {
     } else {
         (h / 800.0)
             .min(w / tokens::splash::DESIGN_WIDTH)
-            .max(tokens::splash::SCALE_MIN)
-            .min(tokens::splash::SCALE_MAX)
+            .clamp(tokens::splash::SCALE_MIN, tokens::splash::SCALE_MAX)
     }
 }
 
@@ -2033,7 +2032,7 @@ mod tests {
         assert!(last_delay + last_duration <= TIMELINE_MS);
         assert!(last_delay + last_duration >= TIMELINE_MS - 1.0);
         // The playback only stretches: a shorter figure would cut the tail off.
-        assert!(INTRO_MS >= TIMELINE_MS);
+        const { assert!(INTRO_MS >= TIMELINE_MS) };
     }
 
     /// A stretched plate must keep the same figure: the mapping from wall-clock
@@ -2437,8 +2436,8 @@ mod tests {
     #[test]
     fn quiet_fades_within_its_unchanged_hold() {
         assert_eq!(QUIET_HOLD_MS, 420.0);
-        assert!(QUIET_FADE_MS > 0.0 && QUIET_FADE_MS <= 120.0);
-        assert!(QUIET_FADE_MS < QUIET_HOLD_MS);
+        const { assert!(QUIET_FADE_MS > 0.0 && QUIET_FADE_MS <= 120.0) };
+        const { assert!(QUIET_FADE_MS < QUIET_HOLD_MS) };
         let start = QUIET_HOLD_MS - QUIET_FADE_MS;
         assert_eq!(plate_alpha(&Play::Quiet, 0.0), 1.0);
         assert_eq!(plate_alpha(&Play::Quiet, start), 1.0);

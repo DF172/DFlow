@@ -46,6 +46,7 @@ pub struct RecoveryReport {
 }
 
 impl RecoveryReport {
+    #[allow(clippy::too_many_arguments)]
     pub fn recovered(
         tab_id: u64,
         path: &Path,

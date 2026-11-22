@@ -1649,26 +1649,28 @@ mod tests {
     fn the_scale_is_monotonic_and_the_shadow_grows_with_lift() {
         // The sheet draws one corner for the control family, so field and
         // control are deliberately equal; only the panel step is larger.
-        assert!(RADIUS_MARK < RADIUS_FIELD && RADIUS_FIELD <= RADIUS_CONTROL);
-        assert!(RADIUS_CONTROL < RADIUS_PANEL);
+        const { assert!(RADIUS_MARK < RADIUS_FIELD && RADIUS_FIELD <= RADIUS_CONTROL) };
+        const { assert!(RADIUS_CONTROL < RADIUS_PANEL) };
         // A square plate has to stay wider than twice the corner drawn on it, or
         // the four corners meet in the middle and the mark becomes a circle. The
         // corner a mark plate uses is [`RADIUS_MARK`], so that is the pairing
         // held: 14 px against a 2 px corner, with the field/control/panel corners
         // all too round for it (which is why `swatch` spells `RADIUS_MARK`).
-        assert!(MARK_SQUARE > RADIUS_MARK * 2.0);
+        const { assert!(MARK_SQUARE > RADIUS_MARK * 2.0) };
         // The gap ladder is a total order and every step is a real one: no two
         // rungs may be one pixel apart, or a screen choosing between them is
         // choosing nothing.
-        assert!(
-            GAP_NONE < GAP_HAIRLINE
-                && GAP_HAIRLINE < GAP_TIGHT
-                && GAP_TIGHT < GAP_CONTROL
-                && GAP_CONTROL < GAP_ROW
-                && GAP_ROW < GAP_FIELD
-                && GAP_FIELD < GAP_SECTION
-                && GAP_SECTION < PAD_PAGE
-        );
+        const {
+            assert!(
+                GAP_NONE < GAP_HAIRLINE
+                    && GAP_HAIRLINE < GAP_TIGHT
+                    && GAP_TIGHT < GAP_CONTROL
+                    && GAP_CONTROL < GAP_ROW
+                    && GAP_ROW < GAP_FIELD
+                    && GAP_FIELD < GAP_SECTION
+                    && GAP_SECTION < PAD_PAGE
+            )
+        };
         // Every law below is a closure, so the ladder's own numbers and a
         // deliberately wrong number go through the *same expression*. An inline
         // assert can only be shown to bite by breaking a constant and paying a
@@ -1798,41 +1800,45 @@ mod tests {
         // TEXT_HEADING (17) -> TEXT_SECTION (18) is a 1.06 step and sits between
         // the two tiers: it is exempt from the 1.25 floor because a panel title
         // is bold and a section heading is not, so the roles differ by weight.
-        assert!(TEXT_BODY < TEXT_HEADING && TEXT_HEADING < TEXT_SECTION);
+        const { assert!(TEXT_BODY < TEXT_HEADING && TEXT_HEADING < TEXT_SECTION) };
         // The ink ladder has to stay a ladder: if the placeholder ends up
         // quieter than faint hint text, a field reads as empty twice over.
-        assert!(INK_FAINT < INK_PLACEHOLDER && INK_PLACEHOLDER < INK_MUTED);
+        const { assert!(INK_FAINT < INK_PLACEHOLDER && INK_PLACEHOLDER < INK_MUTED) };
         // `SCRIM_INK` is not part of the ink ladder — it is a lid's opacity, and
         // it only has to stay clear of the two washes it could be confused with.
-        assert!(
-            INK_DISABLED < SCRIM_INK && SCRIM_INK < INK_PLACEHOLDER,
-            "the scrim has to read as neither disabled ink nor a placeholder"
-        );
+        const {
+            assert!(
+                INK_DISABLED < SCRIM_INK && SCRIM_INK < INK_PLACEHOLDER,
+                "the scrim has to read as neither disabled ink nor a placeholder"
+            )
+        };
         // Border weights, thin to thick. `RULE_BRAND` is not on this ladder (it
         // is a height), but it must not be so thin that it disappears at 100%
         // scale on a 1080p panel.
-        assert!(EDGE_HAIRLINE < EDGE_RING && EDGE_RING < EDGE_FRAME);
-        assert!(RULE_BRAND >= EDGE_HAIRLINE);
+        const { assert!(EDGE_HAIRLINE < EDGE_RING && EDGE_RING < EDGE_FRAME) };
+        const { assert!(RULE_BRAND >= EDGE_HAIRLINE) };
         // `WASH_POINTER` is documented as the faintest paint in the app.
-        assert!(WASH_POINTER < TINT_HERO && TINT_HERO < TINT_SELECTED);
+        const { assert!(WASH_POINTER < TINT_HERO && TINT_HERO < TINT_SELECTED) };
         // The row wash has to stay between the hover it beats and the plate above
         // it, or `WASH_ROW` is just a second name for one of them.
-        assert!(
-            WASH_POINTER < WASH_ROW && WASH_ROW < TINT_SELECTED,
-            "WASH_ROW left the wash/plate band"
-        );
-        assert!(TINT_SELECTED < TINT_ENGAGED && TINT_ENGAGED < TINT_ENGAGED_ACTIVE);
-        assert!(TINT_GHOST < TINT_DROPPED && TINT_ENGAGED_ACTIVE < TINT_DROPPED);
+        const {
+            assert!(
+                WASH_POINTER < WASH_ROW && WASH_ROW < TINT_SELECTED,
+                "WASH_ROW left the wash/plate band"
+            )
+        };
+        const { assert!(TINT_SELECTED < TINT_ENGAGED && TINT_ENGAGED < TINT_ENGAGED_ACTIVE) };
+        const { assert!(TINT_GHOST < TINT_DROPPED && TINT_ENGAGED_ACTIVE < TINT_DROPPED) };
         // A verdict band is louder than an engaged control at rest — it has to be
         // noticed — and quieter than a drag ghost, which is the thing the eye is
         // actually following.
-        assert!(TINT_ENGAGED < TONE_WASH && TONE_WASH < TINT_GHOST);
+        const { assert!(TINT_ENGAGED < TONE_WASH && TONE_WASH < TINT_GHOST) };
         // A signal chip's rung has to stay inside the dip [`painted`] compensates
         // its ink for; past [`PLATE_LADDER_DEEPEST_DIP`] the solve is calibrated to
         // a shallower plate than the one that ships, and the rest state goes back
         // to being unreadable — which is the defect `SIGNAL_DIP_REST` replaced.
-        assert!(SIGNAL_DIP_LIT < SIGNAL_DIP_REST);
-        assert!(SIGNAL_DIP_REST <= PLATE_LADDER_DEEPEST_DIP);
+        const { assert!(SIGNAL_DIP_LIT < SIGNAL_DIP_REST) };
+        const { assert!(SIGNAL_DIP_REST <= PLATE_LADDER_DEEPEST_DIP) };
         // Deliberately *not* asserted: one total order over all six rungs. A drag
         // ghost (0.22) sits between the two engaged strengths — an engaged pill
         // under the pointer is the loudest thing on screen except an open drop

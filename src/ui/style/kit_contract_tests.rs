@@ -4271,10 +4271,12 @@ fn the_plates_cut_at_the_fourteenth_screen_are_pinned() {
     // The corner. Two rungs, popped above flat, and neither is a control corner —
     // a tree-wide substitution that handed glass the field or control radius would
     // round every floating pane to a button.
-    assert!(
+    const {
+        assert!(
         tokens::RADIUS_GLASS < tokens::RADIUS_GLASS_RAISED,
         "a popped pane no longer has a larger corner than a flat one, so `raised` stopped meaning anything"
-    );
+    )
+    };
     for radius in [tokens::RADIUS_GLASS, tokens::RADIUS_GLASS_RAISED] {
         assert_ne!(
             radius, tokens::RADIUS_CONTROL,

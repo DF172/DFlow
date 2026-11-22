@@ -166,9 +166,11 @@ mod b6_empty_tests {
             first_glyph_use > paint.find("alpha::entrance(alpha").unwrap(),
             "the first glyph use must be inside the entrance closure"
         );
-        assert!(
-            LINE_GLYPH < GLYPH,
-            "the popup's mark must be the smaller of the two"
-        );
+        const {
+            assert!(
+                LINE_GLYPH < GLYPH,
+                "the popup's mark must be the smaller of the two"
+            )
+        };
     }
 }

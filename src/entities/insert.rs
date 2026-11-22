@@ -369,6 +369,7 @@ pub(crate) fn insert_attribute_entities(
         .collect()
 }
 
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn append_insert_attribute_wires(
     wires: &mut Vec<WireModel>,
     document: &codec::CadDocument,

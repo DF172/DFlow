@@ -854,6 +854,7 @@ impl UndoRecording {
     /// command; every parametric-constraint scope's before-image is a real
     /// `ParametricConstraintSet` (its `Vec` entry, once created, is never
     /// removed, so there is no "didn't exist before" case there).
+    #[allow(clippy::type_complexity)]
     pub fn into_recorded_images(
         mut self,
     ) -> (
@@ -2336,6 +2337,7 @@ pub struct Scene {
     /// filtered variants. Viewports sharing a frozen set share one entry (like
     /// the resident wire set). Empty for a viewport with no frozen layers (it
     /// reuses the unfiltered `*_arc` sets directly).
+    #[allow(clippy::type_complexity)]
     frozen_hatch_cache:
         RefCell<HashMap<(Handle, u64), HashMap<String, (u64, u64, Arc<Vec<HatchModel>>)>>>,
     frozen_wipeout_cache:
@@ -2455,6 +2457,7 @@ pub struct Scene {
     layout_names_cache: RefCell<Option<(u64, std::sync::Arc<Vec<String>>)>>,
     /// Bump on any annotation-scale list mutation.
     scale_epoch: u64,
+    #[allow(clippy::type_complexity)]
     scale_picker_cache: RefCell<
         Option<(
             u64,
@@ -12830,7 +12833,7 @@ vis_index={:.1} visible_probe={:.1}",
         let margin = 1.1_f64;
         let scale_w = vp.width / (content_w as f64 * margin);
         let scale_h = vp.height / (content_h as f64 * margin);
-        let fit_scale = scale_w.min(scale_h).min(1000.0).max(1e-6);
+        let fit_scale = scale_w.min(scale_h).clamp(1e-6, 1000.0);
 
         vp.custom_scale = fit_scale;
         vp.view_height = vp.height / fit_scale;
@@ -14320,8 +14323,9 @@ mod selection_arc_tests {
     }
 
     #[test]
+    #[allow(clippy::assertions_on_constants)] // placeholder test kept for the suite baseline
     fn selection_overlay_takes_arc() {
-        assert!(true);
+        const { assert!(true) };
     }
 }
 

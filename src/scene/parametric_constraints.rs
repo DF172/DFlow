@@ -2214,6 +2214,7 @@ impl super::Scene {
     /// origins to where the solve left the constraint points.
     pub(crate) fn refresh_dynamic_dimension_texts(&mut self) {
         let format = self.constraint_name_format;
+        #[allow(clippy::type_complexity)]
         let mut updates: Vec<(
             Handle,
             String,

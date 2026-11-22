@@ -994,6 +994,7 @@ pub fn aabb_disjoint_xy(a: [f32; 4], b: [f32; 4]) -> bool {
 ///
 /// Returns `None` if no defn is cached for `ins.block_name`. Returns
 /// `Some(empty)` if the defn exists but is empty.
+#[allow(clippy::too_many_arguments)]
 pub fn expand_insert(
     doc: &CadDocument,
     cache: &BlockCache,
@@ -1617,6 +1618,7 @@ struct Batches {
 }
 
 impl BatchEntry {
+    #[allow(clippy::too_many_arguments)]
     fn new(
         color: [f32; 4],
         contrast_bg: Option<[f32; 4]>,
@@ -1785,6 +1787,7 @@ impl Batches {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn style_key(
     color: [f32; 4],
     contrast_bg: Option<[f32; 4]>,

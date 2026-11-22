@@ -2189,9 +2189,11 @@ mod strip_layout_tests {
             band_top >= label_h - 3.0,
             "caret hit band (top {band_top}) covers the label's last line ({label_h})"
         );
-        assert!(
-            STRIP_H + 2.0 * tokens::GAP_CONTROL <= TOOL_BAR_H,
-            "a {STRIP_H} px strip cell no longer fits the sheet's {TOOL_BAR_H} px band"
-        );
+        const {
+            assert!(
+                STRIP_H + 2.0 * tokens::GAP_CONTROL <= TOOL_BAR_H,
+                "a strip cell no longer fits the sheet's toolbar band"
+            )
+        };
     }
 }

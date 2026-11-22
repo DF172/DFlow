@@ -144,7 +144,7 @@ pub fn without_negative_zero(text: String) -> String {
 
 fn format_signed_length(value: f64) -> String {
     let ctx = unit_context();
-    let prec = ctx.luprec.max(0).min(15) as usize;
+    let prec = ctx.luprec.clamp(0, 15) as usize;
     match ctx.lunits {
         1 => format!("{:.*e}", prec, value),
         3 => {
@@ -203,7 +203,7 @@ fn format_signed_length(value: f64) -> String {
 /// scalar even when linear distances use architectural or fractional notation.
 pub fn format_area(value: f64) -> String {
     let ctx = unit_context();
-    let precision = ctx.luprec.max(0).min(15) as usize;
+    let precision = ctx.luprec.clamp(0, 15) as usize;
     if ctx.lunits == 1 {
         format!("{:.*e}", precision, value)
     } else {
@@ -218,7 +218,7 @@ pub fn format_angle(value_rad: f64) -> String {
 
 fn format_signed_angle(value_rad: f64) -> String {
     let ctx = unit_context();
-    let prec = ctx.auprec.max(0).min(15) as usize;
+    let prec = ctx.auprec.clamp(0, 15) as usize;
     match ctx.aunits {
         1 => dms(value_rad.to_degrees(), prec),
         2 => {

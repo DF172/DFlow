@@ -1023,6 +1023,7 @@ impl canvas::Program<Message> for GridCanvas {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn selection_overlay<'a>(
     selection: Arc<RefCell<SelectionState>>,
     snap: Option<(Point, SnapType)>,
@@ -5503,7 +5504,7 @@ mod dyn_angle_layout_tests {
             );
         }
         // Sanity: the constant above is a real clearance, not zero.
-        assert!(DYN_BOX_H > 0.0);
+        const { assert!(DYN_BOX_H > 0.0) };
     }
 }
 

@@ -156,6 +156,7 @@ impl StatusBar {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn view<'a>(
         &'a self,
         snapper: &'a Snapper,

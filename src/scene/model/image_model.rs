@@ -1282,8 +1282,8 @@ mod tests {
     /// that nevertheless decodes (native headroom) always downsamples too.
     #[test]
     fn budget_constants_are_consistent() {
-        assert!(MAX_DECODE_BYTES >= MAX_DISPLAY_PIXELS * 4);
-        assert!(MAX_DISPLAY_PIXELS > 0);
+        const { assert!(MAX_DECODE_BYTES >= MAX_DISPLAY_PIXELS * 4) };
+        const { assert!(MAX_DISPLAY_PIXELS > 0) };
     }
 
     /// Downsample targets keep the aspect ratio, stay within the cap, and

@@ -1714,6 +1714,7 @@ pub(crate) fn block_content_insert(
 /// text strokes, frame, background fill) so each piece can carry its
 /// own colour.
 pub trait MultiLeaderTess {
+    #[allow(clippy::too_many_arguments)]
     fn tessellate(
         &self,
         document: &codec::CadDocument,

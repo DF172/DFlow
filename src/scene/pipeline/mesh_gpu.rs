@@ -394,6 +394,7 @@ impl MeshBatchStubs {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn make_chunk(
     device: &wgpu::Device,
     queue: &wgpu::Queue,

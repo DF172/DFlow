@@ -2569,6 +2569,7 @@ impl Pipeline {
     }
 
     /// Build resident batches and a handle index shared across viewport slots.
+    #[allow(clippy::type_complexity)]
     pub fn build_wire_buffers(
         &mut self,
         device: &wgpu::Device,
@@ -5885,6 +5886,7 @@ pub struct MultiPipeline {
     /// Definition geometry shared across viewport slots.
     pub(crate) block_geometry: wire_gpu::BlockGeometryCache,
     /// Shared resident batches, keyed by wire content identity.
+    #[allow(clippy::type_complexity)]
     pub(crate) wire_buffer_cache: rustc_hash::FxHashMap<
         u64,
         (

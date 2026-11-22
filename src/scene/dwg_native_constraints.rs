@@ -3014,6 +3014,7 @@ fn materialize_source_surface_actions(
             code: 70,
             value: AssocEvalValue::Short(value as i16),
         };
+        #[allow(clippy::type_complexity)]
         let (kind, class, dxf, values, params): (
             AssocSurfaceActionKind,
             &str,

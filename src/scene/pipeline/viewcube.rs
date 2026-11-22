@@ -1975,11 +1975,13 @@ mod label_layout_tests {
     /// actually verified on screen.
     #[test]
     fn viewcube_labels_keep_their_legibility_floor() {
-        assert!(FACE_LABEL_PX >= 18.0, "face label {FACE_LABEL_PX}");
-        assert!(
-            CARDINAL_LABEL_PX >= 16.0,
-            "cardinal label {CARDINAL_LABEL_PX}"
-        );
+        const { assert!(FACE_LABEL_PX >= 18.0, "face label below the 18 px floor") };
+        const {
+            assert!(
+                CARDINAL_LABEL_PX >= 16.0,
+                "cardinal label below the 16 px floor"
+            )
+        };
     }
 
     /// A cardinal rides the same axis as a nudge triangle. If the letter's

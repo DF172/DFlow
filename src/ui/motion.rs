@@ -1713,7 +1713,7 @@ mod gate_tests {
     fn stagger_ladder_fits_the_panel_budget() {
         let _g = GATE_LOCK.lock().unwrap();
         set_enabled(true);
-        assert!(STAGGER_SLOTS >= 2, "one slot is not a stagger");
+        const { assert!(STAGGER_SLOTS >= 2, "one slot is not a stagger") };
         for slot in 0..STAGGER_SLOTS {
             let delay = stagger_delay_ms(slot);
             assert!(delay < PANEL / 2, "slot {slot} starts too late");
@@ -1863,7 +1863,7 @@ mod b4_tests {
             "the entrance budget is part of the batch contract"
         );
         assert_eq!(EXIT, 120, "the exit budget is part of the batch contract");
-        assert!(EXIT < MODAL, "a dialog must leave faster than it arrives");
+        const { assert!(EXIT < MODAL, "a dialog must leave faster than it arrives") };
     }
 
     #[test]
@@ -2003,7 +2003,7 @@ mod b5b6_tests {
     #[test]
     fn the_press_budget_is_eighty_ms() {
         assert_eq!(PRESS, 80, "the approved press budget");
-        assert!(PRESS < HOVER, "a press resolves faster than a hover");
+        const { assert!(PRESS < HOVER, "a press resolves faster than a hover") };
     }
 
     #[test]
