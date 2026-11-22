@@ -221,6 +221,8 @@ impl PointCloudCropCommand {
         })
     }
 
+    // Command handler: it mutates the step machine, so `&mut self` is required.
+    #[allow(clippy::wrong_self_convention)]
     fn to_keep(&mut self) -> CmdResult {
         self.step = Step::Keep;
         CmdResult::NeedPoint
