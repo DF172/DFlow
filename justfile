@@ -55,4 +55,8 @@ fmt-check:
 
 # Performance gate: run the 2 000-entity scroll probe alone (20 ms p95 threshold, never relaxed).
 perf: preflight
-    D:\app\Git\bin\bash.exe -c 'RUSTC_WRAPPER= CARGO_PROFILE_TEST_CODEGEN_UNITS=256 CARGO_BUILD_JOBS=1 cargo nextest run -E "test(fps_probe_2000_scroll)"'
+    D:\app\Git\bin\bash.exe -c "RUSTC_WRAPPER= CARGO_PROFILE_TEST_CODEGEN_UNITS=256 CARGO_BUILD_JOBS=1 cargo nextest run -E 'test(fps_probe_2000_scroll)'"
+
+# Clippy gate: the workspace is warning-free as of 95b7f34, so warnings fail.
+lint: preflight
+    D:\app\Git\bin\bash.exe -c "RUSTC_WRAPPER= CARGO_BUILD_JOBS=1 cargo clippy --workspace --all-targets -- -D warnings"
