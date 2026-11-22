@@ -684,33 +684,6 @@ impl Grippable for Text {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_arabic_text_placement() {
-        let t = Text {
-            value: "بسم الله".to_string(),
-            height: 2.5,
-            insertion_point: codec::types::Vector3::new(10.0, 20.0, 0.0),
-            horizontal_alignment: HA::Left,
-            ..Default::default()
-        };
-
-        let doc = codec::CadDocument::default();
-        let placement = text_run_placement_at_scale(&t, &doc, 1.0);
-
-        // Left alignment does not depend on the script: Arabic text starts
-        // at the insertion point like any other.
-        assert!(
-            (placement.origin[0] - 10.0).abs() < 1e-9,
-            "Left-aligned Arabic text starts at the insertion point: origin_x={}",
-            placement.origin[0]
-        );
-    }
-}
-
 impl PropertyEditable for Text {
     fn geometry_properties(&self, text_style_names: &[String]) -> Vec<PropSection> {
         properties(self, text_style_names)
@@ -736,5 +709,32 @@ impl crate::entities::traits::TextContent for codec::entities::Text {
         if self.value.to_lowercase().contains(&search_lc) {
             self.value = self.value.replace(search, rep);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_arabic_text_placement() {
+        let t = Text {
+            value: "بسم الله".to_string(),
+            height: 2.5,
+            insertion_point: codec::types::Vector3::new(10.0, 20.0, 0.0),
+            horizontal_alignment: HA::Left,
+            ..Default::default()
+        };
+
+        let doc = codec::CadDocument::default();
+        let placement = text_run_placement_at_scale(&t, &doc, 1.0);
+
+        // Left alignment does not depend on the script: Arabic text starts
+        // at the insertion point like any other.
+        assert!(
+            (placement.origin[0] - 10.0).abs() < 1e-9,
+            "Left-aligned Arabic text starts at the insertion point: origin_x={}",
+            placement.origin[0]
+        );
     }
 }

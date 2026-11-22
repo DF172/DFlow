@@ -1277,7 +1277,7 @@ mod length_format_tests {
     fn formatted_lengths_read_back() {
         for lunits in [3, 4, 5] {
             for value in [0.995f64, 5.995, 11.999, 23.999, 66.5, 9.25] {
-                let shown = with_units(lunits, if lunits == 3 { 4 } else { 4 }, value);
+                let shown = with_units(lunits, 4, value);
                 let read = parse_length(&shown).unwrap_or_else(|| {
                     panic!("lunits {lunits} wrote {shown:?}, which does not read back")
                 });

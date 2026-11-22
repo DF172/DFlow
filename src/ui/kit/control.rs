@@ -2162,6 +2162,73 @@ where
     scrollable(content).style(scrollable_style)
 }
 
+/// The product's own mark: a lettered tile in the accent, with the sheet's
+/// name and build beside it. `None` on a vendor palette — the tile is the
+/// brand's signal plate, and painting one on another product's theme would put
+/// two identities on one window.
+///
+/// It lives here rather than in the ribbon because the ribbon may not paint:
+/// the tile is a `container::Style` literal and the two texts are `text::Style`
+/// literals, which is exactly the pair the kit contract forbids a screen from
+/// spelling. The geometry is the header row's, so it is kept beside the
+/// control ladder rather than in `tokens`: 32 is the tile's own square, and the
+/// three voices are the ones the sheet already uses for "which product", "which
+/// build".
+#[must_use]
+pub fn brand_mark<'a, M: 'a>(
+    theme: &Theme,
+    letters: &'static str,
+    name: impl text::IntoFragment<'a>,
+    build: impl text::IntoFragment<'a>,
+) -> Option<Element<'a, M>> {
+    const TILE: f32 = 32.0;
+    let colors = draftflow_colors(theme)?;
+    let tile = container(
+        text(letters)
+            .size(tokens::TEXT_LABEL)
+            .font(tokens::UI_FONT_SEMIBOLD)
+            .style(move |_: &Theme| text::Style {
+                color: Some(colors.on_accent),
+            }),
+    )
+    .width(iced::Length::Fixed(TILE))
+    .height(iced::Length::Fixed(TILE))
+    .align_x(iced::alignment::Horizontal::Center)
+    .align_y(iced::alignment::Vertical::Center)
+    .style(move |_: &Theme| container::Style {
+        background: Some(Background::Color(colors.accent)),
+        border: Border {
+            radius: tokens::RADIUS_TILE.into(),
+            ..Border::default()
+        },
+        ..container::Style::default()
+    });
+    let name = text(name)
+        .size(tokens::TEXT_META)
+        .font(tokens::UI_FONT_SEMIBOLD)
+        .style(move |_: &Theme| text::Style {
+            color: Some(colors.ink),
+        });
+    let build = text(build)
+        .size(tokens::TEXT_MICRO)
+        .style(move |_: &Theme| text::Style {
+            color: Some(colors.muted),
+        });
+    let stack = iced::widget::Column::with_children(vec![name.into(), build.into()])
+        .spacing(tokens::GAP_HAIRLINE);
+    Some(
+        row![tile, stack]
+            .spacing(tokens::GAP_FIELD)
+            .align_y(iced::Center)
+            .padding(iced::Padding {
+                left: tokens::GAP_SECTION,
+                right: tokens::GAP_SECTION,
+                ..iced::Padding::ZERO
+            })
+            .into(),
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2355,71 +2422,4 @@ mod tests {
             assert_eq!(off.shadow.color.a, 0.0, "{theme}");
         }
     }
-}
-
-/// The product's own mark: a lettered tile in the accent, with the sheet's
-/// name and build beside it. `None` on a vendor palette — the tile is the
-/// brand's signal plate, and painting one on another product's theme would put
-/// two identities on one window.
-///
-/// It lives here rather than in the ribbon because the ribbon may not paint:
-/// the tile is a `container::Style` literal and the two texts are `text::Style`
-/// literals, which is exactly the pair the kit contract forbids a screen from
-/// spelling. The geometry is the header row's, so it is kept beside the
-/// control ladder rather than in `tokens`: 32 is the tile's own square, and the
-/// three voices are the ones the sheet already uses for "which product", "which
-/// build".
-#[must_use]
-pub fn brand_mark<'a, M: 'a>(
-    theme: &Theme,
-    letters: &'static str,
-    name: impl text::IntoFragment<'a>,
-    build: impl text::IntoFragment<'a>,
-) -> Option<Element<'a, M>> {
-    const TILE: f32 = 32.0;
-    let colors = draftflow_colors(theme)?;
-    let tile = container(
-        text(letters)
-            .size(tokens::TEXT_LABEL)
-            .font(tokens::UI_FONT_SEMIBOLD)
-            .style(move |_: &Theme| text::Style {
-                color: Some(colors.on_accent),
-            }),
-    )
-    .width(iced::Length::Fixed(TILE))
-    .height(iced::Length::Fixed(TILE))
-    .align_x(iced::alignment::Horizontal::Center)
-    .align_y(iced::alignment::Vertical::Center)
-    .style(move |_: &Theme| container::Style {
-        background: Some(Background::Color(colors.accent)),
-        border: Border {
-            radius: tokens::RADIUS_TILE.into(),
-            ..Border::default()
-        },
-        ..container::Style::default()
-    });
-    let name = text(name)
-        .size(tokens::TEXT_META)
-        .font(tokens::UI_FONT_SEMIBOLD)
-        .style(move |_: &Theme| text::Style {
-            color: Some(colors.ink),
-        });
-    let build = text(build)
-        .size(tokens::TEXT_MICRO)
-        .style(move |_: &Theme| text::Style {
-            color: Some(colors.muted),
-        });
-    let stack = iced::widget::Column::with_children(vec![name.into(), build.into()])
-        .spacing(tokens::GAP_HAIRLINE);
-    Some(
-        row![tile, stack]
-            .spacing(tokens::GAP_FIELD)
-            .align_y(iced::Center)
-            .padding(iced::Padding {
-                left: tokens::GAP_SECTION,
-                right: tokens::GAP_SECTION,
-                ..iced::Padding::ZERO
-            })
-            .into(),
-    )
 }

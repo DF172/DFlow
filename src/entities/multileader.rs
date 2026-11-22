@@ -2592,6 +2592,26 @@ impl MultiLeaderTess for MultiLeader {
     }
 }
 
+/// Put the text on the right (`to_right`) or left of its landing: the text
+/// block attaches by its near edge, and left- or right-justified text turns
+/// to read away from the leader. Centred text stays centred.
+pub(crate) fn set_mleader_text_side(ml: &mut MultiLeader, to_right: bool) {
+    use codec::entities::multileader::TextAttachmentPointType;
+    let (attachment, alignment) = if to_right {
+        (TextAttachmentPointType::Left, TextAlignmentType::Left)
+    } else {
+        (TextAttachmentPointType::Right, TextAlignmentType::Right)
+    };
+    ml.text_attachment_point = attachment;
+    ml.context.text_attachment_point = attachment;
+    if ml.context.text_alignment != TextAlignmentType::Center {
+        ml.context.text_alignment = alignment;
+    }
+    if ml.text_alignment != TextAlignmentType::Center {
+        ml.text_alignment = alignment;
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2639,25 +2659,5 @@ mod tests {
             !text_wire.fill_tris.is_empty(),
             "Arabic text must emit shaped vector fill triangles"
         );
-    }
-}
-
-/// Put the text on the right (`to_right`) or left of its landing: the text
-/// block attaches by its near edge, and left- or right-justified text turns
-/// to read away from the leader. Centred text stays centred.
-pub(crate) fn set_mleader_text_side(ml: &mut MultiLeader, to_right: bool) {
-    use codec::entities::multileader::TextAttachmentPointType;
-    let (attachment, alignment) = if to_right {
-        (TextAttachmentPointType::Left, TextAlignmentType::Left)
-    } else {
-        (TextAttachmentPointType::Right, TextAlignmentType::Right)
-    };
-    ml.text_attachment_point = attachment;
-    ml.context.text_attachment_point = attachment;
-    if ml.context.text_alignment != TextAlignmentType::Center {
-        ml.context.text_alignment = alignment;
-    }
-    if ml.text_alignment != TextAlignmentType::Center {
-        ml.text_alignment = alignment;
     }
 }

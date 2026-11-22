@@ -4457,6 +4457,23 @@ fn recent_facts(path: &std::path::Path) -> (String, String) {
     (modified, size)
 }
 
+/// Item 30: hover fade weight for one grip handle.
+///
+/// The track is keyed by the owning handle and the grip index, so only the
+/// handle the pointer sits on owns a running track; the rest of a
+/// multi-selection reads 0 and keeps painting the plain handle. `edge_ramp` is
+/// edge-latched, so scanning across handles costs one track write per crossing
+/// rather than one per frame, and a 40 ms leave-then-re-enter carries on from
+/// the value it had already reached instead of restarting at zero.
+fn grip_hover_weight(owner: Option<codec::Handle>, grip_id: usize, is_hovered: bool) -> f32 {
+    let Some(owner) = owner else {
+        return 0.0;
+    };
+    let key = crate::ui::motion::grip_hover_key(&format!("{owner:?}:{grip_id}"));
+    crate::ui::motion::edge_ramp(key, is_hovered, crate::ui::motion::GRIP_HOVER);
+    crate::ui::motion::value(key)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -5169,21 +5186,4 @@ mod tests {
         });
         assert!(!live, "a departed hover must not keep the frame loop alive");
     }
-}
-
-/// Item 30: hover fade weight for one grip handle.
-///
-/// The track is keyed by the owning handle and the grip index, so only the
-/// handle the pointer sits on owns a running track; the rest of a
-/// multi-selection reads 0 and keeps painting the plain handle. `edge_ramp` is
-/// edge-latched, so scanning across handles costs one track write per crossing
-/// rather than one per frame, and a 40 ms leave-then-re-enter carries on from
-/// the value it had already reached instead of restarting at zero.
-fn grip_hover_weight(owner: Option<codec::Handle>, grip_id: usize, is_hovered: bool) -> f32 {
-    let Some(owner) = owner else {
-        return 0.0;
-    };
-    let key = crate::ui::motion::grip_hover_key(&format!("{owner:?}:{grip_id}"));
-    crate::ui::motion::edge_ramp(key, is_hovered, crate::ui::motion::GRIP_HOVER);
-    crate::ui::motion::value(key)
 }
