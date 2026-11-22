@@ -3500,20 +3500,19 @@ pub(super) fn doc_tab_bar<'a>(
 
 // ── Canvas-relative overlay positioning ────────────────────────────────────
 
-/// Wraps `panel` in a column+row of `Space` widgets so it sits at
-/// canvas-relative coordinates `(anchor.x, anchor.y)`. `panel` is wrapped
-/// in `iced::widget::opaque` so mouse events on the panel itself do not
-/// fall through to the viewport mouse area underneath; outside-click
-/// dismissal is the caller's responsibility (handled via `ViewportLeftPress`
-/// in `update.rs`, identical to how the multi-functional grip popup is
-/// dismissed). Pushed into `viewport_stack` so the anchor is interpreted
-/// in canvas-relative space, not window-relative.
+// Wraps `panel` in a column+row of `Space` widgets so it sits at
+// canvas-relative coordinates `(anchor.x, anchor.y)`. `panel` is wrapped
+// in `iced::widget::opaque` so mouse events on the panel itself do not
+// fall through to the viewport mouse area underneath; outside-click
+// dismissal is the caller's responsibility (handled via `ViewportLeftPress`
+// in `update.rs`, identical to how the multi-functional grip popup is
+// dismissed). Pushed into `viewport_stack` so the anchor is interpreted
+// in canvas-relative space, not window-relative.
 // ── Start / Welcome page ──────────────────────────────────────────────────
 //
 // Renders in place of the model-space viewport when the active tab is the
 // fixed Start tab (`DocumentTab::is_start`). English-only by design — this
 // is the public welcome screen and stays consistent across locales.
-
 /// Transparent input layer for one Model pane: a `mouse_area` filling the pane
 /// that emits pane-tagged viewport events (`idx` = the pane's tile index). The
 /// handlers offset the pane-local point to canvas coords and focus the pane.

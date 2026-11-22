@@ -1050,34 +1050,34 @@ const BASELINE_SIZE_BOX: usize = 0;
 ///     L0's surface ladder: its plate source was iced's palette pair (printed as
 ///     `Control` since decision A took that ramp over), which is decision A's gap,
 ///     not this fold's.
-/// The 15 needed no new L1 API. `Tier::style` is already documented as the sheet
-/// for a call site that holds its own `Container`, and ten L3 files already spell
-/// `.style(|theme: &Theme| kit::Tier::Float.style(theme, ""))`; the empty track is
-/// the resting fade, which is what these hosts had before.
-/// Scope proof: `D:\tmp\fold-d-rows.csv` (15 `replace` rows over 10 files) against
-/// `D:\tmp\t82-d-backup.tar`, and `container::bordered_box` now reads zero outside
-/// the whitelist. The remaining 9 rows are 4 `container::rounded_box`, 2
-/// `button::warning`, 2 `button::success`, 1 `checkbox::primary`.
-/// The fourth freeze (2026-10-17 16:1x): **9 -> 5**. Decision E folded the 4
-/// `container::rounded_box` rows, and it was a copy, not a mapping, which is why it
-/// is the second zero-pixel run of this column. `rounded_box` fills with
-/// `palette.background.weak` and inks with `weak.text`; decision A (15:1x) had made
-/// those two values *definitionally* the `Control::Weak` rung of L0's plate ladder, so
-/// the kit could hand back the same struct. `kit::dialog_body_style` is that sheet —
-/// plate and ink read from `tokens::control_plate` / `control_ink`, the border built by
-/// the vendor's own `iced::border::rounded(tokens::RADIUS_MARK)`, and `shadow`/`snap`
-/// taken from `..container::Style::default()` exactly as the vendor takes them. That
-/// last point is the whole risk of the run: every other container style in
-/// `kit::surface` writes `snap: true`, while the vendor's default `snap` is
-/// `renderer::CRISP` (off in this manifest), so spelling it the kit way would have
-/// moved pixels while every colour and corner still matched. The whole struct is
-/// compared per theme by `the_vendor_equivalents_are_exact`, whose container arm now
-/// runs alongside the button arm.
-/// Scope proof: `D:\tmp\fold-e-rows.csv` (4 `replace` rows over 4 files) against
-/// `D:\tmp\t90-backup.tar`; `container::rounded_box` reads zero outside the whitelist.
-/// The remaining **5** rows are 2 `button::warning`, 2 `button::success`, 1
-/// `checkbox::primary` — decision C and decision F, both explicitly parked by the user
-/// on 2026-10-17 ("先做 E，剩下几个先放后面").
+///     The 15 needed no new L1 API. `Tier::style` is already documented as the sheet
+///     for a call site that holds its own `Container`, and ten L3 files already spell
+///     `.style(|theme: &Theme| kit::Tier::Float.style(theme, ""))`; the empty track is
+///     the resting fade, which is what these hosts had before.
+///     Scope proof: `D:\tmp\fold-d-rows.csv` (15 `replace` rows over 10 files) against
+///     `D:\tmp\t82-d-backup.tar`, and `container::bordered_box` now reads zero outside
+///     the whitelist. The remaining 9 rows are 4 `container::rounded_box`, 2
+///     `button::warning`, 2 `button::success`, 1 `checkbox::primary`.
+///     The fourth freeze (2026-10-17 16:1x): **9 -> 5**. Decision E folded the 4
+///     `container::rounded_box` rows, and it was a copy, not a mapping, which is why it
+///     is the second zero-pixel run of this column. `rounded_box` fills with
+///     `palette.background.weak` and inks with `weak.text`; decision A (15:1x) had made
+///     those two values *definitionally* the `Control::Weak` rung of L0's plate ladder, so
+///     the kit could hand back the same struct. `kit::dialog_body_style` is that sheet —
+///     plate and ink read from `tokens::control_plate` / `control_ink`, the border built by
+///     the vendor's own `iced::border::rounded(tokens::RADIUS_MARK)`, and `shadow`/`snap`
+///     taken from `..container::Style::default()` exactly as the vendor takes them. That
+///     last point is the whole risk of the run: every other container style in
+///     `kit::surface` writes `snap: true`, while the vendor's default `snap` is
+///     `renderer::CRISP` (off in this manifest), so spelling it the kit way would have
+///     moved pixels while every colour and corner still matched. The whole struct is
+///     compared per theme by `the_vendor_equivalents_are_exact`, whose container arm now
+///     runs alongside the button arm.
+///     Scope proof: `D:\tmp\fold-e-rows.csv` (4 `replace` rows over 4 files) against
+///     `D:\tmp\t90-backup.tar`; `container::rounded_box` reads zero outside the whitelist.
+///     The remaining **5** rows are 2 `button::warning`, 2 `button::success`, 1
+///     `checkbox::primary` — decision C and decision F, both explicitly parked by the user
+///     on 2026-10-17 ("先做 E，剩下几个先放后面").
 ///
 /// The fifth freeze (2026-10-21, decision C): **5 -> 1**. The four signal-button
 /// rows left iced's sheets for `kit::signal_button_style`, each with the ground
@@ -1090,29 +1090,29 @@ const BASELINE_SIZE_BOX: usize = 0;
 ///     accept check): `Tone::Success` on `Tier::Flush`, because both guards build
 ///     on `kit::ground_style` and `Tier::Flush` *is* that pixel (`paint()` answers
 ///     `None` and `plane()` falls back to the theme base, `surface.rs:172-175`).
-/// The fold is not free, and it is not a copy: the plate, the ink and the edge are
-/// the signal chip's own rule (`painted(tone, SIGNAL_DIP_REST)` plus
-/// `resolve_edge`), not iced's palette pair. Measured on the grounds the sites
-/// actually sit on (`D:\tmp\s82c-guard2.log`, 26 themes, against
-/// `button::warning` / `button::success` at rest):
+///     The fold is not free, and it is not a copy: the plate, the ink and the edge are
+///     the signal chip's own rule (`painted(tone, SIGNAL_DIP_REST)` plus
+///     `resolve_edge`), not iced's palette pair. Measured on the grounds the sites
+///     actually sit on (`D:\tmp\s82c-guard2.log`, 26 themes, against
+///     `button::warning` / `button::success` at rest):
 ///   * warning on `Tier::Card`: |ΔL*| 0.79 / 5.73 / 7.14 (min / median / max),
 ///     ink differs 26/26, corner 0/26, frame 26/26.
 ///   * success on `Tier::Flush`: |ΔL*| 0.15 / 5.12 / 6.64, ink 26/26, corner 0/26,
 ///     frame 26/26.
-/// The corner is untouched because the iced button sheet and this one both use
-/// `RADIUS_CONTROL`; the frame moves because iced draws no border at all where the
-/// chip solves one against its plane. AA is not a threshold this fold chases: the
-/// same painter's plate/ink/edge law is swept on all seven grounds by
-/// `theme_accessibility_tests::the_signal_chip_carries_its_own_words`
-/// (`D:\tmp\s82c-guard1.log`: 1456 chip/plane pairings, 0 failures).
-/// `dialog_button_styled`/`dialog_button_styled_opt` and `modal.rs`'s local
-/// `dialog_button` now take `impl Fn` instead of a fn pointer, because a
-/// `signal_button_style(tone, ground)` result carries both decisions in its
-/// environment; every pre-existing fn-pointer call site still compiles unchanged.
-/// The column reached zero in the 35th freeze: `ui/window/plot.rs`'s
-/// `checkbox::primary` became `kit::checkbox_style`, an L1 fn that keeps iced's
-/// plate and frame untouched and dims only the tick and the label when the box
-/// cannot be picked (decision F). The neutral-plate follow-up stays on #63.
+///     The corner is untouched because the iced button sheet and this one both use
+///     `RADIUS_CONTROL`; the frame moves because iced draws no border at all where the
+///     chip solves one against its plane. AA is not a threshold this fold chases: the
+///     same painter's plate/ink/edge law is swept on all seven grounds by
+///     `theme_accessibility_tests::the_signal_chip_carries_its_own_words`
+///     (`D:\tmp\s82c-guard1.log`: 1456 chip/plane pairings, 0 failures).
+///     `dialog_button_styled`/`dialog_button_styled_opt` and `modal.rs`'s local
+///     `dialog_button` now take `impl Fn` instead of a fn pointer, because a
+///     `signal_button_style(tone, ground)` result carries both decisions in its
+///     environment; every pre-existing fn-pointer call site still compiles unchanged.
+///     The column reached zero in the 35th freeze: `ui/window/plot.rs`'s
+///     `checkbox::primary` became `kit::checkbox_style`, an L1 fn that keeps iced's
+///     plate and frame untouched and dims only the tick and the label when the box
+///     cannot be picked (decision F). The neutral-plate follow-up stays on #63.
 const BASELINE_BUILTIN_STYLE_CALL: usize = 0;
 
 /// (f) `.padding(<literal>)` — the inner padding a screen decides for itself
@@ -1279,7 +1279,7 @@ const BASELINE_BUILTIN_STYLE_CALL: usize = 0;
 /// the 0 px `PAD_PLATE` — every other `text_input` in the same dialog was already
 /// on the field rung. Measured now: 444 rows over 67 files, **411** bracket-form
 /// + **33** scalar-form, with the five heads above unchanged (this run took nine
-/// rows out of a file that is not among them).
+///   rows out of a file that is not among them).
 ///
 /// Re-frozen at **409** by #42's fifth screen (`ui/window/sheet_set.rs`, 35 rows,
 /// 34 of them a real move and one `PAD_CARD` rename at 0 px). The planner priced
@@ -1512,7 +1512,6 @@ const BASELINE_BUILTIN_STYLE_CALL: usize = 0;
 /// sides still hand-typed at L3 are in the same custody. Priced on
 /// `D:\tmp\s42-b032c-ledger.tsv`: 3 board rows and 7 lines the board cannot count
 /// (6 new L0 rungs, which price sites but draw none, and 1 export-list change).
-
 const BASELINE_OFF_TOKEN_PADDING: usize = 0;
 
 /// (g) `.text_size(<literal>)` — the point size of a widget's **own label**.
@@ -1664,7 +1663,6 @@ const BASELINE_OFF_TOKEN_TEXT_SIZE: usize = 0;
 /// those runs' own boards of 31 and 330 and are left as their records rather than
 /// re-pointed, because rewriting a finished run's arithmetic is how a chain stops being
 /// evidence.
-
 /// The chain of earlier totals below is no longer prose
 /// carried from one freeze to the next: every number is the guarded row count of that screen's
 /// own pre-batch snapshot (`D:\tmp\pre-s42-*.csv`), read by this freeze, and the freeze refuses

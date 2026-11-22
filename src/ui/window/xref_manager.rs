@@ -336,7 +336,7 @@ impl XrefManagerPanel {
     /// - Ctrl/Cmd-click toggles one row;
     /// - Shift-click extends a contiguous range from the anchor (or the
     ///   clicked row when there is no anchor yet).
-    /// Tree mode always single-selects per spec, whatever the modifiers.
+    ///   Tree mode always single-selects per spec, whatever the modifiers.
     pub fn click_select(&mut self, id: &XrefRowId, extend: SelectExtend) {
         let Some(index) = self.row_index(id) else {
             return;

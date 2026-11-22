@@ -570,7 +570,6 @@ impl DraftFlowCAD {
     /// model coords); otherwise the paper camera projects onto the sheet and
     /// the result is mapped paper→model. Used by the readout, snap and click
     /// paths so all three agree on the cursor's model location.
-
     pub(in crate::app) fn cursor_model_point(
         &self,
         i: usize,
@@ -641,12 +640,11 @@ impl DraftFlowCAD {
         point.is_finite().then_some(point)
     }
 
-    /// Projection + hit-test wires for the active pane. Inside a floating
-    /// viewport (`edit_cam` Some) it returns the viewport camera and the live
-    /// **model** wires, so wire / hatch picking lands on the entity under the
-    /// cursor exactly where the GPU draws it; otherwise the model/paper camera
-    /// and the normal hit-test wires. `bounds` is the pane-local rectangle.
-
+    // Projection + hit-test wires for the active pane. Inside a floating
+    // viewport (`edit_cam` Some) it returns the viewport camera and the live
+    // **model** wires, so wire / hatch picking lands on the entity under the
+    // cursor exactly where the GPU draws it; otherwise the model/paper camera
+    // and the normal hit-test wires. `bounds` is the pane-local rectangle.
     /// The entities a selection box from `a` to `p` (tile pixels) catches,
     /// as a window or crossing, through the wire, hatch and mesh tests — the
     /// one box test the drag and click-move-click gestures and automation

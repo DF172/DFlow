@@ -109,7 +109,6 @@ pub struct Colors {
 impl Colors {
     /// The scheme's shell, panel, and surface tokens in one tuple, in the order
     /// [`crate::ui::style::tokens::surface`] walks them.
-    #[must_use]
     pub fn raised(self) -> [Color; 4] {
         [self.panel, self.panel2, self.surface, self.file]
     }

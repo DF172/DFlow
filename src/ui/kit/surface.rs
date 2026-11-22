@@ -184,7 +184,6 @@ impl Tier {
 /// which is what a flush container actually shows — so a band or a chip can say
 /// `kit::plane(theme, kit::Tier::Card)` and hand the solve the ground it will
 /// really sit on rather than a set of grounds it might.
-#[must_use]
 pub fn plane(theme: &Theme, tier: Tier) -> Color {
     tier.paint(theme)
         .unwrap_or_else(|| theme.palette().background.base.color)
@@ -664,7 +663,6 @@ fn swatch_border(theme: &Theme, selected: bool, hovered: bool) -> Border {
 /// The fill passes through untouched. No tier, no wash, no theme mixing: the
 /// colour *is* the information, and a palette cell that greys out on hover stops
 /// being a colour sample.
-#[must_use]
 pub fn swatch_button_style(
     fill: Color,
     selected: bool,
@@ -686,7 +684,6 @@ pub fn swatch_button_style(
 ///
 /// It cannot hover, so it never claims a hover edge — that absence is the whole
 /// difference from the button form, not a second design.
-#[must_use]
 pub fn swatch_plate_style(fill: Color, selected: bool) -> impl Fn(&Theme) -> container::Style {
     move |theme: &Theme| container::Style {
         background: Some(Background::Color(fill)),
@@ -712,7 +709,6 @@ pub fn swatch_plate_style(fill: Color, selected: bool) -> impl Fn(&Theme) -> con
 /// this cell call `legible_on` changes ink on shipped swatch labels, which is a
 /// sample-on-screen decision for #48, not a fold. Recorded here so the next reader
 /// does not "simplify" the two into one and move pixels silently.
-#[must_use]
 pub fn swatch_edit_ink(fill: Color) -> Color {
     if fill.r * 0.299 + fill.g * 0.587 + fill.b * 0.114 > 0.55 {
         Color::BLACK
@@ -731,7 +727,6 @@ pub fn swatch_edit_ink(fill: Color) -> Color {
 /// cell must outshine the others — it is a field that opens a colour window. And
 /// it supplies ink, because the label drawn over a user's colour is the one place
 /// where the kit must decide readability *for* data it does not own.
-#[must_use]
 pub fn swatch_edit_style(fill: Color) -> impl Fn(&Theme, button::Status) -> button::Style {
     move |theme: &Theme, status| {
         let hovered = matches!(status, button::Status::Hovered | button::Status::Pressed);
@@ -763,7 +758,6 @@ pub fn swatch_edit_style(fill: Color) -> impl Fn(&Theme, button::Status) -> butt
 /// opening it never makes the panel change brightness. Only the edge answers the
 /// open state, and it answers with the brand hairline at the width the page edge
 /// already uses — the same fact a focused panel border carries below.
-#[must_use]
 pub fn picker_trigger_style(engaged: bool) -> impl Fn(&Theme, button::Status) -> button::Style {
     move |theme: &Theme, status| {
         let lifted = engaged || matches!(status, button::Status::Hovered | button::Status::Pressed);
@@ -807,7 +801,6 @@ pub fn picker_trigger_style(engaged: bool) -> impl Fn(&Theme, button::Status) ->
 /// [`crate::ui::theme_accessibility_tests`] holds all four states to AA on every
 /// theme. Deleting the arm would be deleting tested behaviour to make a fold look
 /// cheaper.
-#[must_use]
 pub fn picker_tile_colors(theme: &Theme, engaged: bool, status: button::Status) -> (Color, Color) {
     let palette = theme.palette();
     if engaged {
@@ -825,7 +818,6 @@ pub fn picker_tile_colors(theme: &Theme, engaged: bool, status: button::Status) 
 
 /// The line around a [tile](picker_tile_colors): the brand while it is armed, the
 /// theme's own hairline otherwise.
-#[must_use]
 pub fn picker_tile_border(theme: &Theme, engaged: bool) -> Color {
     if engaged {
         theme.palette().primary.base.color
@@ -971,7 +963,6 @@ pub fn sheet_style(theme: &Theme, track: &'static str) -> container::Style {
 /// card. Asking the ladder for that colour at the call site would name the
 /// floating rung outside the kit, which the census forbids — so the kit hands
 /// the colour out by name and keeps the rung to itself.
-#[must_use]
 pub fn sheet_ground(theme: &Theme) -> Color {
     Tier::Float
         .paint(theme)
@@ -1225,9 +1216,9 @@ pub fn card_plate_style(theme: &Theme) -> container::Style {
 ///     [`tokens::TINT_SELECTED`] (0.12), so the page shows through the row.
 ///   * [`swatch_plate_style`] adds an accent ring when picked, which a row already
 ///     inside a panel implies.
-/// This one is the accent's own colour at full alpha with the accent's own ink:
-/// opaque, because the row it paints is a configuration row whose text has to stay
-/// readable *over* the plate rather than through it.
+///     This one is the accent's own colour at full alpha with the accent's own ink:
+///     opaque, because the row it paints is a configuration row whose text has to stay
+///     readable *over* the plate rather than through it.
 ///
 /// Deliberately not what `ui/node_graph.rs` does with the same two fields: a node
 /// header paints `primary.weak` **unconditionally**, so it is a heading wearing the
@@ -1537,7 +1528,6 @@ pub fn dialog_body_style(theme: &Theme) -> container::Style {
 /// against this plane and re-types `tokens::control_plate(theme, Control::Weak)`
 /// is a second definition of the body, and the two drift the first time the rung
 /// moves. A verdict band sitting in a dialog solves its hairline against *this*.
-#[must_use]
 pub fn dialog_body_plate(theme: &Theme) -> Color {
     tokens::control_plate(theme, tokens::Control::Weak)
 }
@@ -2022,7 +2012,6 @@ fn pill_ink_at(theme: &Theme, engage: f32, hover: f32) -> Color {
 
 /// [`pill_ink_at`] for a caller that has an id but no hover value yet — the
 /// pill's icon, which is built before any style closure runs.
-#[must_use]
 pub fn pill_ink(id: &'static str, active: bool, theme: &Theme, track: &'static str) -> Color {
     let engage = motion::engage(motion::state_key(id), active);
     let mut ink = pill_ink_at(theme, engage, pill_hover(id)).scale_alpha(fade(track));

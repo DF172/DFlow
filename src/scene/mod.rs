@@ -9637,7 +9637,6 @@ impl Scene {
     }
 
     /// Instanced hatch models keyed by their block-backed host handle.
-
     pub fn insert_hatches_for_click(&self) -> Arc<HashMap<Handle, Vec<HatchModel>>> {
         let interaction_block = self.interaction_block_handle();
         let space_key = self.interaction_space_key();

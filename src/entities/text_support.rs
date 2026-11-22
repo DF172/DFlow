@@ -288,7 +288,7 @@ pub fn text_char_cells(
 /// - `%%o` / `%%O` → overline toggle (stripped)
 /// - `%%%%` → `%`
 /// - `%%nnn` (3 decimal digits) → Unicode scalar `nnn`
-/// Any unrecognised `%%x` is passed through unchanged.
+///   Any unrecognised `%%x` is passed through unchanged.
 pub fn resolve_dxf_special_chars(s: &str) -> String {
     let mut out = String::with_capacity(s.len());
     let mut chars = s.chars().peekable();

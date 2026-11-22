@@ -491,7 +491,7 @@ mod script_tests {
 /// colour (channels 0.0–1.0, `a` always 1.0). Accepts:
 ///   * three whitespace-separated 0–255 values: `255 255 255`
 ///   * a named preset: WHITE / BLACK / GRAY|GREY / DARKGRAY|DARKGREY / LTGRAY
-/// Returns `None` if the arguments don't match either form.
+///     Returns `None` if the arguments don't match either form.
 fn parse_background_color(args: &[&str]) -> Option<[f32; 4]> {
     let to_rgba = |[r, g, b]: [u8; 3]| [r as f32 / 255.0, g as f32 / 255.0, b as f32 / 255.0, 1.0];
     // Single token: a named preset or comma-separated "r,g,b".

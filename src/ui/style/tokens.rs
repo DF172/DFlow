@@ -696,7 +696,6 @@ impl Control {
 /// and cluelessly derived"), and owning a formula I cannot justify is worse than
 /// naming one. Measured consequence: bit-exact with the palette pair on 26/26
 /// themes, 0.00 L* moved.
-#[must_use]
 pub fn control_plate(theme: &Theme, step: Control) -> Color {
     // Read the built slot rather than re-deriving it: iced stored exactly
     // `deviate(base, k)` in every built-in palette, while a hand-written
@@ -719,7 +718,6 @@ pub fn control_plate(theme: &Theme, step: Control) -> Color {
 /// The sheet selects with a neutral plate (`sel-row`), not with a tinted
 /// brand wash: vermilion is reserved for the drawing selection and focus.
 /// Vendor themes keep the accent wash the app has always used.
-#[must_use]
 pub fn selection_fill(theme: &Theme) -> Color {
     if let Some(colors) = super::draftflow_theme::draftflow_colors(theme) {
         return colors.selected_row;
@@ -732,7 +730,6 @@ pub fn selection_fill(theme: &Theme) -> Color {
 }
 
 /// The fill of a selected row while the pointer is down on it.
-#[must_use]
 pub fn selection_press_fill(theme: &Theme) -> Color {
     if let Some(colors) = super::draftflow_theme::draftflow_colors(theme) {
         return colors.active;
@@ -746,7 +743,6 @@ pub fn selection_press_fill(theme: &Theme) -> Color {
 
 /// The edge of an editable field. The sheet gives fields `line-strong`, one
 /// step above the hairline that separates two chrome planes.
-#[must_use]
 pub fn field_edge(theme: &Theme) -> Color {
     if let Some(colors) = super::draftflow_theme::draftflow_colors(theme) {
         return colors.line_strong;
@@ -760,7 +756,6 @@ pub fn field_edge(theme: &Theme) -> Color {
 /// drawing, keyboard focus, and the current value of a slider. Every other
 /// engagement is carried by the ink or the neutral plate. Vendor themes keep
 /// the aurora edge they have always used.
-#[must_use]
 pub fn focus_ring(theme: &Theme) -> Color {
     if let Some(colors) = super::draftflow_theme::draftflow_colors(theme) {
         return colors.accent;
@@ -780,7 +775,6 @@ pub fn focus_ring(theme: &Theme) -> Color {
 /// ladder owns the surface and reads the ink, and the ink stays iced's until L0
 /// has its own contrast solver in front of every control (which is decision #73's
 /// territory, not this one).
-#[must_use]
 pub fn control_ink(theme: &Theme, step: Control) -> Color {
     let bg = &palette_of(theme).background;
     match step {
@@ -1200,7 +1194,6 @@ const PLATE_LADDER_DEEPEST_DIP: f32 = HERO_DIP_PRESS;
 /// searched rather than assumed — `the_pull_keeps_the_colour_it_was_given`
 /// recomputes the same ceiling independently and fails if this function gives up
 /// more than [`CHROMA_SLACK`] under it.
-#[must_use]
 pub fn pull_to_luminance(c: Color, y: f32) -> Color {
     let yc = common::wcag_luminance(c);
     if (yc - y).abs() < 1e-5 {
@@ -1284,7 +1277,6 @@ pub(crate) const CHROMA_SLACK: f32 = 0.006;
 /// (`theme_accessibility_tests::composite_over`). L0 states it once so that a
 /// guarantee written here and a guard written there cannot disagree about where
 /// a translucent ink actually lands.
-#[must_use]
 pub fn over(ink: Color, plate: Color) -> Color {
     let a = ink.a.clamp(0.0, 1.0);
     Color {
@@ -1318,7 +1310,6 @@ pub fn over(ink: Color, plate: Color) -> Color {
 /// met before (see [`hero`]: `Y ≈ 0.19`, where no ink reaches 4.5:1); the
 /// stronger extreme is returned so the caller's guard fails loudly instead of
 /// shipping a colour that quietly cannot work.
-#[must_use]
 pub fn legible_on(ink: Color, plate: Color, min: f32) -> Color {
     let painted = over(ink, plate);
     if common::wcag_contrast(painted, plate) >= min {
@@ -1404,7 +1395,6 @@ fn legible_bound(y_ink: f32, y_plate: f32, target: f32) -> Option<f32> {
 /// [`legible_bound`] supplies the luminance, and the result is opaque: a
 /// translucent backdrop would leave the plate in the arithmetic and the ink's
 /// margin would then depend on which tint the theme happened to pick.
-#[must_use]
 pub fn backdrop_for(ink: Color, hue: Color, min: f32) -> Color {
     let y_ink = common::wcag_luminance(ink);
     let y_hue = common::wcag_luminance(hue);
@@ -1470,7 +1460,6 @@ fn pull_stops(stops: &mut [Color]) -> Color {
 
 /// The plate and ink for a single-colour painted control, given where in its
 /// own ladder it stands (`0.0` is the full-strength rung).
-#[must_use]
 pub fn painted(plate: Color, rung: f32) -> (Color, Color) {
     let mut stops = [plate];
     let ink = pull_stops(&mut stops);
@@ -1487,7 +1476,6 @@ pub fn painted(plate: Color, rung: f32) -> (Color, Color) {
 /// probe found the 0.82-alpha press over a dark ground landing in the dead band
 /// (`Y ≈ 0.19`) where neither ink reaches 4.5:1. The ladder is carried by
 /// `rung`, which moves luminance and leaves hue alone.
-#[must_use]
 pub fn hero(theme: &Theme, rung: f32) -> (Background, Color) {
     let mut stops = [aurora_hi(theme), aurora_lo(theme)];
     let ink = pull_stops(&mut stops);

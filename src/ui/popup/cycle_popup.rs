@@ -124,7 +124,6 @@ pub fn row_weight(
 /// a debug build), so this runs ONCE per overlay build and the rows only mix —
 /// see [`row_ink_mix`]. Calling it per row would spend milliseconds per frame
 /// on a list that has ten rows.
-#[must_use]
 pub fn cycle_inks(theme: &Theme) -> (iced::Color, iced::Color) {
     let base = theme.palette().background.base.text;
     let accent = kit::accent_style(theme).color.unwrap_or(base);
@@ -138,7 +137,6 @@ pub fn cycle_inks(theme: &Theme) -> (iced::Color, iced::Color) {
 /// alpha is carried through untouched. Alpha cannot carry this migration —
 /// `transparency_enable` defaults off, so alpha is forced back to 1 at draw
 /// time and a fade written as alpha would render as no change at all.
-#[must_use]
 pub fn row_ink_mix(base: iced::Color, accent: iced::Color, w: f32) -> iced::Color {
     let w = w.clamp(0.0, 1.0);
     iced::Color::from_rgba(
