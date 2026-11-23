@@ -2331,7 +2331,10 @@ mod tests {
             track.peak, 1.0,
             "the completion frame must read the peak veil",
         );
-        assert_eq!(track.settle, 0.0, "the veil must settle back to full colour");
+        assert_eq!(
+            track.settle, 0.0,
+            "the veil must settle back to full colour"
+        );
         assert_eq!(
             track.rise_ms, 0,
             "the peak must be visible on the completing frame, not eased in",
