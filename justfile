@@ -11,12 +11,12 @@ set windows-shell := ["powershell.exe", "-NoProfile", "-Command"]
 
 # Type-check the whole workspace without producing binaries.
 check:
-    cargo check --workspace --all-targets
+    $env:CARGO_BUILD_JOBS='1'; cargo check --workspace --all-targets
 
 # Full test suite (nextest for the 2 500 lib tests, cargo for doctests).
 test:
-    cargo nextest run --workspace
-    cargo test --doc
+    $env:CARGO_BUILD_JOBS='1'; cargo nextest run --workspace
+    $env:CARGO_BUILD_JOBS='1'; cargo test --doc
 
 # Run the real app with fast-release — the everyday "does it look right" loop.
 run:
