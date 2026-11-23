@@ -2320,14 +2320,26 @@ mod tests {
         let mut app = DraftFlowCAD::new_for_test();
         app.automation_op(r#"{"op":"new"}"#);
         let _ = app.run_command_line("REGEN");
+        // Read the published pulse parameters rather than the time-sampled
+        // value: a loaded runner can deschedule this test past the 160 ms fall,
+        // which made the wall-clock read flap to 0.0. The contract under test
+        // is that the completion frame starts at the peak and fades over the
+        // configured budget.
+        let track = crate::ui::motion::published_track(crate::ui::motion::REGEN_FADE)
+            .expect("REGEN must publish the fade veil");
         assert_eq!(
-            crate::ui::motion::value_or(crate::ui::motion::REGEN_FADE, -1.0),
-            1.0,
+            track.peak, 1.0,
             "the completion frame must read the peak veil",
         );
-        assert!(
-            crate::ui::motion::any_active(),
-            "an active veil must ask for frames until it settles",
+        assert_eq!(track.settle, 0.0, "the veil must settle back to full colour");
+        assert_eq!(
+            track.rise_ms, 0,
+            "the peak must be visible on the completing frame, not eased in",
+        );
+        assert_eq!(
+            track.fall_ms,
+            crate::ui::motion::REGEN_FADE_MS,
+            "the veil must fade over the configured budget",
         );
     }
 

@@ -972,6 +972,32 @@ pub fn value_or(key: &'static str, default: f32) -> f32 {
     })
 }
 
+/// The parameters a pulse was published with, independent of how much wall
+/// clock has elapsed since. Tests that assert "the completing frame reads the
+/// peak" must not race a loaded runner: sampling [`value_or`] can land after a
+/// short fall phase has already finished.
+#[cfg(test)]
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct PublishedTrack {
+    pub peak: f32,
+    pub settle: f32,
+    pub rise_ms: u64,
+    pub fall_ms: u64,
+}
+
+/// Test-only snapshot of `key`'s published pulse parameters.
+#[cfg(test)]
+pub(crate) fn published_track(key: &'static str) -> Option<PublishedTrack> {
+    TRACKS.with(|t| {
+        t.borrow().get(key).map(|tr| PublishedTrack {
+            peak: tr.peak,
+            settle: tr.settle,
+            rise_ms: tr.rise_ms,
+            fall_ms: tr.fall_ms,
+        })
+    })
+}
+
 /// Whether `key` has a track at all — running or settled.
 ///
 /// [`value_or`] cannot tell "never ran" from "ran and settled on zero", and a
