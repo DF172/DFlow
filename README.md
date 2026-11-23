@@ -16,6 +16,8 @@
 
 DraftFlow CAD is a desktop application for technical drawing, layout work, and solid modeling. It reads and writes DWG and DXF drawings natively.
 
+There is no web or browser version: the application is Windows desktop only.
+
 This is a personal, self-contained build. Keep backups of important production drawings.
 
 ## Highlights

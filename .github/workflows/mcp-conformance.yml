@@ -40,18 +40,21 @@ jobs:
             libgl1-mesa-dev libx11-dev libxcursor-dev libxi-dev libxrandr-dev \
             libxkbcommon-dev libwayland-dev libfontconfig1-dev libfreetype6-dev
 
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@1.100.0
       - uses: Swatinem/rust-cache@v2
       - uses: actions/setup-node@v4
         with:
           node-version: 24
 
+      # fast-release is the verification profile (opt2, thin codegen, no fat
+      # LTO). Shipping artifacts come from `just ship`; fat LTO on a 7 GB
+      # runner needs more memory than the runner has.
       - name: Release build
-        run: cargo build --release --locked
+        run: cargo build --profile fast-release --locked
 
       - name: Inspector config
         run: |
-          printf '{"mcpServers":{"draftflow":{"command":"%s/target/release/DraftFlowCAD","args":["--mcp"]}}}' \
+          printf '{"mcpServers":{"draftflow":{"command":"%s/target/fast-release/DraftFlowCAD","args":["--mcp"]}}}' \
             "${{ github.workspace }}" > "${{ runner.temp }}/mcp-inspector.json"
 
       - name: initialize (pure serverInfo, experimental build)

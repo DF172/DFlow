@@ -36,16 +36,27 @@ jobs:
             libgl1-mesa-dev libx11-dev libxcursor-dev libxi-dev libxrandr-dev \
             libxkbcommon-dev libwayland-dev libfontconfig1-dev libfreetype6-dev
 
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@1.100.0
 
       - uses: Swatinem/rust-cache@v2
 
+      # nextest honours .config/nextest.toml, which gives the wall-clock fps
+      # probe every core. Plain `cargo test` runs it alongside the suite and
+      # reports false 25-32 ms p95 (see the comment in that file).
+      - uses: taiki-e/install-action@nextest
+
       # LC_ALL=C: a few tests compare English message text. The GPU-backed
       # tests are #[ignore]d and need an adapter, so they do not run here.
-      - name: cargo test
+      - name: cargo nextest
         env:
           LC_ALL: C
-        run: cargo test --workspace --locked
+        run: cargo nextest run --workspace --locked
+
+      # nextest does not run doctests; keep them covered.
+      - name: cargo test --doc
+        env:
+          LC_ALL: C
+        run: cargo test --workspace --doc --locked
 
   lint:
     name: lint
@@ -62,7 +73,7 @@ jobs:
             libgl1-mesa-dev libx11-dev libxcursor-dev libxi-dev libxrandr-dev \
             libxkbcommon-dev libwayland-dev libfontconfig1-dev libfreetype6-dev
 
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@1.100.0
         with:
           components: rustfmt, clippy
 
