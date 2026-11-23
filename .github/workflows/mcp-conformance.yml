@@ -28,17 +28,12 @@ concurrency:
 
 jobs:
   inspector:
-    runs-on: ubuntu-22.04
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@v4
-
-      # Same libraries the Linux release build needs to start.
-      - name: System libraries
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            libgl1-mesa-dev libx11-dev libxcursor-dev libxi-dev libxrandr-dev \
-            libxkbcommon-dev libwayland-dev libfontconfig1-dev libfreetype6-dev
 
       - uses: dtolnay/rust-toolchain@1.100.0
       - uses: Swatinem/rust-cache@v2
@@ -54,13 +49,13 @@ jobs:
 
       - name: Inspector config
         run: |
-          printf '{"mcpServers":{"draftflow":{"command":"%s/target/fast-release/DraftFlowCAD","args":["--mcp"]}}}' \
-            "${{ github.workspace }}" > "${{ runner.temp }}/mcp-inspector.json"
+          printf '{"mcpServers":{"draftflow":{"command":"%s/target/fast-release/DraftFlowCAD.exe","args":["--mcp"]}}}' \
+            "$(pwd -W)" > mcp-inspector.json
 
       - name: initialize (pure serverInfo, experimental build)
         run: |
           npx -y @modelcontextprotocol/inspector --cli \
-            --config "${{ runner.temp }}/mcp-inspector.json" --server draftflow \
+            --config mcp-inspector.json --server draftflow \
             --method initialize --format json 2>/dev/null | jq -e '
             .result.serverInfo.name == "DraftFlowCAD"
             and ((.result.serverInfo | keys_unsorted | sort) == ["name","title","version"])
@@ -69,7 +64,7 @@ jobs:
       - name: tools/list (four tools with titles)
         run: |
           npx -y @modelcontextprotocol/inspector --cli \
-            --config "${{ runner.temp }}/mcp-inspector.json" --server draftflow \
+            --config mcp-inspector.json --server draftflow \
             --method tools/list --format json 2>/dev/null | jq -e '
             ([.result.tools[].name] | sort) == ["draftflow_capture","draftflow_execute","draftflow_read","draftflow_sessions"]
             and ([.result.tools[].title] | length == 4)'
@@ -77,14 +72,14 @@ jobs:
       - name: resources/list (reachable headless)
         run: |
           npx -y @modelcontextprotocol/inspector --cli \
-            --config "${{ runner.temp }}/mcp-inspector.json" --server draftflow \
+            --config mcp-inspector.json --server draftflow \
             --method resources/list --format json 2>/dev/null | jq -e '
             (.result.resources | type == "array")'
 
       - name: resources/templates/list (tile and snapshot templates)
         run: |
           npx -y @modelcontextprotocol/inspector --cli \
-            --config "${{ runner.temp }}/mcp-inspector.json" --server draftflow \
+            --config mcp-inspector.json --server draftflow \
             --method resources/templates/list --format json 2>/dev/null | jq -e '
             ([.result.resourceTemplates[].uriTemplate] | sort) == [
               "cad://session/{session_id}/snapshot/{hash}.png",
