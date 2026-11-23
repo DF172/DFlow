@@ -2316,8 +2316,12 @@ mod tests {
     #[test]
     fn regen_completion_publishes_the_fade_veil_at_peak() {
         let _gate = crate::ui::motion::test_gate_lock();
-        crate::ui::motion::set_enabled(true);
         let mut app = DraftFlowCAD::new_for_test();
+        // `new_for_test` builds the splash, which latches the platform motion
+        // preference via `init_from_system`. GitHub's Windows runner has
+        // "Show animations" off, so enabling before construction would be
+        // overwritten and `pulse` would collapse the durations to zero.
+        crate::ui::motion::set_enabled(true);
         app.automation_op(r#"{"op":"new"}"#);
         let _ = app.run_command_line("REGEN");
         // Read the published pulse parameters rather than the time-sampled
