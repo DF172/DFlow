@@ -77,12 +77,15 @@
 #define CargoTargetDir "D:\cargo-target"
 
 #define MyAppExe1 AddBackslash(CargoTargetDir) + "x86_64-pc-windows-msvc\release\DraftFlowCAD.exe"
+#define MyAppExe5 AddBackslash(CargoTargetDir) + "release\DraftFlowCAD.exe"   ; CARGO_TARGET_DIR 未加 target 三元组时的产物
 #define MyAppExe2 AddBackslash(SourcePath) + "..\..\target\x86_64-pc-windows-msvc\release\DraftFlowCAD.exe"
 #define MyAppExe3 AddBackslash(SourcePath) + "..\..\target\release\DraftFlowCAD.exe"
 #define MyAppExe4 AddBackslash(SourcePath) + "..\..\..\DraftFlowCAD.exe"
 
 #if FileExists(MyAppExe1)
   #define MyAppExe MyAppExe1
+#elif FileExists(MyAppExe5)
+  #define MyAppExe MyAppExe5
 #elif FileExists(MyAppExe2)
   #define MyAppExe MyAppExe2
 #elif FileExists(MyAppExe3)

@@ -2,7 +2,7 @@
   "mcpServers": {
     "draftflow": {
       "type": "stdio",
-      "command": "D:\\app\\DraftFlowCAD\\DraftFlowCAD.exe",
+      "command": "D:\\cargo-target\\release\\DraftFlowCAD.exe",
       "args": ["--mcp"]
     }
   }

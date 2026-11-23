@@ -36,7 +36,7 @@ run: preflight
 # falls back to the config-file sccache), and `--config build.rustc-wrapper=''`
 # produces a different cargo fingerprint than the env form, forcing a rebuild.
 ship: preflight
-    D:\app\Git\bin\bash.exe -c "RUSTC_WRAPPER= cargo build --release"
+    D:\app\Git\bin\bash.exe -c "RUSTC_WRAPPER= CARGO_BUILD_JOBS=1 cargo build --release"
     Write-Host ""
     Write-Host "exe: D:\cargo-target\x86_64-pc-windows-msvc\release\DraftFlowCAD.exe"
 
