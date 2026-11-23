@@ -15,15 +15,15 @@
 //! list as if it were editable history would promise exactly that. It is a
 //! table of contents, and it is labelled as one.
 
-use crate::ui::kit;
 use crate::app::Message;
 use crate::ui::dock::PanelId;
+use crate::ui::kit;
+use crate::ui::kit::plain_button;
+use crate::ui::style::tokens;
 use codec::objects::SolidHistoryOperation;
 use codec::{CadDocument, EntityType, Handle};
 use iced::widget::{column, container, text};
-use crate::ui::kit::plain_button;
 use iced::{Element, Fill};
-use crate::ui::style::tokens;
 
 /// The three world planes, with the argument `CREATESKETCH` takes for each.
 const ORIGIN_PLANES: [(&str, &str); 3] = [("XY", "XY"), ("XZ", "XZ"), ("YZ", "YZ")];
@@ -108,46 +108,33 @@ pub fn view<'a>(
     let mut tree = column![].spacing(tokens::GAP_SEAM);
     let mut rows = crate::ui::dock::Rows::of(PanelId::Browser);
 
-    tree = tree.push(rows.wrap(|| {
-        section_header(crate::t!("Origin planes").into_owned())
-    }));
+    tree = tree.push(rows.wrap(|| section_header(crate::t!("Origin planes").into_owned())));
     for (label, argument) in ORIGIN_PLANES {
-        tree = tree.push(rows.wrap(|| {
-            entry_row(label.to_string(), format!("CREATESKETCH {argument}"))
-        }));
+        tree = tree
+            .push(rows.wrap(|| entry_row(label.to_string(), format!("CREATESKETCH {argument}"))));
     }
 
-    tree = tree.push(rows.wrap(|| {
-        section_header(crate::t!("Sketch").into_owned())
-    }));
+    tree = tree.push(rows.wrap(|| section_header(crate::t!("Sketch").into_owned())));
     match open_sketch {
         Some(name) => {
-            tree = tree.push(rows.wrap(|| {
-                entry_row(name.to_string(), "FINISHSKETCH".to_string())
-            }));
+            tree = tree.push(rows.wrap(|| entry_row(name.to_string(), "FINISHSKETCH".to_string())));
         }
         None => {
-            tree = tree.push(rows.wrap(|| {
-                note_row(crate::t!("No sketch open").into_owned())
-            }));
+            tree = tree.push(rows.wrap(|| note_row(crate::t!("No sketch open").into_owned())));
         }
     }
 
     let bodies = bodies(document);
-    tree = tree.push(rows.wrap(|| {
-        section_header(crate::tf!("Bodies ({})", bodies.len()).into_owned())
-    }));
+    tree = tree
+        .push(rows.wrap(|| section_header(crate::tf!("Bodies ({})", bodies.len()).into_owned())));
     if bodies.is_empty() {
-        tree = tree.push(rows.wrap(|| {
-            note_row(crate::t!("No solids yet").into_owned())
-        }));
+        tree = tree.push(rows.wrap(|| note_row(crate::t!("No solids yet").into_owned())));
     } else {
         for (handle, label) in bodies {
             // Selecting by handle is what SELECT already takes, so clicking a
             // row reuses the ordinary selection path.
-            tree = tree.push(rows.wrap(|| {
-                entry_row(label, format!("SELECT {:X}", handle.value()))
-            }));
+            tree =
+                tree.push(rows.wrap(|| entry_row(label, format!("SELECT {:X}", handle.value()))));
         }
     }
 

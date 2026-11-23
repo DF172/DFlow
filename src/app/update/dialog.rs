@@ -6,7 +6,7 @@ use super::{format_size, VIEWCUBE_HIT_SIZE};
 use crate::app::helpers::{
     parse_coord, polar_constrain_near, ucs_rotate_vec, ucs_to_wcs, ucs_z_axis, CoordKind,
 };
-use crate::app::{Message, DraftFlowCAD, POLY_START_DELAY_MS};
+use crate::app::{DraftFlowCAD, Message, POLY_START_DELAY_MS};
 use crate::modules::ModuleEvent;
 use crate::scene::model::object::GripApply;
 use crate::scene::pick::grip::{find_hit_grip, find_hit_grip_paper, find_hit_grip_rte, GripEdit};
@@ -282,9 +282,8 @@ impl DraftFlowCAD {
             self.save_dialog_for_unsaved = true;
             let close = self.close_unsaved_dialog_window();
             let save = self.save_with_default_format(idx);
-            return Task::batch([close, save]);
+            Task::batch([close, save])
         }
-
     }
 
     /// Build a unique block name from a file stem: the stem itself, then

@@ -289,7 +289,7 @@ pub fn split_wires(wires: &[WireModel]) -> (Vec<&WireModel>, Vec<&WireModel>) {
 ///     resolve by submission order, which a tail relocation would flip.
 fn order_sensitive(wires: &[&WireModel], depth_map: &FxHashMap<u64, [f32; 2]>) -> bool {
     wires.iter().any(|w| {
-        w.color[3] < 0.999 || handle_of(w).map_or(true, |h| !depth_map.contains_key(&h.value()))
+        w.color[3] < 0.999 || handle_of(w).is_none_or(|h| !depth_map.contains_key(&h.value()))
     })
 }
 
@@ -956,10 +956,7 @@ impl WireArena {
                 bytemuck::cast_slice(&self.consts_cpu[start as usize..end as usize]),
             );
         }
-        if self.tombstoned > self.inst_tail / 2 {
-            return false;
-        }
-        true
+        self.tombstoned <= self.inst_tail / 2
     }
 
     /// One draw batch wrapping the persistent instance buffer. `instance_count`
@@ -1036,7 +1033,7 @@ impl WireArena {
         // instance drawing.
         const MAX_RANGES: usize = 64;
         if ranges.len() > MAX_RANGES {
-            let group = (ranges.len() + MAX_RANGES - 1) / MAX_RANGES;
+            let group = ranges.len().div_ceil(MAX_RANGES);
             ranges = ranges
                 .chunks(group)
                 .map(|chunk| (chunk[0].0, chunk[chunk.len() - 1].1))
@@ -1160,7 +1157,7 @@ fn visible_ranges(
     // Cap CPU draw-call overhead on pathologically interleaved draw order.
     const MAX_RANGES: usize = 64;
     if merged.len() > MAX_RANGES {
-        let group = (merged.len() + MAX_RANGES - 1) / MAX_RANGES;
+        let group = merged.len().div_ceil(MAX_RANGES);
         merged = merged
             .chunks(group)
             .map(|chunk| (chunk[0].0, chunk[chunk.len() - 1].1))
@@ -1739,8 +1736,10 @@ mod tests {
     fn patterned_circle_and_arc_stay_in_regular_wire_pipeline() {
         use crate::scene::model::wire_model::TangentGeom;
 
-        let mut circle = WireModel::default();
-        circle.points = vec![[10.0, 0.0, 0.0], [0.0, 10.0, 0.0], [-10.0, 0.0, 0.0]];
+        let mut circle = WireModel {
+            points: vec![[10.0, 0.0, 0.0], [0.0, 10.0, 0.0], [-10.0, 0.0, 0.0]],
+            ..Default::default()
+        };
         circle.tangent_geoms.push(TangentGeom::PlanarCircle {
             center: [0.0, 0.0, 0.0],
             axis_x: [1.0, 0.0, 0.0],
@@ -1750,8 +1749,10 @@ mod tests {
         circle.pattern_length = 1.0;
         circle.pattern = [0.5, -0.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0];
 
-        let mut arc = WireModel::default();
-        arc.points = vec![[10.0, 0.0, 0.0], [7.0, 7.0, 0.0], [0.0, 10.0, 0.0]];
+        let mut arc = WireModel {
+            points: vec![[10.0, 0.0, 0.0], [7.0, 7.0, 0.0], [0.0, 10.0, 0.0]],
+            ..Default::default()
+        };
         arc.tangent_geoms.push(TangentGeom::Arc {
             center: [0.0, 0.0, 0.0],
             axis_x: [1.0, 0.0, 0.0],

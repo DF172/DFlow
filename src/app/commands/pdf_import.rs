@@ -27,8 +27,9 @@ impl DraftFlowCAD {
                     return;
                 };
                 if def.unloaded {
-                    self.command_line
-                        .push_error(crate::t!("Cannot bind a PDF underlay that is unloaded.").as_ref());
+                    self.command_line.push_error(
+                        crate::t!("Cannot bind a PDF underlay that is unloaded.").as_ref(),
+                    );
                     return;
                 }
                 (
@@ -51,19 +52,24 @@ impl DraftFlowCAD {
         };
         let shown = crate::entities::underlay::display_path(&path);
         match &source {
-            PdfImportSource::Underlay(_) => self
-                .command_line
-                .push_output(&crate::tf!("Binding PDF file {shown}, page {page} ...", shown = shown, page = page)),
-            PdfImportSource::File(_) => self
-                .command_line
-                .push_output(&crate::tf!("Importing page {page} of PDF file: {shown}...", page = page, shown = shown)),
+            PdfImportSource::Underlay(_) => self.command_line.push_output(&crate::tf!(
+                "Binding PDF file {shown}, page {page} ...",
+                shown = shown,
+                page = page
+            )),
+            PdfImportSource::File(_) => self.command_line.push_output(&crate::tf!(
+                "Importing page {page} of PDF file: {shown}...",
+                page = page,
+                shown = shown
+            )),
         }
         // The underlay's own layer overrides leave those layers out.
         let hidden = crate::scene::model::pdf_layers::hidden_layers(&underlay);
         let Some(content) =
             crate::scene::model::pdf_vector::page_content_by_layer(&path, &page, &hidden)
         else {
-            self.command_line.push_error(&crate::tf!("{shown} not found.", shown = shown));
+            self.command_line
+                .push_error(&crate::tf!("{shown} not found.", shown = shown));
             return;
         };
         let settings = pdf_import::import_settings();

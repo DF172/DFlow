@@ -6,14 +6,14 @@
 //! context (`AcDb*ObjectContextData`) at that scale, removing drops it. Shares
 //! the style / scale managers' frame so it looks consistent.
 
-use crate::ui::style::tokens;
 use crate::app::Message;
 use crate::t;
 use crate::ui::kit;
 use crate::ui::kit::muted_style;
 use crate::ui::style::style_manager::{hdivider, tb_button};
+use crate::ui::style::tokens;
 use iced::widget::{column, container, mouse_area, row, text, Space};
-use iced::{Element};
+use iced::Element;
 
 /// `scales` is `(name, "paper:drawing" ratio, is_member)`. Every label is cloned
 /// into the widget tree, so the returned element borrows nothing from the args.
@@ -24,7 +24,8 @@ pub fn view_window(
 ) -> Element<'static, Message> {
     let toolbar = container(
         row![
-            text(t!("Object: %{object_label}", object_label = object_label)).size(tokens::TEXT_LABEL),
+            text(t!("Object: %{object_label}", object_label = object_label))
+                .size(tokens::TEXT_LABEL),
             Space::new().width(sizing.width),
             tb_button(t!("Close"), Message::CloseModal, true),
         ]
@@ -41,23 +42,32 @@ pub fn view_window(
             let check = crate::ui::icons::themed_check_cell(*member);
             let label = row![
                 check,
-                text(name.clone()).size(tokens::TEXT_LABEL).width(sizing.width),
-                text(ratio.clone()).size(tokens::TEXT_MICRO).style(muted_style),
+                text(name.clone())
+                    .size(tokens::TEXT_LABEL)
+                    .width(sizing.width),
+                text(ratio.clone())
+                    .size(tokens::TEXT_MICRO)
+                    .style(muted_style),
             ]
             .spacing(tokens::GAP_TIGHT)
             .align_y(iced::Center);
-            let cell = container(label).padding(crate::ui::kit::Size::Compact.padding()).width(sizing.width);
+            let cell = container(label)
+                .padding(crate::ui::kit::Size::Compact.padding())
+                .width(sizing.width);
             mouse_area(cell)
                 .on_press(Message::AnnoObjectScaleToggle(name.clone()))
                 .into()
         })
         .collect();
 
-    let list = container(crate::ui::kit::themed_scrollable(column(rows).spacing(tokens::GAP_SEAM)).height(sizing.height))
-        .style(kit::pane_plate_style)
-        .width(sizing.width)
-        .height(sizing.height)
-        .padding(tokens::GAP_HAIRLINE);
+    let list = container(
+        crate::ui::kit::themed_scrollable(column(rows).spacing(tokens::GAP_SEAM))
+            .height(sizing.height),
+    )
+    .style(kit::pane_plate_style)
+    .width(sizing.width)
+    .height(sizing.height)
+    .padding(tokens::GAP_HAIRLINE);
 
     let body = container(
         column![

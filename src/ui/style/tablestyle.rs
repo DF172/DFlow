@@ -3,11 +3,11 @@
 use crate::app::Message;
 use crate::t;
 use crate::ui::kit::muted_style;
+use crate::ui::style::tokens;
 use iced::widget::{canvas, checkbox, column, row, text, text_input, Column};
 use iced::{mouse, Color, Element, Length, Point, Rectangle, Size, Theme};
 use std::borrow::Cow;
 use std::fmt;
-use crate::ui::style::tokens;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 struct EnumChoice {
@@ -125,7 +125,7 @@ fn draw_line(
     let stroke = canvas::Stroke::default()
         .with_color(aci_color(&border.color, fallback))
         .with_width(border_width(&border.weight));
-    frame.stroke(&canvas::Path::line(a, b), stroke.clone());
+    frame.stroke(&canvas::Path::line(a, b), stroke);
     if border.double {
         let spacing = border
             .spacing
@@ -326,7 +326,10 @@ fn input_row<'a>(
     message: impl Fn(String) -> Message + 'a,
 ) -> Element<'a, Message> {
     row![
-        text(label).size(tokens::TEXT_LABEL).style(muted_style).width(155),
+        text(label)
+            .size(tokens::TEXT_LABEL)
+            .style(muted_style)
+            .width(155),
         text_input(placeholder, value)
             .on_input(message)
             .size(tokens::TEXT_LABEL)
@@ -384,9 +387,15 @@ fn cell_editor<'a>(
             ),
             theme,
         );
-        row![text(label).size(tokens::TEXT_LABEL).style(muted_style).width(155), selector]
-            .spacing(tokens::GAP_ROW)
-            .align_y(iced::Center)
+        row![
+            text(label)
+                .size(tokens::TEXT_LABEL)
+                .style(muted_style)
+                .width(155),
+            selector
+        ]
+        .spacing(tokens::GAP_ROW)
+        .align_y(iced::Center)
     };
     let selected_alignment = format!("{:?}", row_style.alignment);
     let mut content = Column::new()
@@ -415,7 +424,10 @@ fn cell_editor<'a>(
         ))
         .push(
             row![
-                text(t!("Alignment")).size(tokens::TEXT_LABEL).style(muted_style).width(155),
+                text(t!("Alignment"))
+                    .size(tokens::TEXT_LABEL)
+                    .style(muted_style)
+                    .width(155),
                 crate::ui::kit::themed_pick_list(
                     Some(EnumChoice {
                         code: selected_alignment.clone(),
@@ -469,7 +481,13 @@ fn cell_editor<'a>(
             &v.cell_format[index],
             "format",
         ))
-        .push(text(t!("Borders")).size(tokens::TEXT_LABEL).style(|theme: &Theme| crate::ui::kit::color_style(theme.palette().primary.base.color)));
+        .push(
+            text(t!("Borders"))
+                .size(tokens::TEXT_LABEL)
+                .style(|theme: &Theme| {
+                    crate::ui::kit::color_style(theme.palette().primary.base.color)
+                }),
+        );
     let borders = [
         (t!("Left"), &row_style.left_border),
         (t!("Right"), &row_style.right_border),
@@ -483,7 +501,10 @@ fn cell_editor<'a>(
         let border_type = format!("{:?}", border.border_type);
         content = content.push(
             row![
-                text(label).size(tokens::TEXT_MICRO).style(muted_style).width(96),
+                text(label)
+                    .size(tokens::TEXT_MICRO)
+                    .style(muted_style)
+                    .width(96),
                 crate::ui::kit::themed_pick_list(
                     Some(EnumChoice {
                         code: border_type.clone(),
@@ -599,7 +620,9 @@ pub fn view_window<'a>(
 ) -> Element<'a, Message> {
     let style = v.style;
     let content: Element<'a, Message> = match (v.tab, style) {
-        (_, None) => text(t!("Select a style to view details.")).size(tokens::TEXT_LABEL).into(),
+        (_, None) => text(t!("Select a style to view details."))
+            .size(tokens::TEXT_LABEL)
+            .into(),
         (0, Some(style)) => column![
             input_row(t!("Description"), "", v.description, |value| {
                 Message::TableStyleEdit {
@@ -615,7 +638,7 @@ pub fn view_window<'a>(
                 crate::ui::kit::themed_pick_list(
                     Some(EnumChoice {
                         code: format!("{:?}", style.flow_direction),
-                        label: crate::i18n::translate(&format!("{:?}", style.flow_direction))
+                        label: crate::i18n::translate(format!("{:?}", style.flow_direction))
                     }),
                     choices(&[("Down", "Top to bottom"), ("Up", "Bottom to top")]),
                     |value| value.to_string(),

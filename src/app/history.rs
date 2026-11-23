@@ -59,7 +59,6 @@ fn defer_history_drop(entries: Vec<HistorySnapshot>) {
     }
 }
 
-
 /// Pre-command state captured by [`DraftFlowCAD::begin_undo`] and handed back to
 /// [`DraftFlowCAD::commit_undo_delta`] to close a delta entry. Lives on the
 /// stack across the (synchronous) command body — no per-tab field needed.
@@ -115,6 +114,8 @@ impl DraftFlowCAD {
     fn clear_redo_history(&mut self, i: usize) {
         let discarded = std::mem::take(&mut self.tabs[i].history.redo_stack);
         defer_history_drop(discarded);
+        // A fresh edit invalidates the redo rows the undo highlight names.
+        self.undo_highlight_steps = 0;
     }
 
     fn trim_history(&mut self, i: usize) {
@@ -806,23 +807,21 @@ impl DraftFlowCAD {
         let selected_after = self.tabs[i].scene.selected.iter().copied().collect();
         let dirty_after = self.tabs[i].dirty;
         let mut structure = pending.structure_before.map(StructureSnapshot::Full);
-        if let Some(before_structure) = structure.as_mut() {
-            if let StructureSnapshot::Full(before_structure) = before_structure {
-                let after_structure = self.tabs[i].scene.document.snapshot_structure();
-                let added_handles: Vec<Handle> = entities
-                    .iter()
-                    .filter_map(|(handle, before, after)| {
-                        (before.is_none() && after.is_some()).then_some(*handle)
-                    })
-                    .collect();
-                codec::CadDocument::align_added_entity_structure(
-                    before_structure,
-                    &after_structure,
-                    &added_handles,
-                );
-                if *before_structure == after_structure {
-                    structure = None;
-                }
+        if let Some(StructureSnapshot::Full(before_structure)) = structure.as_mut() {
+            let after_structure = self.tabs[i].scene.document.snapshot_structure();
+            let added_handles: Vec<Handle> = entities
+                .iter()
+                .filter_map(|(handle, before, after)| {
+                    (before.is_none() && after.is_some()).then_some(*handle)
+                })
+                .collect();
+            codec::CadDocument::align_added_entity_structure(
+                before_structure,
+                &after_structure,
+                &added_handles,
+            );
+            if *before_structure == after_structure {
+                structure = None;
             }
         }
         if structure.is_none() && !objects.is_empty() {
@@ -1210,6 +1209,20 @@ impl DraftFlowCAD {
         self.finish_history_apply(i, had_full, layer_panel_changed, &changes);
         self.command_line
             .push_output(crate::tf!("Undo: {last_label}").as_ref());
+        // Batch 3 item 28: the entries just moved onto the redo stack are the
+        // ones the user undid. History rows have no stable id, so the redo
+        // dropdown highlights them positionally: row 0 is the last undone
+        // operation, rows 0..steps-1 after UndoMany(steps). The highlight is
+        // only visible while the dropdown is open; the command-line echo
+        // above carries the name regardless.
+        self.undo_highlight_steps = steps;
+        crate::ui::motion::pulse(
+            crate::ui::motion::UNDO_HIGHLIGHT,
+            1.0,
+            0.0,
+            0,
+            crate::ui::motion::UNDO_HIGHLIGHT_TIME,
+        );
     }
 
     pub(super) fn redo_steps(&mut self, steps: usize) {
@@ -1267,6 +1280,9 @@ impl DraftFlowCAD {
         self.finish_history_apply(i, had_full, layer_panel_changed, &changes);
         self.command_line
             .push_output(crate::tf!("Redo: {last_label}").as_ref());
+        // The highlighted rows moved back to the undo stack; the positional
+        // highlight no longer names them.
+        self.undo_highlight_steps = 0;
     }
 }
 

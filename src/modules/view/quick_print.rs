@@ -19,6 +19,12 @@ impl QuickPrintCommand {
     }
 }
 
+impl Default for QuickPrintCommand {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CadCommand for QuickPrintCommand {
     fn name(&self) -> &'static str {
         "QUICKPRINT"

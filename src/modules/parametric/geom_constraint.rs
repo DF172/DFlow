@@ -31,6 +31,12 @@ impl GeomConstraintCommand {
     }
 }
 
+impl Default for GeomConstraintCommand {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CadCommand for GeomConstraintCommand {
     fn name(&self) -> &'static str {
         "GEOMCONSTRAINT"

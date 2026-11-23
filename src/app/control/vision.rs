@@ -49,7 +49,7 @@ pub(crate) fn draw_som_badge(
     if num_digits == 0 {
         return;
     }
-    let text_w = num_digits * 5 + (num_digits - 1) * 1;
+    let text_w = num_digits * 5 + (num_digits - 1);
     let badge_w = (text_w + 8) as i32;
     let badge_h = 13i32;
 
@@ -93,11 +93,10 @@ pub(crate) fn draw_som_badge(
         if let Some(digit) = ch.to_digit(10) {
             let d = digit as usize;
             if d < 10 {
-                for r in 0..7 {
-                    let row_bits = DIGITS_5X7[d][r];
+                for (r, &row_bits) in DIGITS_5X7[d].iter().enumerate() {
                     for c in 0..5 {
                         if (row_bits & (1 << (4 - c))) != 0 {
-                            let px = cur_x + c as i32;
+                            let px = cur_x + c;
                             let py = cur_y + r as i32;
                             if px >= 0 && px < img_w && py >= 0 && py < img_h {
                                 image.put_pixel(px as u32, py as u32, text_col);
@@ -690,7 +689,7 @@ mod tests {
 
         // 1. Identical images -> changed: false
         let diff_same = compute_visual_diff(&base, &base, &p2w);
-        assert_eq!(diff_same.changed, false);
+        assert!(!diff_same.changed);
         assert_eq!(diff_same.change_percentage, 0.0);
         assert_eq!(diff_same.changed_pixels, 0);
         assert!(diff_same.dirty_pixel_bounds.is_none());
@@ -704,7 +703,7 @@ mod tests {
         }
 
         let diff_mod = compute_visual_diff(&base, &curr, &p2w);
-        assert_eq!(diff_mod.changed, true);
+        assert!(diff_mod.changed);
         assert_eq!(diff_mod.changed_pixels, 400);
         assert!(diff_mod.change_percentage > 1.0);
 

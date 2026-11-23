@@ -1,4 +1,4 @@
-use super::{FindMatchKey, Message, DraftFlowCAD};
+use super::{DraftFlowCAD, FindMatchKey, Message};
 use crate::entities::traits::EntityTypeOps;
 use codec::EntityType;
 use iced::Task;

@@ -1,21 +1,21 @@
-use crate::ui::kit;
 use super::super::Message;
 use crate::t;
+use crate::ui::kit;
+use crate::ui::kit::plain_button;
 use crate::ui::popup::context_menu::{
     ContextMenu, MenuIcon, MenuItem, MenuRow, MENU_PAD_TOP, MENU_ROW_H,
 };
+use crate::ui::style::tokens;
 use iced::advanced::layout;
 use iced::advanced::mouse;
 use iced::advanced::overlay;
 use iced::advanced::renderer;
 use iced::advanced::widget;
 use iced::advanced::{Layout, Shell, Widget};
-use iced::widget::{column, container, mouse_area, row, scrollable, stack, text, text_input, Space};
-use crate::ui::kit::plain_button;
-use iced::{
-    Color, Element, Event, Fill, Length, Rectangle, Size, Theme, Vector,
+use iced::widget::{
+    column, container, mouse_area, row, scrollable, stack, text, text_input, Space,
 };
-use crate::ui::style::tokens;
+use iced::{Color, Element, Event, Fill, Length, Rectangle, Size, Theme, Vector};
 
 pub(super) fn position_canvas_overlay<'a>(
     anchor: iced::Point,
@@ -68,7 +68,7 @@ pub(super) fn text_inline_overlay<'a>(
         (ed.screen_anchor.x - 6.0).clamp(0.0, (cw - PANEL_W).max(0.0)),
         (ed.screen_anchor.y - 18.0).clamp(0.0, (ch - PANEL_H).max(0.0)),
     );
-    position_canvas_overlay(anchor, panel.into())
+    position_canvas_overlay(anchor, panel)
 }
 
 // Stroke-font families bundled with the renderer; see scene/lff.rs.
@@ -196,11 +196,9 @@ impl iced::widget::canvas::Program<Message> for MTextPreview {
                     }
                 }
             }
-            Event::Mouse(Me::ButtonReleased(Button::Left)) => {
-                if state.dragging {
-                    state.dragging = false;
-                    return Some(Action::capture());
-                }
+            Event::Mouse(Me::ButtonReleased(Button::Left)) if state.dragging => {
+                state.dragging = false;
+                return Some(Action::capture());
             }
             _ => {}
         }
@@ -491,7 +489,11 @@ fn mtext_editor_content<'a>(
 
     let row1 = row![
         style_pl,
-        kit::labeled_checkbox(t!("Annotative").into_owned(), ed.annotative, Message::MTextAnnotative),
+        kit::labeled_checkbox(
+            t!("Annotative").into_owned(),
+            ed.annotative,
+            Message::MTextAnnotative
+        ),
         font_pl,
         small_input("2.5", &ed.height, Message::MTextHeight, 64.0),
         iced::widget::Space::new().width(tokens::GAP_CONTROL),
@@ -540,8 +542,20 @@ fn mtext_editor_content<'a>(
     .text_size(tokens::TEXT_LABEL)
     .width(iced::Length::Fixed(112.0));
     let row2 = row![
-        kit::icon_btn(lbl("↶"), kit::Role::Standard, 24.0, kit::Press::On(Message::MTextUndo), ""),
-        kit::icon_btn(lbl("↷"), kit::Role::Standard, 24.0, kit::Press::On(Message::MTextRedo), ""),
+        kit::icon_btn(
+            lbl("↶"),
+            kit::Role::Standard,
+            24.0,
+            kit::Press::On(Message::MTextUndo),
+            ""
+        ),
+        kit::icon_btn(
+            lbl("↷"),
+            kit::Role::Standard,
+            24.0,
+            kit::Press::On(Message::MTextRedo),
+            ""
+        ),
         lbl("O"),
         small_input("0", &ed.oblique, Message::MTextOblique, 48.0),
         lbl("W"),
@@ -568,9 +582,27 @@ fn mtext_editor_content<'a>(
         iced::widget::Space::new().width(tokens::GAP_CONTROL),
         justify,
         lbl("LS"),
-        kit::icon_btn(lbl("1"), kit::Role::Standard, 24.0, kit::Press::On(Message::MTextLineSpacing(1.0)), ""),
-        kit::icon_btn(lbl("1.5"), kit::Role::Standard, 24.0, kit::Press::On(Message::MTextLineSpacing(1.5)), ""),
-        kit::icon_btn(lbl("2"), kit::Role::Standard, 24.0, kit::Press::On(Message::MTextLineSpacing(2.0)), ""),
+        kit::icon_btn(
+            lbl("1"),
+            kit::Role::Standard,
+            24.0,
+            kit::Press::On(Message::MTextLineSpacing(1.0)),
+            ""
+        ),
+        kit::icon_btn(
+            lbl("1.5"),
+            kit::Role::Standard,
+            24.0,
+            kit::Press::On(Message::MTextLineSpacing(1.5)),
+            ""
+        ),
+        kit::icon_btn(
+            lbl("2"),
+            kit::Role::Standard,
+            24.0,
+            kit::Press::On(Message::MTextLineSpacing(2.0)),
+            ""
+        ),
         kit::btn(
             lbl("Stack"),
             kit::Role::Standard,
@@ -585,9 +617,27 @@ fn mtext_editor_content<'a>(
             kit::Press::On(Message::MTextClearFormatting),
             "",
         ),
-        kit::icon_btn(lbl("°"), kit::Role::Standard, 24.0, kit::Press::On(Message::MTextInsert("°".to_string())), ""),
-        kit::icon_btn(lbl("±"), kit::Role::Standard, 24.0, kit::Press::On(Message::MTextInsert("±".to_string())), ""),
-        kit::icon_btn(lbl("⌀"), kit::Role::Standard, 24.0, kit::Press::On(Message::MTextInsert("⌀".to_string())), ""),
+        kit::icon_btn(
+            lbl("°"),
+            kit::Role::Standard,
+            24.0,
+            kit::Press::On(Message::MTextInsert("°".to_string())),
+            ""
+        ),
+        kit::icon_btn(
+            lbl("±"),
+            kit::Role::Standard,
+            24.0,
+            kit::Press::On(Message::MTextInsert("±".to_string())),
+            ""
+        ),
+        kit::icon_btn(
+            lbl("⌀"),
+            kit::Role::Standard,
+            24.0,
+            kit::Press::On(Message::MTextInsert("⌀".to_string())),
+            ""
+        ),
     ]
     .spacing(tokens::GAP_TIGHT)
     .align_y(iced::Alignment::Center)
@@ -622,29 +672,72 @@ fn mtext_editor_content<'a>(
         small_input("0", &ed.column_width, Message::MTextColumnWidth, 58.0),
         lbl("Gutter"),
         small_input("0", &ed.column_gutter, Message::MTextColumnGutter, 58.0),
-        kit::labeled_checkbox(t!("Reverse").into_owned(), ed.column_flow_reversed,
-            Message::MTextColumnFlowReversed),
+        kit::labeled_checkbox(
+            t!("Reverse").into_owned(),
+            ed.column_flow_reversed,
+            Message::MTextColumnFlowReversed
+        ),
         iced::widget::Space::new().width(tokens::GAP_ROW),
         lbl("First"),
-        small_input("0", &ed.paragraph_first_indent, |value| {
-            Message::MTextParagraphNumber(super::super::mtext_editor::ParaNumber::FirstIndent, value)
-        }, 48.0),
+        small_input(
+            "0",
+            &ed.paragraph_first_indent,
+            |value| {
+                Message::MTextParagraphNumber(
+                    super::super::mtext_editor::ParaNumber::FirstIndent,
+                    value,
+                )
+            },
+            48.0
+        ),
         lbl("Left"),
-        small_input("0", &ed.paragraph_left_indent, |value| {
-            Message::MTextParagraphNumber(super::super::mtext_editor::ParaNumber::LeftIndent, value)
-        }, 48.0),
+        small_input(
+            "0",
+            &ed.paragraph_left_indent,
+            |value| {
+                Message::MTextParagraphNumber(
+                    super::super::mtext_editor::ParaNumber::LeftIndent,
+                    value,
+                )
+            },
+            48.0
+        ),
         lbl("Right"),
-        small_input("0", &ed.paragraph_right_indent, |value| {
-            Message::MTextParagraphNumber(super::super::mtext_editor::ParaNumber::RightIndent, value)
-        }, 48.0),
+        small_input(
+            "0",
+            &ed.paragraph_right_indent,
+            |value| {
+                Message::MTextParagraphNumber(
+                    super::super::mtext_editor::ParaNumber::RightIndent,
+                    value,
+                )
+            },
+            48.0
+        ),
         lbl("Before"),
-        small_input("0", &ed.paragraph_space_before, |value| {
-            Message::MTextParagraphNumber(super::super::mtext_editor::ParaNumber::SpaceBefore, value)
-        }, 48.0),
+        small_input(
+            "0",
+            &ed.paragraph_space_before,
+            |value| {
+                Message::MTextParagraphNumber(
+                    super::super::mtext_editor::ParaNumber::SpaceBefore,
+                    value,
+                )
+            },
+            48.0
+        ),
         lbl("After"),
-        small_input("0", &ed.paragraph_space_after, |value| {
-            Message::MTextParagraphNumber(super::super::mtext_editor::ParaNumber::SpaceAfter, value)
-        }, 48.0),
+        small_input(
+            "0",
+            &ed.paragraph_space_after,
+            |value| {
+                Message::MTextParagraphNumber(
+                    super::super::mtext_editor::ParaNumber::SpaceAfter,
+                    value,
+                )
+            },
+            48.0
+        ),
     ]
     .spacing(tokens::GAP_TIGHT)
     .align_y(iced::Alignment::Center)
@@ -1148,9 +1241,7 @@ pub(super) fn viewport_context_menu_overlay(
                     })
                     .width(Fill)
                     .height(Length::Fixed(MENU_ROW_H))
-                    .style(move |theme: &Theme, status| {
-                        kit::menu_row_style(theme, status, is_hl)
-                    });
+                    .style(move |theme: &Theme, status| kit::menu_row_style(theme, status, is_hl));
                 if enabled {
                     btn = btn.on_press(Message::ContextMenuSubmenuToggle(*id));
                 }
@@ -1169,13 +1260,14 @@ pub(super) fn viewport_context_menu_overlay(
         }
     }
 
-    let menu_col = column(items).spacing(tokens::GAP_NONE).width(Length::Fixed(menu.width));
-    let menu_col =
-        kit::themed_scrollable(menu_col)
-            .height(Length::Shrink)
-            .direction(scrollable::Direction::Vertical(
-                scrollable::Scrollbar::new().width(8).scroller_width(6),
-            ));
+    let menu_col = column(items)
+        .spacing(tokens::GAP_NONE)
+        .width(Length::Fixed(menu.width));
+    let menu_col = kit::themed_scrollable(menu_col)
+        .height(Length::Shrink)
+        .direction(scrollable::Direction::Vertical(
+            scrollable::Scrollbar::new().width(8).scroller_width(6),
+        ));
 
     // The menu is written on the same paper as a dropdown — `popup_plate`, the
     // `Float` rung wearing the field's edge. `popup_plate` already holds its
@@ -1194,10 +1286,7 @@ pub(super) fn viewport_context_menu_overlay(
     // afterwards, so a menu that is merely re-laid out (a submenu toggling)
     // does not re-enter.
     let open = crate::ui::motion::value(crate::ui::motion::MENU_OPEN);
-    let panel = kit::popup_plate(
-        kit::alpha::entrance(open, || plate.into()),
-        "",
-    );
+    let panel = kit::popup_plate(kit::alpha::entrance(open, || plate.into()), "");
 
     // Shift the panel so the default row's centre line is under the pointer.
     // The top inset is the paper's own gap rung plus the row's measured offset,
@@ -1225,15 +1314,17 @@ fn context_menu_row(item: &MenuItem, indent: f32, highlighted: bool) -> Element<
         .align_y(iced::Center);
     if let Some(hint) = item.hint.as_ref() {
         content = content.push(iced::widget::Space::new().width(Fill)).push(
-            text(hint.clone()).size(tokens::TEXT_LABEL).style(move |theme: &Theme| {
-                let palette = theme.palette();
-                let base = if highlighted {
-                    palette.primary.strong.text
-                } else {
-                    palette.background.base.text
-                };
-                kit::color_style(base.scale_alpha(if enabled { 0.6 } else { 0.35 }))
-            }),
+            text(hint.clone())
+                .size(tokens::TEXT_LABEL)
+                .style(move |theme: &Theme| {
+                    let palette = theme.palette();
+                    let base = if highlighted {
+                        palette.primary.strong.text
+                    } else {
+                        palette.background.base.text
+                    };
+                    kit::color_style(base.scale_alpha(if enabled { 0.6 } else { 0.35 }))
+                }),
         );
     }
     if item.checked {
@@ -1335,7 +1426,7 @@ pub(super) fn snap_override_overlay(pos: iced::Point, theme: &Theme) -> Element<
     .on_press(Message::SnapOverrideClose)
     .on_right_press(Message::SnapOverrideClose);
 
-    stack![catcher, position_canvas_overlay(pos, panel.into())].into()
+    stack![catcher, position_canvas_overlay(pos, panel)].into()
 }
 
 // ── Quick Select panel ─────────────────────────────────────────────────────
@@ -1442,8 +1533,11 @@ fn qselect_content<'a>(
         iced::Length::Shrink
     };
 
-    let label =
-        |s: std::borrow::Cow<'static, str>| text(s).size(tokens::TEXT_BODY).width(iced::Length::Fixed(112.0));
+    let label = |s: std::borrow::Cow<'static, str>| {
+        text(s)
+            .size(tokens::TEXT_BODY)
+            .width(iced::Length::Fixed(112.0))
+    };
 
     let value_editor: Element<'a, Message> = match state.property.as_ref() {
         Some(property) => match &property.editor {
@@ -1459,14 +1553,19 @@ fn qselect_content<'a>(
                 }
             }
             crate::app::QSelectValueEditor::Text | crate::app::QSelectValueEditor::Number => {
-                let mut input = text_input("", &state.value).size(tokens::TEXT_BODY).width(field_width);
+                let mut input = text_input("", &state.value)
+                    .size(tokens::TEXT_BODY)
+                    .width(field_width);
                 if value_enabled {
                     input = input.on_input(Message::QSelectSetValue);
                 }
                 input.into()
             }
         },
-        None => text_input("", "").size(tokens::TEXT_BODY).width(field_width).into(),
+        None => text_input("", "")
+            .size(tokens::TEXT_BODY)
+            .width(field_width)
+            .into(),
     };
 
     let derived_error = if candidate_count == 0 {
@@ -1549,15 +1648,18 @@ fn qselect_content<'a>(
         Space::new().height(tokens::GAP_CONTROL),
         row![
             label(t!("Property:")),
-            kit::themed_pick_list(Some(prop_sel), prop_options, |value| crate::t!(value.to_string()).into_owned(),)
-                .on_select(|p: crate::app::QSelectPropertyChoice| {
-                    if p.field.is_empty() {
-                        Message::QSelectSetProperty(None)
-                    } else {
-                        Message::QSelectSetProperty(Some(p))
-                    }
-                })
-                .width(field_width),
+            kit::themed_pick_list(Some(prop_sel), prop_options, |value| crate::t!(
+                value.to_string()
+            )
+            .into_owned(),)
+            .on_select(|p: crate::app::QSelectPropertyChoice| {
+                if p.field.is_empty() {
+                    Message::QSelectSetProperty(None)
+                } else {
+                    Message::QSelectSetProperty(Some(p))
+                }
+            })
+            .width(field_width),
         ]
         .align_y(iced::Alignment::Center)
         .spacing(tokens::GAP_ROW)

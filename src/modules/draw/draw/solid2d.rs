@@ -58,6 +58,12 @@ impl Solid2dCommand {
     }
 }
 
+impl Default for Solid2dCommand {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CadCommand for Solid2dCommand {
     fn set_working_plane(&mut self, plane: WorkingPlane) {
         self.plane = plane;

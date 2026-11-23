@@ -12,13 +12,10 @@ use iced::advanced::{
 };
 // Ribbon tooltips anchor to the right of their button so the cursor — which
 // rests on the button itself — never covers the tip text. (#143)
+use crate::ui::kit::plain_button;
 use iced::widget::tooltip::Position as TipPos;
 use iced::widget::{button, column, container, mouse_area, row, text, tooltip};
-use crate::ui::kit::plain_button;
-use iced::{
-    Color, Element, Event, Fill, Length, Padding, Pixels, Rectangle, Size,
-    Theme, Vector,
-};
+use iced::{Color, Element, Event, Fill, Length, Padding, Pixels, Rectangle, Size, Theme, Vector};
 
 use crate::app::Message;
 use crate::modules::{IconKind, ModuleEvent, RibbonItem, StyleKey, ToolDef};
@@ -205,13 +202,8 @@ fn measure_label_width(
 ) -> f32 {
     let max_label_height = label_line_h(size) * LARGE_LABEL_LINES + 0.5;
     let fits = |width: f32| {
-        let bounds = ribbon_label_bounds(
-            renderer,
-            label,
-            width,
-            size,
-            advanced_text::Wrapping::Word,
-        );
+        let bounds =
+            ribbon_label_bounds(renderer, label, width, size, advanced_text::Wrapping::Word);
         bounds.width <= width + 0.5 && bounds.height <= max_label_height
     };
 
@@ -590,10 +582,7 @@ pub(super) fn hover_tracked<'a>(
     content: impl Into<Element<'a, Message>>,
 ) -> Element<'a, Message> {
     mouse_area(content)
-        .on_enter(Message::UiHover {
-            key,
-            entered: true,
-        })
+        .on_enter(Message::UiHover { key, entered: true })
         .on_exit(Message::UiHover {
             key,
             entered: false,
@@ -783,7 +772,6 @@ pub(super) fn render_small<'a>(
                 tokens::GAP_CONTROL,
                 theme,
             )
-            .into()
         }
 
         RibbonItem::LabeledTool(t) => {
@@ -794,7 +782,9 @@ pub(super) fn render_small<'a>(
             let tip_text = tool_tip_text(&label, t.id);
             let content = row![
                 container(make_icon(t.icon, SMALL_ICON)).width(Length::Fixed(SMALL_W)),
-                text(label).size(tokens::TEXT_BODY).wrapping(advanced_text::Wrapping::None),
+                text(label)
+                    .size(tokens::TEXT_BODY)
+                    .wrapping(advanced_text::Wrapping::None),
             ]
             .spacing(tokens::GAP_TIGHT)
             .align_y(iced::Center);
@@ -821,7 +811,6 @@ pub(super) fn render_small<'a>(
                 tokens::GAP_CONTROL,
                 theme,
             )
-            .into()
         }
 
         RibbonItem::Dropdown {
@@ -872,8 +861,8 @@ pub(super) fn render_small<'a>(
             // Split control: face and arrow share one hover track, so the
             // pointer lights the whole control; the face's glow reads both
             // the dropdown id and the item that actually activated.
-            let hover_key = crate::ui::motion::hover_key(*id);
-            let dd_glow = crate::ui::motion::glow_key(*id);
+            let hover_key = crate::ui::motion::hover_key(id);
+            let dd_glow = crate::ui::motion::glow_key(id);
             let last_glow = crate::ui::motion::glow_key(last);
             let icon_btn = plain_button(make_icon(cur_icon, SMALL_ICON))
                 .on_press(Message::RibbonToolClick {
@@ -931,8 +920,10 @@ pub(super) fn render_small<'a>(
             );
 
             PosReport::new(
-                *id,
-                row![icon_with_tip, arr_with_tip].spacing(tokens::GAP_NONE).height(SMALL_H),
+                id,
+                row![icon_with_tip, arr_with_tip]
+                    .spacing(tokens::GAP_NONE)
+                    .height(SMALL_H),
             )
             .into()
         }
@@ -978,8 +969,8 @@ pub(super) fn render_small<'a>(
             ]
             .spacing(tokens::GAP_TIGHT)
             .align_y(iced::Center);
-            let hover_key = crate::ui::motion::hover_key(*id);
-            let dd_glow = crate::ui::motion::glow_key(*id);
+            let hover_key = crate::ui::motion::hover_key(id);
+            let dd_glow = crate::ui::motion::glow_key(id);
             let last_glow = crate::ui::motion::glow_key(last);
             // A state that is only shown (not chosen) opens the list instead.
             let face_btn = plain_button(face)
@@ -1026,7 +1017,7 @@ pub(super) fn render_small<'a>(
             let face_tip = tool_tip_text(&localized_label, last);
             let arrow_tip = format!("{} {}", localized_label, t!("options"));
             PosReport::new(
-                *id,
+                id,
                 row![
                     ribbon_tip(
                         hover_tracked(hover_key, face_btn),
@@ -1232,11 +1223,7 @@ pub(super) fn render_strip<'a>(
                 format!("{} {}", t!(label), t!("options")),
                 hover_key,
                 dd_open,
-                option_mark_lift_below(
-                    STRIP_H,
-                    strip_label_block_h(),
-                    tokens::GAP_TIGHT,
-                ),
+                option_mark_lift_below(STRIP_H, strip_label_block_h(), tokens::GAP_TIGHT),
                 ctx.theme,
             );
             // The face and its mark are one control, so they share one hover
@@ -1281,9 +1268,7 @@ pub(super) fn render_strip_more<'a>(
     // The catalog's entry is "More…"; the trailing ellipsis marks a menu in
     // dialog copy. On a strip cell it reads as a truncation of the tool's own
     // name, so the label is the bare word here.
-    let more_label = t!("More…")
-        .trim_end_matches(|c: char| c == '…' || c == '.')
-        .to_owned();
+    let more_label = t!("More…").trim_end_matches(['…', '.']).to_owned();
     let face = plain_button(
         column![
             container(icons::themed(icons::MORE, STRIP_ICON))
@@ -1473,8 +1458,7 @@ pub(super) fn render_large_dropdown<'a>(
         iced::widget::stack![face, mark]
             .width(Fill)
             .height(Length::Fixed(LARGE_H)),
-    )
-    .into();
+    );
 
     PosReport::new(id, automatic_large_button(label, content)).into()
 }
@@ -1520,7 +1504,10 @@ fn tool_row<'a>(
             )
         })
         .collect();
-    row(btns).spacing(tokens::GAP_HAIRLINE).align_y(iced::Center).into()
+    row(btns)
+        .spacing(tokens::GAP_HAIRLINE)
+        .align_y(iced::Center)
+        .into()
 }
 
 /// Fixed-height wrapper for a combo-style panel: dropdown on top, icon rows
@@ -1597,13 +1584,12 @@ pub(super) fn render_large<'a>(item: &RibbonItem, ctx: &RenderCtx<'_>) -> Elemen
                 left: tokens::GAP_HAIRLINE,
             });
             ribbon_tip(
-                automatic_large_button(label, hover_tracked(hover_key, btn).into()),
+                automatic_large_button(label, hover_tracked(hover_key, btn)),
                 tip_text,
                 TipPos::Right,
                 tokens::GAP_CONTROL,
                 theme,
             )
-            .into()
         }
 
         RibbonItem::LargeDropdown {
@@ -1612,7 +1598,7 @@ pub(super) fn render_large<'a>(item: &RibbonItem, ctx: &RenderCtx<'_>) -> Elemen
             icon,
             items,
             default,
-        } => render_large_dropdown(*id, *icon, Some(*label), items, *default, ctx),
+        } => render_large_dropdown(id, *icon, Some(*label), items, default, ctx),
 
         RibbonItem::LabeledDropdown {
             id,
@@ -1620,15 +1606,20 @@ pub(super) fn render_large<'a>(item: &RibbonItem, ctx: &RenderCtx<'_>) -> Elemen
             icon,
             items,
             default,
-        } => render_large_dropdown(*id, *icon, Some(*label), items, *default, ctx),
+        } => render_large_dropdown(id, *icon, Some(*label), items, default, ctx),
 
         RibbonItem::ToolGrid { columns } => columns
             .iter()
             .fold(
-                row![].spacing(tokens::GAP_HAIRLINE).height(Fill).align_y(iced::Top),
+                row![]
+                    .spacing(tokens::GAP_HAIRLINE)
+                    .height(Fill)
+                    .align_y(iced::Top),
                 |row, tools| {
                     let column = tools.iter().fold(
-                        column![].spacing(tokens::GAP_NONE).width(Length::Fixed(SMALL_W)),
+                        column![]
+                            .spacing(tokens::GAP_NONE)
+                            .width(Length::Fixed(SMALL_W)),
                         |column, tool| {
                             column.push(render_small(
                                 &RibbonItem::Tool(tool.clone()),
@@ -1652,7 +1643,7 @@ pub(super) fn render_large<'a>(item: &RibbonItem, ctx: &RenderCtx<'_>) -> Elemen
             icon,
             items,
             default,
-        } => render_large_dropdown(*id, *icon, None, items, *default, ctx),
+        } => render_large_dropdown(id, *icon, None, items, default, ctx),
 
         RibbonItem::LayerComboGroup { row2, row3 } => {
             const TOOL_BUTTON_W: f32 = 26.0;
@@ -1687,10 +1678,10 @@ pub(super) fn render_large<'a>(item: &RibbonItem, ctx: &RenderCtx<'_>) -> Elemen
             // complete layer name available; only its closed ribbon label is
             // shortened to preserve the fixed row height.
             let name_budget = ((name_w / 6.0) as usize).max(4);
-            let active_layer_label = crate::ui::text_util::elided(
-                active_layer,
-                name_budget, ctx.theme, |shown| text(shown).size(tokens::TEXT_LABEL).into(),
-            );
+            let active_layer_label =
+                crate::ui::text_util::elided(active_layer, name_budget, ctx.theme, |shown| {
+                    text(shown).size(tokens::TEXT_LABEL).into()
+                });
 
             let combo_btn = plain_button(
                 row![
@@ -1698,9 +1689,7 @@ pub(super) fn render_large<'a>(item: &RibbonItem, ctx: &RenderCtx<'_>) -> Elemen
                     freeze_icon,
                     lock_icon,
                     swatch,
-                    container(active_layer_label)
-                        .width(name_w)
-                        .clip(true),
+                    container(active_layer_label).width(name_w).clip(true),
                     icons::themed_arrow_down(9.0),
                 ]
                 .spacing(tokens::GAP_TIGHT)
@@ -1761,7 +1750,9 @@ pub(super) fn render_large<'a>(item: &RibbonItem, ctx: &RenderCtx<'_>) -> Elemen
                 plain_button(
                     row![
                         swatch_el,
-                        container(text(label).size(tokens::TEXT_MICRO)).width(Fill).clip(true),
+                        container(text(label).size(tokens::TEXT_MICRO))
+                            .width(Fill)
+                            .clip(true),
                         if is_open {
                             icons::themed_arrow_up(8.0)
                         } else {
@@ -1772,7 +1763,9 @@ pub(super) fn render_large<'a>(item: &RibbonItem, ctx: &RenderCtx<'_>) -> Elemen
                     .align_y(iced::Center),
                 )
                 .on_press(Message::ToggleRibbonDropdown(dd_id.to_string()))
-                .style(move |theme: &Theme, status| style_for(theme, status, combo_role(is_open), ""))
+                .style(move |theme: &Theme, status| {
+                    style_for(theme, status, combo_role(is_open), "")
+                })
                 .padding(kit::PAD_TRIGGER)
                 .width(Length::Fixed(PROP_W))
             };
@@ -1849,12 +1842,11 @@ pub(super) fn render_large<'a>(item: &RibbonItem, ctx: &RenderCtx<'_>) -> Elemen
             // (`Ribbon::style_combo_overlay`) so it isn't clipped by the fixed
             // ribbon-row height — matching the Draw-tab dropdowns. (#153) It is
             // not a child of this row, so the row carries only its button.
-            let mut col_items: Vec<Element<Message>> =
-                vec![
-                    container(row![PosReport::new(*combo_id, combo_btn)].spacing(tokens::GAP_NONE))
-                        .width(Fill)
-                        .into(),
-                ];
+            let mut col_items: Vec<Element<Message>> = vec![container(
+                row![PosReport::new(combo_id, combo_btn)].spacing(tokens::GAP_NONE),
+            )
+            .width(Fill)
+            .into()];
             for row_tools in rows {
                 col_items.push(tool_row(row_tools, active_tool, theme));
             }
@@ -1894,6 +1886,27 @@ pub(super) fn quick_access_btn<'a>(
     cmd: &'static str,
     theme: &Theme,
 ) -> Element<'a, Message> {
+    quick_access_btn_msg(
+        icon_bytes,
+        label,
+        cmd,
+        Message::Command(cmd.to_string()),
+        theme,
+    )
+}
+
+/// [`quick_access_btn`] with the click's message supplied by the caller.
+///
+/// The Open button becomes a cancel target while a file is loading, and the
+/// button itself must stay the same size and glyph — the progress rim is drawn
+/// on it — so the message, not the control, is what changes.
+pub(super) fn quick_access_btn_msg<'a>(
+    icon_bytes: &'static [u8],
+    label: &'static str,
+    cmd: &'static str,
+    press: Message,
+    theme: &Theme,
+) -> Element<'a, Message> {
     // The glyph sits unframed in the strip: muted at rest, ink under the
     // pointer, the way the sheet draws every chrome icon button.
     let hover_key = crate::ui::motion::hover_key(cmd);
@@ -1911,7 +1924,7 @@ pub(super) fn quick_access_btn<'a>(
             .align_x(iced::Center)
             .align_y(iced::Center),
     )
-    .on_press(Message::Command(cmd.to_string()))
+    .on_press(press)
     .style(move |theme: &Theme, status| {
         if crate::ui::style::draftflow_theme::draftflow_colors(theme).is_some() {
             style_for(theme, status, Role::Ghost, "")
@@ -1929,7 +1942,6 @@ pub(super) fn quick_access_btn<'a>(
         tokens::GAP_CONTROL,
         theme,
     )
-    .into()
 }
 
 pub(super) fn render_history_control<'a>(
@@ -2011,7 +2023,11 @@ pub(super) fn render_history_control<'a>(
         )
     };
 
-    PosReport::new(dropdown_id, row![main_btn, arrow_btn].spacing(tokens::GAP_NONE)).into()
+    PosReport::new(
+        dropdown_id,
+        row![main_btn, arrow_btn].spacing(tokens::GAP_NONE),
+    )
+    .into()
 }
 
 #[cfg(test)]
@@ -2128,10 +2144,7 @@ mod strip_layout_tests {
                             advanced_text::Wrapping::Word,
                         );
                         let max_h = 2.0 * label_line_h(tokens::TEXT_LABEL) + 0.5;
-                        if bounds.width > inner + 0.5
-                            || bounds.height > max_h
-                            || width < STRIP_W
-                        {
+                        if bounds.width > inner + 0.5 || bounds.height > max_h || width < STRIP_W {
                             bad.push(format!(
                                 "{face:?}: cell {width} (inner {inner}), ink {:?}",
                                 bounds
@@ -2176,9 +2189,11 @@ mod strip_layout_tests {
             band_top >= label_h - 3.0,
             "caret hit band (top {band_top}) covers the label's last line ({label_h})"
         );
-        assert!(
-            STRIP_H + 2.0 * tokens::GAP_CONTROL <= TOOL_BAR_H,
-            "a {STRIP_H} px strip cell no longer fits the sheet's {TOOL_BAR_H} px band"
-        );
+        const {
+            assert!(
+                STRIP_H + 2.0 * tokens::GAP_CONTROL <= TOOL_BAR_H,
+                "a strip cell no longer fits the sheet's toolbar band"
+            )
+        };
     }
 }

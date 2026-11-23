@@ -328,10 +328,7 @@ fn status_pills_are_measured_where_they_are_painted() {
     use iced::widget::button;
     use iced::{Background, Gradient};
 
-    const RUNGS: [(&'static str, f32); 2] = [
-        ("aatest:pill-rest", 0.0),
-        ("aatest:pill-lift", 1.0),
-    ];
+    const RUNGS: [(&str, f32); 2] = [("aatest:pill-rest", 0.0), ("aatest:pill-lift", 1.0)];
     let statuses = [
         button::Status::Active,
         button::Status::Hovered,
@@ -365,9 +362,8 @@ fn status_pills_are_measured_where_they_are_painted() {
                 _ => vec![ground],
             }
         };
-        let sig_list = |plates: &[Color]| -> Vec<String> {
-            plates.iter().map(|c| sig_of(*c)).collect()
-        };
+        let sig_list =
+            |plates: &[Color]| -> Vec<String> { plates.iter().map(|c| sig_of(*c)).collect() };
         let contrast_against = |ink: Color, plates: &[Color]| {
             plates
                 .iter()
@@ -397,8 +393,8 @@ fn status_pills_are_measured_where_they_are_painted() {
                     let b_ink = b.text_color;
                     checked += 1;
 
-                    let worst = contrast_against(c_ink, &cplates)
-                        .min(contrast_against(b_ink, &bplates));
+                    let worst =
+                        contrast_against(c_ink, &cplates).min(contrast_against(b_ink, &bplates));
                     if worst < tokens::AA_INK_CONTRAST {
                         let best = [
                             p.background.base.text,
@@ -408,8 +404,7 @@ fn status_pills_are_measured_where_they_are_painted() {
                         ]
                         .iter()
                         .map(|cand| {
-                            contrast_against(*cand, &cplates)
-                                .max(contrast_against(*cand, &bplates))
+                            contrast_against(*cand, &cplates).max(contrast_against(*cand, &bplates))
                         })
                         .fold(0.0f32, f32::max);
                         fails.push(format!(
@@ -504,7 +499,10 @@ fn status_pill_ladder_measurements() {
                 .fold(f32::INFINITY, f32::min);
             println!(
                 "{theme}|{case}|{state}|{}|{}|{ratio:.2}",
-                comp.iter().map(|c| sig_of(*c)).collect::<Vec<_>>().join("+"),
+                comp.iter()
+                    .map(|c| sig_of(*c))
+                    .collect::<Vec<_>>()
+                    .join("+"),
                 sig_of(ink),
             );
         };
@@ -522,7 +520,12 @@ fn status_pill_ladder_measurements() {
                     c.text_color.expect("the ladder must ink its own plate"),
                 );
                 let b = surface::pill_button_style(id, active, &theme, button::Status::Active, "");
-                row("kit-button", &state, &stop_colors(&b.background), b.text_color);
+                row(
+                    "kit-button",
+                    &state,
+                    &stop_colors(&b.background),
+                    b.text_color,
+                );
                 let i = surface::pill_ink(id, active, &theme, "");
                 row("kit-icon", &state, &stop_colors(&c.background), i);
             }
@@ -536,16 +539,48 @@ fn status_pill_ladder_measurements() {
         let rplate = stop_colors(&rest.background);
         let faded = p.background.base.text.scale_alpha(0.72);
         row("old-icon-lit", "lit@0", &eplate, p.primary.weak.text);
-        row("old-angle-lit", "lit@0", &eplate, kit::tone_style(&theme, kit::Tone::Accent).color.expect("tone ink"));
-        row("old-angle-rest", "rest@0", &rplate, kit::muted_style(&theme).color.expect("muted ink"));
+        row(
+            "old-angle-lit",
+            "lit@0",
+            &eplate,
+            kit::tone_style(&theme, kit::Tone::Accent)
+                .color
+                .expect("tone ink"),
+        );
+        row(
+            "old-angle-rest",
+            "rest@0",
+            &rplate,
+            kit::muted_style(&theme).color.expect("muted ink"),
+        );
         row("old-icon-rest", "rest@0", &rplate, faded);
-        row("old-toggle-rest", "rest@0", &[tokens::surface(&theme, tokens::Rank::Band)], faded);
+        row(
+            "old-toggle-rest",
+            "rest@0",
+            &[tokens::surface(&theme, tokens::Rank::Band)],
+            faded,
+        );
         // The space-mode capsule, and the pair the deleted assertion checked:
         // they were the same numbers, which is why it never saw the defect.
-        row("old-space-rest", "lit@0", &[p.primary.weak.color], p.primary.weak.text);
-        row("old-space-hover", "lit@0", &[p.primary.base.color], p.primary.weak.text);
+        row(
+            "old-space-rest",
+            "lit@0",
+            &[p.primary.weak.color],
+            p.primary.weak.text,
+        );
+        row(
+            "old-space-hover",
+            "lit@0",
+            &[p.primary.base.color],
+            p.primary.weak.text,
+        );
         let sub = button::subtle(&theme, button::Status::Active);
-        row("old-space-inactive", "rest@0", &stop_colors(&sub.background), sub.text_color);
+        row(
+            "old-space-inactive",
+            "rest@0",
+            &stop_colors(&sub.background),
+            sub.text_color,
+        );
     }
 }
 
@@ -632,9 +667,9 @@ fn band_signal_glyph_measurements() {
                     Some(iced::Background::Color(c)) => c,
                     other => panic!("{theme} {tone:?} verdict band paints no ground: {other:?}"),
                 };
-                let ink = style
-                    .text_color
-                    .unwrap_or_else(|| panic!("{theme} {tone:?} verdict band gives its words no ink"));
+                let ink = style.text_color.unwrap_or_else(|| {
+                    panic!("{theme} {tone:?} verdict band gives its words no ink")
+                });
                 let edge = style.border.color;
                 let at = format!("{tone:?}@{tier:?}");
                 row("band-fill", &at, ground, ground, fill);
@@ -654,7 +689,9 @@ fn band_signal_glyph_measurements() {
                     let style = paint(&theme, status);
                     let badge = match style.background {
                         Some(iced::Background::Color(c)) => c,
-                        other => panic!("{theme} {tone:?} {case} button paints no plate: {other:?}"),
+                        other => {
+                            panic!("{theme} {tone:?} {case} button paints no plate: {other:?}")
+                        }
                     };
                     let ground = kit::plane(&theme, tier);
                     let at = format!("{tone:?}@{tier:?}");
@@ -663,7 +700,13 @@ fn band_signal_glyph_measurements() {
                     // the boundary law is `this reads` OR `its edge reads`, so
                     // both halves have to be on the sheet.
                     row(&format!("{case}-fill"), &at, ground, ground, badge);
-                    row(&format!("{case}-edge"), &at, ground, ground, style.border.color);
+                    row(
+                        &format!("{case}-edge"),
+                        &at,
+                        ground,
+                        ground,
+                        style.border.color,
+                    );
                 }
             }
         }
@@ -695,7 +738,10 @@ fn band_signal_glyph_measurements() {
         ] {
             row(case, "badge", backdrop, backdrop, part);
         }
-        for (at, canvas) in [("model", Color::from_rgb8(33, 40, 48)), ("paper", Color::from_rgb8(255, 255, 255))] {
+        for (at, canvas) in [
+            ("model", Color::from_rgb8(33, 40, 48)),
+            ("paper", Color::from_rgb8(255, 255, 255)),
+        ] {
             // A dynamic dimension draws no badge (`overlay.rs:2238`), so the
             // white shackle, the grey keyhole, the selection ring and the hover
             // X are laid straight onto the drawing.
@@ -958,7 +1004,10 @@ fn the_signal_chip_carries_its_own_words() {
         }
     }
 
-    println!("QC73C checked {checked} chip/plane pairings, {} failures", fails.len());
+    println!(
+        "QC73C checked {checked} chip/plane pairings, {} failures",
+        fails.len()
+    );
     if !fails.is_empty() {
         panic!(
             "{} signal-chip readings below their floor:\n{}",
@@ -1039,19 +1088,59 @@ fn the_canvas_glyphs_feed_their_own_drawing() {
                     marker,
                     ring,
                 } = *b;
-                measure(&format!("{state} plate"), canvas, plate, tokens::AA_COMPONENT_CONTRAST);
+                measure(
+                    &format!("{state} plate"),
+                    canvas,
+                    plate,
+                    tokens::AA_COMPONENT_CONTRAST,
+                );
                 measure(&format!("{state} ink"), plate, ink, tokens::AA_INK_CONTRAST);
-                measure(&format!("{state} equal"), plate, equal, tokens::AA_INK_CONTRAST);
-                measure(&format!("{state} datum"), plate, datum, tokens::AA_INK_CONTRAST);
-                measure(&format!("{state} marker"), plate, marker, tokens::AA_INK_CONTRAST);
-                measure(&format!("{state} ring"), plate, ring, tokens::AA_COMPONENT_CONTRAST);
+                measure(
+                    &format!("{state} equal"),
+                    plate,
+                    equal,
+                    tokens::AA_INK_CONTRAST,
+                );
+                measure(
+                    &format!("{state} datum"),
+                    plate,
+                    datum,
+                    tokens::AA_INK_CONTRAST,
+                );
+                measure(
+                    &format!("{state} marker"),
+                    plate,
+                    marker,
+                    tokens::AA_INK_CONTRAST,
+                );
+                measure(
+                    &format!("{state} ring"),
+                    plate,
+                    ring,
+                    tokens::AA_COMPONENT_CONTRAST,
+                );
             }
             measure("bare lock", canvas, g.bare, tokens::AA_INK_CONTRAST);
             // The keyhole is struck *inside* the lock body, so its ground is the
             // body's pixel rather than the drawing behind it.
-            measure("bare keyhole", g.bare, g.bare_keyhole, tokens::AA_INK_CONTRAST);
-            measure("bare ring", canvas, g.bare_ring, tokens::AA_COMPONENT_CONTRAST);
-            measure("hover cross", canvas, g.hover, tokens::AA_COMPONENT_CONTRAST);
+            measure(
+                "bare keyhole",
+                g.bare,
+                g.bare_keyhole,
+                tokens::AA_INK_CONTRAST,
+            );
+            measure(
+                "bare ring",
+                canvas,
+                g.bare_ring,
+                tokens::AA_COMPONENT_CONTRAST,
+            );
+            measure(
+                "hover cross",
+                canvas,
+                g.hover,
+                tokens::AA_COMPONENT_CONTRAST,
+            );
             // A solved part that is the canvas itself has vanished into it, even
             // if the maths above says the ratio holds at some alpha.
             if wcag_luminance(g.bare) == wcag_luminance(canvas) {
@@ -1581,11 +1670,12 @@ fn the_error_field_reads_on_its_own_danger_recess() {
 
             // Dragging a cursor through an invalid value puts the text on the
             // selection block, so the highlight has to keep carrying it.
-            let on_selection =
-                wcag_contrast(style.value, composite_over(style.selection, plate));
+            let on_selection = wcag_contrast(style.value, composite_over(style.selection, plate));
             checked += 1;
             if on_selection < tokens::AA_INK_CONTRAST {
-                fails.push(format!("{theme} {name} text on selection: {on_selection:.2}:1"));
+                fails.push(format!(
+                    "{theme} {name} text on selection: {on_selection:.2}:1"
+                ));
             }
 
             // The edge and the icon are parts of a component, not text: the
@@ -1743,10 +1833,7 @@ fn the_marked_text_survives_its_own_highlight() {
                 hi - lo
             };
             let band = style.selection;
-            let old = composite_over(
-                palette.primary.base.color.scale_alpha(0.5),
-                recess,
-            );
+            let old = composite_over(palette.primary.base.color.scale_alpha(0.5), recess);
             println!(
                 "QC {label}|band={}|was={}|recess={}|ink={}|accent={}|dBandRecessL*={:.1}|dOldRecessL*={:.1}|spreadBand={:.3}|spreadRecess={:.3}|spreadAccent={:.3}|accentL*={:.1}|bandL*={:.1}|recessL*={:.1}|inkL*={:.1}",
                 hex(band),
@@ -1769,7 +1856,10 @@ fn the_marked_text_survives_its_own_highlight() {
         for (name, status) in [
             ("field rest", text_input::Status::Active),
             ("field hover", text_input::Status::Hovered),
-            ("field focus", text_input::Status::Focused { is_hovered: true }),
+            (
+                "field focus",
+                text_input::Status::Focused { is_hovered: true },
+            ),
         ] {
             let style = crate::ui::kit::field_style(&theme, status);
             let plate = solid(style.background).expect("field_style paints a solid recess");
@@ -2089,7 +2179,10 @@ fn the_verdict_band_feeds_its_own_words() {
 
                 let ground = match style.background {
                     Some(iced::Background::Color(c)) => c,
-                    other => panic!("{theme} {tone:?} band on {} paints no ground: {other:?}", hex_of(*plane)),
+                    other => panic!(
+                        "{theme} {tone:?} band on {} paints no ground: {other:?}",
+                        hex_of(*plane)
+                    ),
                 };
                 if ground != plate {
                     fails.push(format!(
@@ -2521,8 +2614,16 @@ fn the_quiet_voice_of_a_row_still_reads() {
             Some(voice_ink(&theme, tokens::INK_FAINT)),
             "{name}: faint_style is no longer the shared voice solver"
         );
-        entries.push(("muted_style".into(), voice_ink(&theme, tokens::INK_MUTED), tokens::INK_MUTED));
-        entries.push(("faint_style".into(), voice_ink(&theme, tokens::INK_FAINT), tokens::INK_FAINT));
+        entries.push((
+            "muted_style".into(),
+            voice_ink(&theme, tokens::INK_MUTED),
+            tokens::INK_MUTED,
+        ));
+        entries.push((
+            "faint_style".into(),
+            voice_ink(&theme, tokens::INK_FAINT),
+            tokens::INK_FAINT,
+        ));
 
         for (label, ink, rung) in entries {
             // A solved ink is opaque by construction (`tokens::legible_on` folds
@@ -2535,7 +2636,8 @@ fn the_quiet_voice_of_a_row_still_reads() {
                     "QC6 {name}|{label}|NOTE the requested alpha was {rung:.2}, the painted one is {:.2} (solved)",
                     ink.a
                 );
-            }            let mut worst = (f32::INFINITY, planes[0]);
+            }
+            let mut worst = (f32::INFINITY, planes[0]);
             for plane in &planes {
                 let ground = composite_over(ink, *plane);
                 let score = wcag_contrast(ground, *plane);
@@ -2655,11 +2757,19 @@ fn the_pull_keeps_the_colour_it_was_given() {
         // the call the widget makes — not a probe hue invented for the test.
         let mut cases: Vec<(&str, Color, Color)> = Vec::new();
         for &rung in &VOICE_RUNGS {
-            cases.push(("voice", palette.background.base.text, voice_ink(&theme, rung)));
+            cases.push((
+                "voice",
+                palette.background.base.text,
+                voice_ink(&theme, rung),
+            ));
         }
         for tone in [Tone::Accent, Tone::Success, Tone::Warning, Tone::Danger] {
             let plate = crate::ui::kit::surface::tone_band_plate(&theme, tone);
-            cases.push(("tone", tone_pair(&theme, tone).color, tone_ink_on(&theme, tone, plate)));
+            cases.push((
+                "tone",
+                tone_pair(&theme, tone).color,
+                tone_ink_on(&theme, tone, plate),
+            ));
         }
         cases.push((
             "select",
@@ -2721,7 +2831,11 @@ fn the_pull_keeps_the_colour_it_was_given() {
                 hex_of(before),
                 hex_of(after),
                 if !readable {
-                    if neutral { "|neutral-input" } else { "|neutral-output" }
+                    if neutral {
+                        "|neutral-input"
+                    } else {
+                        "|neutral-output"
+                    }
                 } else if trimmed {
                     "|gamut-trimmed"
                 } else {
@@ -2738,7 +2852,8 @@ fn the_pull_keeps_the_colour_it_was_given() {
             if readable && dh > HUE_TOL {
                 fails.push(format!(
                     "{name} {family}: hue moved {dh:.2}° ({} → {}), tol {HUE_TOL}",
-                    hex_of(before), hex_of(after)
+                    hex_of(before),
+                    hex_of(after)
                 ));
             }
             if ceiling - c1 > tokens::CHROMA_SLACK {
@@ -2822,7 +2937,10 @@ fn a_placement_free_edge_is_provably_impossible() {
     for (c, p) in [
         (Color::BLACK, Color::WHITE),
         (Color::from_rgb8(0x77, 0x77, 0x77), Color::WHITE),
-        (Color::from_rgb8(0x29, 0x2D, 0x33), Color::from_rgb8(0x7F, 0x84, 0x8E)),
+        (
+            Color::from_rgb8(0x29, 0x2D, 0x33),
+            Color::from_rgb8(0x7F, 0x84, 0x8E),
+        ),
     ] {
         let a = wcag_luminance(c);
         let b = wcag_luminance(p);
@@ -2840,7 +2958,7 @@ fn a_placement_free_edge_is_provably_impossible() {
         for &a in ys {
             for &b in ys {
                 let t = ((a + 0.05) * (b + 0.05)).sqrt() - 0.05;
-                if t >= 0.0 && t <= 1.0 {
+                if (0.0..=1.0).contains(&t) {
                     cands.push(t);
                 }
             }
@@ -2886,7 +3004,10 @@ fn a_placement_free_edge_is_provably_impossible() {
         for tone in tones {
             // ── the band plate, and the chip's at both rungs ─────────────────
             let cases: Vec<(String, Color)> = {
-                let mut c = vec![(format!("{theme}|band|{tone:?}"), tone_band_plate(&theme, tone))];
+                let mut c = vec![(
+                    format!("{theme}|band|{tone:?}"),
+                    tone_band_plate(&theme, tone),
+                )];
                 let paint = kit::signal_button_style(tone, Tier::Band);
                 for (what, status) in [
                     ("rest", button::Status::Active),
@@ -2924,7 +3045,11 @@ fn a_placement_free_edge_is_provably_impossible() {
                     needing.len(),
                     b,
                     hex_of(grey_at(y)),
-                    if b + 1e-6 < bar { "IMPOSSIBLE" } else { "SOLVABLE" },
+                    if b + 1e-6 < bar {
+                        "IMPOSSIBLE"
+                    } else {
+                        "SOLVABLE"
+                    },
                 ));
                 // The retired limb, pair by pair: a colour asked to separate the
                 // part's own plate *and* the plane beside it.
@@ -2984,4 +3109,3 @@ fn a_placement_free_edge_is_provably_impossible() {
          handed more than one plane.",
     );
 }
-

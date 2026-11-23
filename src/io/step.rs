@@ -168,11 +168,8 @@ pub fn build_step(meshes: &[&MeshModel]) -> Option<String> {
         // Edge loop and face normal.
         writeln!(
             data,
-            "#{} = EDGE_LOOP('',({},{},{}));",
-            el,
-            format!("#{}", oe[0]),
-            format!("#{}", oe[1]),
-            format!("#{}", oe[2])
+            "#{} = EDGE_LOOP('',(#{},#{},#{}));",
+            el, oe[0], oe[1], oe[2]
         )
         .ok();
 
@@ -251,7 +248,6 @@ pub fn build_step(meshes: &[&MeshModel]) -> Option<String> {
 
     Some(file)
 }
-
 
 /// Returns an ISO 8601-like timestamp string for the STEP file header.
 fn chrono_timestamp() -> String {

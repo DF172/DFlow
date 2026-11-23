@@ -36,8 +36,10 @@ impl FaceSoups {
         // spline was most of a boolean's time.
         let mut deviation: HashMap<FaceKey, f64> = HashMap::new();
         for (face, triangles) in &by_face {
-            let Some(surface) =
-                body.faces.get(*face).and_then(|node| body.surfaces.get(node.surface))
+            let Some(surface) = body
+                .faces
+                .get(*face)
+                .and_then(|node| body.surfaces.get(node.surface))
             else {
                 continue;
             };
@@ -86,7 +88,12 @@ pub(super) fn apart(
     let boxes = |triangles: &[[Vec3; 3]]| -> Vec<(Vec3, Vec3)> {
         triangles
             .iter()
-            .map(|t| (lowest(lowest(t[0], t[1]), t[2]), highest(highest(t[0], t[1]), t[2])))
+            .map(|t| {
+                (
+                    lowest(lowest(t[0], t[1]), t[2]),
+                    highest(highest(t[0], t[1]), t[2]),
+                )
+            })
             .collect()
     };
     let (first_boxes, second_boxes) = (boxes(first), boxes(second));

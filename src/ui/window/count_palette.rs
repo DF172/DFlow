@@ -5,14 +5,16 @@
 
 use crate::app::Message;
 use crate::ui::dock::PanelId;
-use crate::ui::kit::muted_style;
 use crate::ui::kit;
+use crate::ui::kit::muted_style;
+use crate::ui::kit::plain_button;
+use crate::ui::style::tokens;
 use codec::count::{BlockInstance, CountKey};
 use codec::{CadDocument, Handle};
-use iced::widget::{checkbox, column, container, mouse_area, row, text, text_input, tooltip, Space};
-use crate::ui::kit::plain_button;
+use iced::widget::{
+    checkbox, column, container, mouse_area, row, text, text_input, tooltip, Space,
+};
 use iced::{Element, Fill, Length, Theme};
-use crate::ui::style::tokens;
 
 const BLOCK_ICON: &[u8] = include_bytes!("../../../assets/icons/blocks/block.svg");
 const AREA_ICON: &[u8] = include_bytes!("../../../assets/icons/shapes/rect.svg");
@@ -184,6 +186,7 @@ pub struct CountPalette {
     /// on with all of model space (kept with the user settings).
     pub invalid_choice: u8,
     /// The list's references for (document tab id, geometry epoch, area).
+    #[allow(clippy::type_complexity)]
     pub list_cache: std::cell::RefCell<
         Option<(
             u64,
@@ -308,7 +311,12 @@ fn small_icon<'a>(bytes: &'static [u8], size: f32) -> Element<'a, Message> {
     crate::ui::icons::semantic(bytes, size)
 }
 
-fn row_menu(name: String, key: CountKey, expandable: bool, theme: &Theme) -> Element<'static, Message> {
+fn row_menu(
+    name: String,
+    key: CountKey,
+    expandable: bool,
+    theme: &Theme,
+) -> Element<'static, Message> {
     let entry = |label: String, action: RowAction| -> Element<'static, Message> {
         kit::list_row(
             text(label).size(tokens::TEXT_BODY),
@@ -334,8 +342,12 @@ fn row_menu(name: String, key: CountKey, expandable: bool, theme: &Theme) -> Ele
         items = items
             .push(kit::rule_h(""))
             .push(
-                container(text(crate::t!("EXPAND BY")).size(tokens::TEXT_MICRO).style(muted_style))
-                    .padding(kit::PAD_MENU_ROW),
+                container(
+                    text(crate::t!("EXPAND BY"))
+                        .size(tokens::TEXT_MICRO)
+                        .style(muted_style),
+                )
+                .padding(kit::PAD_MENU_ROW),
             )
             .push(entry(crate::t!("Layer").into_owned(), RowAction::Expand(0)))
             .push(entry(crate::t!("Scale").into_owned(), RowAction::Expand(1)))
@@ -408,8 +420,10 @@ fn list_row<'a>(
         .on_press(msg(CountMsg::Open(name.to_string(), key.clone())))
         .interaction(iced::mouse::Interaction::Pointer);
     let (n, expandable) = (name.to_string(), depth == 0);
-    iced_aw::ContextMenu::new(area, move || row_menu(n.clone(), key.clone(), expandable, theme))
-        .into()
+    iced_aw::ContextMenu::new(area, move || {
+        row_menu(n.clone(), key.clone(), expandable, theme)
+    })
+    .into()
 }
 
 fn header_button<'a>(
@@ -418,7 +432,9 @@ fn header_button<'a>(
     descending: bool,
     m: CountMsg,
 ) -> Element<'a, Message> {
-    let mut content = row![text(label).size(tokens::TEXT_LABEL)].spacing(tokens::GAP_TIGHT).align_y(iced::Center);
+    let mut content = row![text(label).size(tokens::TEXT_LABEL)]
+        .spacing(tokens::GAP_TIGHT)
+        .align_y(iced::Center);
     if active {
         content = content.push(crate::ui::icons::themed_arrow_toggle(!descending, 8.0));
     }
@@ -478,7 +494,8 @@ fn list_view<'a>(
             count,
             r.errors > 0,
             0,
-            Some(expansion.is_some()), theme
+            Some(expansion.is_some()),
+            theme,
         ));
         if let Some([l, s, m]) = expansion {
             for (key, n) in codec::count::expanded_counts(instances, &r.name, l, s, m) {
@@ -491,7 +508,8 @@ fn list_view<'a>(
                     Some(n),
                     false,
                     1,
-                    None, theme
+                    None,
+                    theme,
                 ));
             }
         }
@@ -535,12 +553,15 @@ fn list_view<'a>(
     };
     column![
         top,
-        container(column![header, crate::ui::kit::themed_scrollable(list).height(Fill)].spacing(tokens::GAP_HAIRLINE))
-            .padding(tokens::GAP_TIGHT)
-            .height(Fill)
-            // The list is a recess inside the palette's own card: `Tier::Well`
-            // keeps the field corner it had and drops the second hairline.
-            .style(|theme: &Theme| kit::wash_style(kit::Tier::Well, theme, "")),
+        container(
+            column![header, crate::ui::kit::themed_scrollable(list).height(Fill)]
+                .spacing(tokens::GAP_HAIRLINE)
+        )
+        .padding(tokens::GAP_TIGHT)
+        .height(Fill)
+        // The list is a recess inside the palette's own card: `Tier::Well`
+        // keeps the field corner it had and drops the second hairline.
+        .style(|theme: &Theme| kit::wash_style(kit::Tier::Well, theme, "")),
         footer,
     ]
     .spacing(tokens::GAP_CONTROL)
@@ -630,7 +651,7 @@ fn mode_view<'a>(
                     plain_button(text(crate::t!("Overlapping object")).size(tokens::TEXT_BODY))
                         .on_press(msg(CountMsg::ShowError(*h)))
                         .style(kit::text_style)
-                        .padding([tokens::GAP_HAIRLINE, tokens::GAP_GUTTER])
+                        .padding([tokens::GAP_HAIRLINE, tokens::GAP_GUTTER]),
                 );
             }
         }
@@ -682,22 +703,24 @@ fn bar_button<'a>(
     tip: String,
     m: Option<CountMsg>,
 ) -> Element<'a, Message> {
-    let mut b = plain_button(icon).style(kit::text_style).padding(kit::PAD_CELL);
+    let mut b = plain_button(icon)
+        .style(kit::text_style)
+        .padding(kit::PAD_CELL);
     if let Some(m) = m {
         b = b.on_press(msg(m));
     }
-    tooltip(b, text(tip).size(tokens::TEXT_MICRO), tooltip::Position::Bottom)
-        .gap(4)
-        .into()
+    tooltip(
+        b,
+        text(tip).size(tokens::TEXT_MICRO),
+        tooltip::Position::Bottom,
+    )
+    .gap(4)
+    .into()
 }
 
 /// The floating toolbar over the drawing in count mode: the count, the
 /// status, previous / next reference, area, select, field and close.
-pub fn toolbar<'a>(
-    mode: &CountMode,
-    doc: &CadDocument,
-    theme: &Theme,
-) -> Element<'a, Message> {
+pub fn toolbar<'a>(mode: &CountMode, doc: &CadDocument, theme: &Theme) -> Element<'a, Message> {
     let has_target = mode.target.is_some();
     let result = mode.result(doc);
     let count = if has_target {

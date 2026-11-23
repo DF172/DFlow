@@ -3,6 +3,19 @@
 // hit-testing lives in `scene::pick::hit_test`.)
 use super::*;
 
+/// The two poses a 3D view fly-through runs between (P2 batch 1, item 6).
+///
+/// `target` is f64 because a drawing may live at UTM coordinates: interpolating
+/// it in f32 would quantize the offset to the extent scale and the flight would
+/// visibly drift off the geometry it was asked to frame.
+#[derive(Clone, Copy)]
+pub struct ViewFly {
+    pub from_target: glam::DVec3,
+    pub from_distance: f32,
+    pub to_target: glam::DVec3,
+    pub to_distance: f32,
+}
+
 fn rendered_wire_bounds(
     wires: &[WireModel],
     fallback_z: f64,
@@ -262,9 +275,9 @@ impl Scene {
             z: 0.0,
         };
         view.target = Vector3 {
-            x: cam.target.x as f64,
-            y: cam.target.y as f64,
-            z: cam.target.z as f64,
+            x: cam.target.x,
+            y: cam.target.y,
+            z: cam.target.z,
         };
         view.direction = Vector3 {
             x: eye_dir.x as f64,
@@ -516,6 +529,19 @@ impl Scene {
         self.projection_bounds_epoch.set(self.geometry_epoch);
         self.camera_generation += 1;
         true
+    }
+
+    /// World-space centre of one entity's rendered wires — the same anchor the
+    /// camera uses when centring on it. Item 46 draws the MATCHPROP transfer
+    /// line between these anchors, so the overlay never invents a position:
+    /// no anchor, no line.
+    pub(crate) fn entity_world_center(&self, handle: Handle) -> Option<glam::DVec3> {
+        if handle.is_null() {
+            return None;
+        }
+        let fallback_z = self.active_camera_target().z;
+        let wires = self.wire_models_for(&[handle]);
+        rendered_wire_center(&wires, fallback_z)
     }
 
     /// Centre the active camera on one rendered entity without changing zoom
@@ -1209,9 +1235,9 @@ impl Scene {
             true
         } else {
             let target_wcs = codec::types::Vector3 {
-                x: cam.target.x as f64,
-                y: cam.target.y as f64,
-                z: cam.target.z as f64,
+                x: cam.target.x,
+                y: cam.target.y,
+                z: cam.target.z,
             };
 
             // The sheet viewport entity is the authoritative paper-space view;
@@ -1564,12 +1590,150 @@ impl Scene {
             max += glam::DVec3::splat(1.0);
         }
         let aspect = self.active_camera_aspect();
+        // P2 batch 1 item 6: on a 3D (perspective) single-tile model view the
+        // fit flies instead of cutting. The landing pose is still whatever
+        // `fit_to_bounds_f64` just computed — it is the authority — but the two
+        // animated fields are rewound to the takeoff pose so the flight can
+        // interpolate between them.
+        let takeoff = if self.view_fly_eligible() {
+            let cam = self.camera.borrow();
+            Some((cam.target, cam.distance))
+        } else {
+            None
+        };
         // f64 all the way into the camera: a UTM-scale drawing loses whole
         // metres to an f32 round-trip, which shows up as a fit that sits
         // slightly off the geometry it was asked to frame.
         self.camera.borrow_mut().fit_to_bounds_f64(min, max, aspect);
+        if let Some((from_target, from_distance)) = takeoff {
+            let (to_target, to_distance) = {
+                let cam = self.camera.borrow();
+                (cam.target, cam.distance)
+            };
+            {
+                let mut cam = self.camera.borrow_mut();
+                cam.target = from_target;
+                cam.distance = from_distance;
+            }
+            self.start_view_fly(from_target, from_distance, to_target, to_distance);
+        }
         self.projection_bounds_epoch.set(self.geometry_epoch);
         self.camera_generation += 1;
+    }
+
+    /// Whether this view flies a fit (item 6) or cuts to it.
+    ///
+    /// Only a single-tile Model layout in perspective qualifies. A 2D top
+    /// view and the paper sheet keep the instant ZOOM EXTENTS they always
+    /// had — a 2D fit is a "where is my drawing" answer, and animating it
+    /// would only delay the answer.
+    pub fn view_fly_eligible(&self) -> bool {
+        self.current_layout == "Model"
+            && self.active_viewport.is_none()
+            && self.model_tiles.borrow().len() <= 1
+            && self.camera.borrow().projection == Projection::Perspective
+            && crate::ui::motion::animations_enabled()
+    }
+
+    /// Begin (or re-aim) the item 6 fly-through.
+    ///
+    /// The new takeoff pose is the pose on screen *right now*, so a second
+    /// ZOOM EXTENTS mid-flight re-bases the trip from wherever the eye already
+    /// is: flights cannot stack, cannot fight over the camera, and nothing
+    /// jumps.
+    fn start_view_fly(
+        &mut self,
+        from_target: glam::DVec3,
+        from_distance: f32,
+        to_target: glam::DVec3,
+        to_distance: f32,
+    ) {
+        self.view_fly = Some(ViewFly {
+            from_target,
+            from_distance,
+            to_target,
+            to_distance,
+        });
+        crate::ui::motion::replay(
+            crate::ui::motion::VIEW_FLY,
+            1.0,
+            crate::ui::motion::VIEW_FLY_TIME,
+        );
+    }
+
+    /// Advance a running fly-through to this frame's share of the track.
+    ///
+    /// Returns true while a frame is still owed. The rendered pose is the
+    /// track's eased value itself, so the motion is monotone; the landing is
+    /// written from the latched destination, never from the last sampled
+    /// progress, which is what makes the final `target`/`distance` bit-identical
+    /// to what `fit_to_bounds_f64` produced.
+    pub fn tick_view_fly(&mut self) -> bool {
+        let Some(fly) = self.view_fly else {
+            return false;
+        };
+        if !crate::ui::motion::running(crate::ui::motion::VIEW_FLY) {
+            // The track retired (its deadline passed, or the gate turned
+            // motion off): land on the destination rather than leave the
+            // camera parked in mid-air.
+            self.land_view_fly(fly);
+            return false;
+        }
+        let share = crate::ui::motion::value_or(crate::ui::motion::VIEW_FLY, 1.0).clamp(0.0, 1.0);
+        {
+            let mut cam = self.camera.borrow_mut();
+            cam.target = fly.from_target.lerp(fly.to_target, share as f64);
+            cam.distance = fly.from_distance + (fly.to_distance - fly.from_distance) * share;
+        }
+        self.camera_generation += 1;
+        true
+    }
+
+    /// Park the camera on the flight's latched destination and retire the track.
+    fn land_view_fly(&mut self, fly: ViewFly) {
+        {
+            let mut cam = self.camera.borrow_mut();
+            cam.target = fly.to_target;
+            cam.distance = fly.to_distance;
+        }
+        self.view_fly = None;
+        crate::ui::motion::set(crate::ui::motion::VIEW_FLY, 1.0, 0);
+        self.camera_generation += 1;
+    }
+
+    /// Advance the fly-through of this scene, if it has one. Called once per
+    /// tab from `MotionTick`; a scene without a flight pays one `Option` test.
+    pub fn tick_view_fly_if_any(&mut self) {
+        if self.view_fly.is_some() {
+            self.tick_view_fly();
+        }
+    }
+
+    /// Drop a running flight and leave the camera exactly where it is drawn
+    /// (used when the destination stops making sense: a press or a wheel notch
+    /// on the view, a tab switch, the end of the drawing).
+    pub fn cancel_view_fly(&mut self) {
+        let Some(fly) = self.view_fly else {
+            return;
+        };
+        let share = if crate::ui::motion::running(crate::ui::motion::VIEW_FLY) {
+            crate::ui::motion::value_or(crate::ui::motion::VIEW_FLY, 0.0).clamp(0.0, 1.0)
+        } else {
+            1.0
+        };
+        {
+            let mut cam = self.camera.borrow_mut();
+            cam.target = fly.from_target.lerp(fly.to_target, share as f64);
+            cam.distance = fly.from_distance + (fly.to_distance - fly.from_distance) * share;
+        }
+        self.view_fly = None;
+        crate::ui::motion::set(crate::ui::motion::VIEW_FLY, share, 0);
+        self.camera_generation += 1;
+    }
+
+    /// The latched destination of a running flight, for tests and probes.
+    pub fn view_fly_target(&self) -> Option<(glam::DVec3, f32)> {
+        self.view_fly.map(|f| (f.to_target, f.to_distance))
     }
 
     /// Fit every tiled Model viewport independently. The drawing bounds are
@@ -1636,5 +1800,190 @@ impl Scene {
             self.last_atlas_generation.set(atlas_gen);
             self.bump_geometry();
         }
+    }
+}
+
+#[cfg(test)]
+mod view_fly_tests {
+    use super::*;
+    use iced::time::Duration;
+
+    /// A tiny model with real extents, so `fit_all` has something to frame.
+    fn scene_with_line() -> Scene {
+        let mut scene = Scene::new();
+        let mut line = codec::entities::Line::new();
+        line.start = codec::types::Vector3::new(0.0, 0.0, 0.0);
+        line.end = codec::types::Vector3::new(40.0, 30.0, 0.0);
+        scene.add_entity(codec::EntityType::Line(line));
+        scene
+    }
+
+    fn perspective(scene: &Scene, distance: f32) {
+        let mut cam = scene.camera.borrow_mut();
+        cam.projection = Projection::Perspective;
+        cam.distance = distance;
+    }
+
+    fn pose(scene: &Scene) -> (glam::DVec3, f32) {
+        let cam = scene.camera.borrow();
+        (cam.target, cam.distance)
+    }
+
+    /// Item 6: a perspective fit flies, defers its destination to the frame
+    /// clock, and lands BIT-EXACT on the pose `fit_to_bounds_f64` produced.
+    /// The probe numbers this test prints are the ones the report quotes.
+    #[test]
+    fn a_3d_fit_flies_and_lands_bit_exact_on_the_fit_pose() {
+        let _gate = crate::ui::motion::test_gate_lock();
+        crate::ui::motion::set_enabled(true);
+        let mut scene = scene_with_line();
+        perspective(&scene, 4000.0);
+        let takeoff = pose(&scene);
+
+        scene.fit_all();
+        assert!(
+            crate::ui::motion::running(crate::ui::motion::VIEW_FLY),
+            "a perspective fit must hold a running fly-through track"
+        );
+        assert!(
+            crate::ui::motion::any_active(),
+            "the track must register with any_active so frames keep coming"
+        );
+        let landing = scene.view_fly_target().expect("a perspective fit must fly");
+        assert_eq!(
+            pose(&scene),
+            takeoff,
+            "the fit must be deferred, not applied on the input frame"
+        );
+        assert!(
+            landing.1 != takeoff.1,
+            "fixture: the fit must actually move the eye"
+        );
+
+        // One real frame mid-flight: the eye sits between the two poses, so
+        // the motion really rides the frame clock instead of a single cut.
+        std::thread::sleep(Duration::from_millis(120));
+        assert!(scene.tick_view_fly(), "mid-flight a frame is still owed");
+        let mid = pose(&scene);
+        assert!(
+            mid.1 != takeoff.1 && mid.1 != landing.1,
+            "mid-flight distance must sit between the ends, got {}",
+            mid.1
+        );
+
+        // Deadline passed: the track retires and the landing is exact.
+        std::thread::sleep(Duration::from_millis(400));
+        assert!(
+            !scene.tick_view_fly(),
+            "a finished track must land in this frame"
+        );
+        let landed = pose(&scene);
+        assert!(
+            landed.0 == landing.0,
+            "target must land bit-exact: {} vs {}",
+            landed.0,
+            landing.0
+        );
+        assert!(
+            landed.1 == landing.1,
+            "distance must land bit-exact: {} vs {}",
+            landed.1,
+            landing.1
+        );
+        assert!(scene.view_fly_target().is_none(), "the flight must retire");
+        assert!(!crate::ui::motion::running(crate::ui::motion::VIEW_FLY));
+        println!(
+            "VIEWFLY landing target_err={:e} distance_err={:e}",
+            (landed.0 - landing.0).length(),
+            (landed.1 - landing.1).abs()
+        );
+
+        // Probe: one full flight, timed from the fit to the retired track,
+        // with the per-frame cost of the tick sampled on the way.
+        perspective(&scene, 50.0);
+        let t0 = std::time::Instant::now();
+        scene.fit_all();
+        let mut frames = 0u32;
+        let mut tick_total = std::time::Duration::ZERO;
+        while scene.view_fly_target().is_some() {
+            let t = std::time::Instant::now();
+            scene.tick_view_fly();
+            tick_total += t.elapsed();
+            frames += 1;
+            std::thread::sleep(Duration::from_millis(2));
+        }
+        let settle_ms = t0.elapsed().as_secs_f64() * 1000.0;
+        let tick_us = if frames == 0 {
+            0.0
+        } else {
+            tick_total.as_secs_f64() * 1e6 / f64::from(frames)
+        };
+        println!("VIEWFLY settle_ms={settle_ms:.1} frames={frames} tick_us_per_frame={tick_us:.2}");
+        assert!(
+            (300.0..=450.0).contains(&settle_ms),
+            "flight duration {settle_ms} ms must sit inside the 300-450 ms brief"
+        );
+    }
+
+    /// Item 6: a second fit mid-flight re-bases on the pose on screen — no
+    /// stacking, no fighting over the camera, and no jump at the re-aim.
+    #[test]
+    fn a_second_fit_mid_flight_retargets_from_the_pose_on_screen() {
+        let _gate = crate::ui::motion::test_gate_lock();
+        crate::ui::motion::set_enabled(true);
+        let mut scene = scene_with_line();
+        perspective(&scene, 4000.0);
+
+        scene.fit_all();
+        let first = scene.view_fly_target().unwrap();
+        std::thread::sleep(Duration::from_millis(100));
+        scene.tick_view_fly();
+        let onscreen = pose(&scene);
+
+        // A second, far entity changes what the fit frames, so the second
+        // destination really differs from the first.
+        let mut far = codec::entities::Line::new();
+        far.start = codec::types::Vector3::new(0.0, 0.0, 0.0);
+        far.end = codec::types::Vector3::new(4000.0, 4000.0, 0.0);
+        // Through the scene, not the document: only the scene path bumps the
+        // geometry epoch the extents cache is keyed on.
+        scene.add_entity(codec::EntityType::Line(far));
+        scene.fit_all();
+        let second = scene
+            .view_fly_target()
+            .expect("the second fit must fly too");
+        assert!(second != first, "fixture: the destination must change");
+        assert_eq!(
+            pose(&scene),
+            onscreen,
+            "the re-aim must start from the pose on screen, without a jump"
+        );
+
+        std::thread::sleep(Duration::from_millis(420));
+        assert!(!scene.tick_view_fly(), "the re-aimed flight must land");
+        let landed = pose(&scene);
+        assert!(landed.0 == second.0 && landed.1 == second.1);
+    }
+
+    /// Item 6: a 2D top view keeps the instant ZOOM EXTENTS it always had.
+    #[test]
+    fn a_2d_fit_still_cuts_instantly() {
+        let _gate = crate::ui::motion::test_gate_lock();
+        crate::ui::motion::set_enabled(true);
+        let mut scene = scene_with_line();
+        let before = pose(&scene);
+        assert_ne!(
+            scene.camera.borrow().projection,
+            Projection::Perspective,
+            "fixture: the default view must be the 2D top view"
+        );
+
+        scene.fit_all();
+        assert!(
+            scene.view_fly_target().is_none(),
+            "a 2D fit must never hold a fly-through"
+        );
+        assert!(!crate::ui::motion::running(crate::ui::motion::VIEW_FLY));
+        assert_ne!(pose(&scene), before, "a 2D fit must still land instantly");
     }
 }

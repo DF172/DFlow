@@ -299,7 +299,10 @@ mod tests {
         assert!(a.is_parallel_to(a * 1e6, 1e-12));
         assert!(a.is_parallel_to(-a, 1e-12), "antiparallel is still a line");
         assert!(!a.is_parallel_to(Vec3::new(3.0, 2.0, 1.0), 1e-12));
-        assert!(!a.is_parallel_to(Vec3::ZERO, 1.0), "nothing has no direction");
+        assert!(
+            !a.is_parallel_to(Vec3::ZERO, 1.0),
+            "nothing has no direction"
+        );
     }
 
     #[test]

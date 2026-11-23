@@ -360,7 +360,8 @@ fn viewport_projection_clips_images_and_respects_frozen_and_nonplot_layers() {
 #[test]
 fn linked_image_uses_decoded_pixels_and_its_image_clip_without_reopening() {
     use codec::entities::{ClipBoundary, RasterImage};
-    let path = std::env::temp_dir().join(format!("draftflow1266-linked-{}.png", std::process::id()));
+    let path =
+        std::env::temp_dir().join(format!("draftflow1266-linked-{}.png", std::process::id()));
     let source = image();
     image::save_buffer(&path, &source.image.pixels, 32, 32, image::ColorType::Rgba8).unwrap();
     let mut raster = RasterImage::new(
@@ -396,7 +397,9 @@ fn equal_sized_sources_remain_distinct_across_pages() {
         let red = image();
         let mut cyan = image();
         Arc::make_mut(&mut cyan.image.pixels)
-            .chunks_exact_mut(4)
+            .as_chunks_mut::<4>()
+            .0
+            .iter_mut()
             .for_each(|pixel| pixel.copy_from_slice(&[0, 255, 255, 255]));
         assert!(!Arc::ptr_eq(&red.image.pixels, &cyan.image.pixels));
         vec![
@@ -441,7 +444,9 @@ fn equal_sized_sources_remain_distinct_across_pages() {
 fn affine_triangle_clip_has_no_shared_edge_seam() {
     let mut plot = image();
     Arc::make_mut(&mut plot.image.pixels)
-        .chunks_exact_mut(4)
+        .as_chunks_mut::<4>()
+        .0
+        .iter_mut()
         .for_each(|pixel| pixel.copy_from_slice(&[0, 0, 0, 128]));
     let mut sheared = plot.clone();
     let transform = |[x, y, z]: [f32; 3]| [x + 0.27 * y + 5.0, 0.19 * x + y + 3.0, z];
@@ -485,7 +490,8 @@ fn affine_triangle_clip_has_no_shared_edge_seam() {
 
 #[test]
 fn malformed_bitmap_reports_an_error_without_replacing_the_pdf() {
-    let path = std::env::temp_dir().join(format!("draftflow1266-invalid-{}.pdf", std::process::id()));
+    let path =
+        std::env::temp_dir().join(format!("draftflow1266-invalid-{}.pdf", std::process::id()));
     std::fs::write(&path, b"existing PDF").unwrap();
     let mut pixels = image();
     pixels.image.width += 1;

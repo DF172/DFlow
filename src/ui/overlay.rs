@@ -69,13 +69,13 @@ fn draw_tangent_constraint_glyph(frame: &mut canvas::Frame, center: Point, color
     let tangent_end = Point::new(contact.x + 8.0, contact.y - 8.0);
     let stroke = canvas::Stroke::default().with_color(color).with_width(1.35);
 
-    frame.stroke(&canvas::Path::circle(circle_center, radius), stroke.clone());
+    frame.stroke(&canvas::Path::circle(circle_center, radius), stroke);
     frame.stroke(&canvas::Path::line(contact, tangent_end), stroke);
 }
 
 fn draw_concentric_constraint_glyph(frame: &mut canvas::Frame, center: Point, color: Color) {
     let stroke = canvas::Stroke::default().with_color(color).with_width(1.25);
-    frame.stroke(&canvas::Path::circle(center, 4.7), stroke.clone());
+    frame.stroke(&canvas::Path::circle(center, 4.7), stroke);
     frame.stroke(&canvas::Path::circle(center, 2.15), stroke);
 }
 
@@ -155,13 +155,13 @@ fn draw_vertical_constraint_glyph(
             Point::new(datum_x, center.y - 6.5),
             Point::new(datum_x, center.y + 6.5),
         ),
-        stroke.clone(),
+        stroke,
     );
     for step in 0..3 {
         let y = center.y - 4.5 + step as f32 * 4.0;
         frame.stroke(
             &canvas::Path::line(Point::new(datum_x, y), Point::new(datum_x - 4.0, y + 3.5)),
-            stroke.clone(),
+            stroke,
         );
     }
     frame.stroke(
@@ -230,6 +230,18 @@ pub enum NavCursor {
     Pan,
     Orbit,
     Zoom,
+}
+
+/// Screen-space sector of the angle-takeover sweep (item 11): pivot on the
+/// command base point, `from`/`to` in screen radians (y down, atan2 order),
+/// `radius` in px. The update layer fills it on the takeover edge; the draw
+/// side only reads it while the ANGLE_SWEEP track runs.
+#[derive(Debug, Clone, Copy)]
+pub struct AngleSweep {
+    pub center: Point,
+    pub from: f32,
+    pub to: f32,
+    pub radius: f32,
 }
 
 #[derive(Clone, Copy)]
@@ -530,6 +542,10 @@ pub struct GripMarker {
     pub is_hot: bool,
     /// True → pointer is over this grip (drawn with the hover fill).
     pub is_hovered: bool,
+    /// Item 30: hover fade weight in `0..=1` for this handle. 0 paints the
+    /// plain handle, 1 the hover fill; the value comes from the handle's own
+    /// motion track, so only the arriving and departing grips animate.
+    pub hover_w: f32,
     /// Screen-plane direction with positive Y pointing up.
     pub dir: Option<[f32; 2]>,
 }
@@ -561,6 +577,12 @@ pub struct GridParams {
     /// WCS XY drawing limits. When present, grid lines stop at this rectangle
     /// instead of extending across the full viewport.
     pub limits: Option<(glam::DVec2, glam::DVec2)>,
+    /// Item 42: ink strength of this pane's lines, `0..=1`. 1 is the normal
+    /// grid. During a density cross-fade the outgoing spacing is pushed with
+    /// `1 - t` and the incoming one with `t`, and the stroke colour is mixed
+    /// from the line colour toward the page colour — an RGB mix, never an
+    /// alpha fade, so the weight survives `transparency_enable` being off.
+    pub ink: f32,
 }
 
 /// Pure result of grid projection — segments in canvas-local coordinates plus
@@ -648,6 +670,91 @@ pub fn should_reuse(cached: Option<&GridKey>, new: &GridKey) -> bool {
 pub struct GridCanvasState {
     pub key: RefCell<Option<GridKey>>,
     pub cache: canvas::Cache<iced::Renderer>,
+    /// Item 42: which pane is currently fading from which spacing.
+    pub fade: RefCell<GridDensityFade>,
+}
+
+/// Item 42 — per-pane density cross-fade bookkeeping.
+///
+/// The adaptive step is recomputed every frame from the camera distance, so a
+/// zoom across a power of 5 boundary silently swaps the spacing. This keeps the
+/// outgoing pair for one fade so the canvas can draw both: the old spacing at
+/// `1 - t` ink and the new one at `t`.
+///
+/// A second crossing mid-fade overwrites `prev` with the spacing that was
+/// arriving, so the older one is dropped in that same frame — three spacings
+/// can never be on screen together.
+#[derive(Clone, Debug, Default)]
+pub struct GridDensityFade {
+    /// Last spacing seen per pane: (step_x, step_y, major_every).
+    last: Vec<(f32, f32, u32)>,
+    /// Spacing the pane is fading *out of*, per pane.
+    prev: Vec<Option<(f32, f32)>>,
+}
+
+impl GridDensityFade {
+    fn same(a: (f32, f32, u32), b: (f32, f32, u32)) -> bool {
+        a.0.to_bits() == b.0.to_bits() && a.1.to_bits() == b.1.to_bits() && a.2 == b.2
+    }
+
+    /// Record this frame's panes; `true` when a spacing changed and a fade
+    /// must start. A change in pane count resyncs without fading — a new tiling
+    /// has no old/new pairing to cross-fade.
+    pub fn observe(&mut self, grids: &[GridParams]) -> bool {
+        if grids.len() != self.last.len() {
+            self.last = grids
+                .iter()
+                .map(|g| (g.step_x, g.step_y, g.major_every))
+                .collect();
+            self.prev = vec![None; grids.len()];
+            return false;
+        }
+        let mut changed = false;
+        for (i, g) in grids.iter().enumerate() {
+            let sig = (g.step_x, g.step_y, g.major_every);
+            if !Self::same(self.last[i], sig) {
+                self.prev[i] = Some((self.last[i].0, self.last[i].1));
+                self.last[i] = sig;
+                changed = true;
+            }
+        }
+        changed
+    }
+
+    /// The panes to draw at cross-fade weight `t`: the outgoing spacing at
+    /// `1 - t`, the incoming one at `t`. At rest this is one pane per pane at
+    /// full ink, so a still drawing pays nothing for the fade.
+    #[must_use]
+    pub fn expand(&self, grids: &[GridParams], t: f32) -> Vec<GridParams> {
+        let t = t.clamp(0.0, 1.0);
+        let mut out = Vec::with_capacity(grids.len() * 2);
+        for (i, g) in grids.iter().enumerate() {
+            match self.prev.get(i).copied().flatten() {
+                Some((px, py)) if t < 1.0 => {
+                    let mut old = *g;
+                    old.step_x = px;
+                    old.step_y = py;
+                    old.ink = 1.0 - t;
+                    out.push(old);
+                    let mut fresh = *g;
+                    fresh.ink = t;
+                    out.push(fresh);
+                }
+                _ => {
+                    let mut cur = *g;
+                    cur.ink = 1.0;
+                    out.push(cur);
+                }
+            }
+        }
+        out
+    }
+
+    /// Drop the outgoing pair once the fade has landed (keeps `expand` cheap
+    /// on the frames after a crossing).
+    pub fn settle(&mut self) {
+        self.prev.fill(None);
+    }
 }
 
 /// Compute the adaptive grid step size (world units) from camera zoom.
@@ -839,7 +946,25 @@ impl canvas::Program<Message> for GridCanvas {
         bounds: iced::Rectangle,
         _cursor: mouse::Cursor,
     ) -> Vec<canvas::Geometry> {
-        let key = GridKey::from_grids(&self.grid, bounds, self.style);
+        // Item 42: when a pane's adaptive step jumps a power of 5, the outgoing
+        // spacing rides along for one 190 ms cross-fade. `observe` restarts the
+        // weight on every crossing, so a third density arriving mid-fade
+        // replaces the old one — at most two spacings are ever on screen.
+        let changed = {
+            let mut fade = state.fade.borrow_mut();
+            fade.observe(&self.grid)
+        };
+        if changed {
+            crate::ui::motion::set(crate::ui::motion::GRID_DENSITY, 0.0, 0);
+            crate::ui::motion::set(
+                crate::ui::motion::GRID_DENSITY,
+                1.0,
+                crate::ui::motion::GRID_DENSITY_FADE,
+            );
+        }
+        let t = crate::ui::motion::value_or(crate::ui::motion::GRID_DENSITY, 1.0);
+        let draw_list = state.fade.borrow().expand(&self.grid, t);
+        let key = GridKey::from_grids(&draw_list, bounds, self.style);
 
         // Hit check: same params, same bounds, same style ⇒ the cached geometry is still
         // valid. The key includes bounds and style, so a `should_reuse` match implies
@@ -856,7 +981,7 @@ impl canvas::Program<Message> for GridCanvas {
             // bounds happen to match the previously-cached frame.
             state.cache.clear();
             state.cache.draw_with_bounds(renderer, bounds, |frame| {
-                for g in &self.grid {
+                for g in &draw_list {
                     let gb = g.bounds;
                     let cx0 = gb.x.max(0.0);
                     let cy0 = gb.y.max(0.0);
@@ -884,6 +1009,7 @@ impl canvas::Program<Message> for GridCanvas {
                             g.axes,
                             g.limits,
                             self.style,
+                            g.ink,
                         )
                     });
                 }
@@ -897,9 +1023,12 @@ impl canvas::Program<Message> for GridCanvas {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn selection_overlay<'a>(
     selection: Arc<RefCell<SelectionState>>,
     snap: Option<(Point, SnapType)>,
+    angle_sweep: Option<AngleSweep>,
+    first_point_pulse: Option<Point>,
     snap_ext_base: Option<Point>,
     snap_ext_base2: Option<Point>,
     grips: Vec<GripMarker>,
@@ -930,6 +1059,8 @@ pub fn selection_overlay<'a>(
     canvas(SelectionCanvas {
         selection,
         snap,
+        angle_sweep,
+        first_point_pulse,
         snap_ext_base,
         snap_ext_base2,
         grips,
@@ -962,6 +1093,11 @@ pub fn selection_overlay<'a>(
 struct SelectionCanvas {
     selection: Arc<RefCell<SelectionState>>,
     snap: Option<(Point, SnapType)>,
+    /// Angle-takeover sector (item 11), drawn only while its track runs.
+    angle_sweep: Option<AngleSweep>,
+    /// Screen point of the first-point anchor pulse (item 13), drawn only
+    /// while its track runs.
+    first_point_pulse: Option<Point>,
     /// Screen position of the endpoint an active Extension snap extends from,
     /// so the dashed extension guide line can be drawn back to it. (#238)
     snap_ext_base: Option<Point>,
@@ -1026,6 +1162,25 @@ struct SelectionCanvas {
     /// Symbol shown beside the cursor while it targets an entity that already
     /// participates in an enabled geometric constraint.
     constraint_cursor_badge: Option<String>,
+}
+
+/// Localized type name shown beside the snap marker (item 12). The two mode
+/// tables carry the same English labels the snap popup already translates,
+/// so the catalog knows every one of them. Grid and ObjectPick live outside
+/// the tables (grid snap is its own system; ObjectPick is a domain-object
+/// pick) and map onto existing common words — no new catalog keys.
+fn snap_type_label(snap_type: SnapType) -> String {
+    let source = match snap_type {
+        SnapType::Grid => "Grid",
+        SnapType::ObjectPick => "Object",
+        other => crate::snap::ALL_SNAP_MODES
+            .iter()
+            .chain(crate::snap::ALL_3D_SNAP_MODES.iter())
+            .find(|(m, _, _)| *m == other)
+            .map(|(_, _, l)| *l)
+            .unwrap_or("Snap"),
+    };
+    crate::t!(source).into_owned()
 }
 
 /// The move gizmo: an arrow per axis (X red, Y green, Z blue) from the
@@ -1187,29 +1342,13 @@ fn draw_grip_marker(
             theme.palette().danger.base.color
         };
         frame.fill(&path, hot_color);
-    } else if grip.is_hovered {
-        let pair = theme.palette().primary.strong;
-        let hover_color = if visual.grip_hover > 0 {
-            if let Some((r, g, b)) = codec::types::aci_table::aci_to_rgb(visual.grip_hover) {
-                Color::from_rgb8(r, g, b)
-            } else {
-                pair.color
-            }
-        } else {
-            pair.color
-        };
-        frame.fill(&path, hover_color);
-        frame.stroke(
-            &path,
-            canvas::Stroke {
-                width: 1.5,
-                style: canvas::Style::Solid(pair.text),
-                ..Default::default()
-            },
-        );
     } else {
+        // Item 30: the hover state travels between `grip.hover_w == 0` (plain
+        // handle) and 1 (hovered), so entering and leaving the handle eases
+        // instead of popping. The mix is RGB only: the plate keeps the
+        // translucency it always had, and no tint is carried by an alpha fade.
         let palette = theme.palette();
-        let color = if visual.grip_color > 0 {
+        let base_color = if visual.grip_color > 0 {
             if let Some((r, g, b)) = codec::types::aci_table::aci_to_rgb(visual.grip_color) {
                 Color::from_rgb8(r, g, b)
             } else {
@@ -1218,23 +1357,54 @@ fn draw_grip_marker(
         } else {
             palette.primary.base.color
         };
-        let fill = if matches!(
+        let base_fill = if matches!(
             grip.shape,
             GripShape::Dropdown | GripShape::DropdownAdjacent
         ) {
-            color
+            base_color
         } else {
             palette.background.base.color.scale_alpha(0.7)
         };
-        frame.fill(&path, fill);
-        frame.stroke(
-            &path,
-            canvas::Stroke {
-                width: 1.5,
-                style: canvas::Style::Solid(color),
-                ..Default::default()
-            },
-        );
+        let w = grip.hover_w.clamp(0.0, 1.0);
+        if w > 0.0 {
+            let pair = palette.primary.strong;
+            let hover_color = if visual.grip_hover > 0 {
+                if let Some((r, g, b)) = codec::types::aci_table::aci_to_rgb(visual.grip_hover) {
+                    Color::from_rgb8(r, g, b)
+                } else {
+                    pair.color
+                }
+            } else {
+                pair.color
+            };
+            let hover_fill = Color {
+                a: base_fill.a,
+                ..hover_color
+            };
+            let hover_edge = Color {
+                a: base_color.a,
+                ..pair.text
+            };
+            frame.fill(&path, crate::ui::motion::mix(base_fill, hover_fill, w));
+            frame.stroke(
+                &path,
+                canvas::Stroke {
+                    width: 1.5,
+                    style: canvas::Style::Solid(crate::ui::motion::mix(base_color, hover_edge, w)),
+                    ..Default::default()
+                },
+            );
+        } else {
+            frame.fill(&path, base_fill);
+            frame.stroke(
+                &path,
+                canvas::Stroke {
+                    width: 1.5,
+                    style: canvas::Style::Solid(base_color),
+                    ..Default::default()
+                },
+            );
+        }
     }
 }
 
@@ -1283,7 +1453,10 @@ impl canvas::Program<Message> for SelectionCanvas {
                     && pos.x <= vc_x + VIEWCUBE_REGION_PX
                     && pos.y >= vc_y
                     && pos.y <= vc_y + VIEWCUBE_REGION_PX;
-                (cube, glyph_hit_test_entries(&self.constraint_glyphs, pos).is_some())
+                (
+                    cube,
+                    glyph_hit_test_entries(&self.constraint_glyphs, pos).is_some(),
+                )
             }
             None => (false, false),
         };
@@ -1390,16 +1563,27 @@ impl canvas::Program<Message> for SelectionCanvas {
         // Draw a selection marquee (green crossing / blue window) as a filled,
         // stroked rectangle between two canvas points. Shared by the live
         // box-selection and the preview-only window marquee (#291).
+        //
+        // `blend` is 0 for a window (blue, left→right) and 1 for a crossing
+        // (green, right→left). A drag that reverses direction eases between
+        // the two colours (`sync_overlay_motion` latches the 60 ms track);
+        // the dash pattern, which is a shape rather than a colour, follows
+        // the nearer end.
         fn draw_marquee(
             frame: &mut canvas::Frame,
             a: Point,
             b: Point,
-            crossing: bool,
+            blend: f32,
             theme: &Theme,
             visual: &SelectionVisualOptions,
             canvas_bg: [f32; 4],
         ) {
-            let base = resolve_selection_base_color(crossing, theme, visual, canvas_bg);
+            let base = crate::ui::motion::mix(
+                resolve_selection_base_color(false, theme, visual, canvas_bg),
+                resolve_selection_base_color(true, theme, visual, canvas_bg),
+                blend,
+            );
+            let crossing = blend >= 0.5;
             let canvas_light = crate::ui::style::common::canvas_is_light(canvas_bg);
             // Desk-spanning marquee edge case: deliberate limitation to avoid mid-drag rectangle color splits when dragged past sheet onto desk.
             let x0 = a.x.min(b.x);
@@ -1445,7 +1629,14 @@ impl canvas::Program<Message> for SelectionCanvas {
                     &mut frame,
                     a,
                     b,
-                    self.selection.borrow().gesture.box_crossing,
+                    crate::ui::motion::value_or(
+                        crate::ui::motion::SELECT_CROSS_BOX,
+                        if self.selection.borrow().gesture.box_crossing {
+                            1.0
+                        } else {
+                            0.0
+                        },
+                    ),
                     theme,
                     &self.selection_visual,
                     self.crosshair_bg,
@@ -1458,7 +1649,7 @@ impl canvas::Program<Message> for SelectionCanvas {
                 &mut frame,
                 a,
                 b,
-                crossing,
+                if crossing { 1.0 } else { 0.0 },
                 theme,
                 &self.selection_visual,
                 self.crosshair_bg,
@@ -1469,12 +1660,26 @@ impl canvas::Program<Message> for SelectionCanvas {
             && self.selection.borrow().gesture.poly_points.len() > 1
         {
             let crossing = self.selection.borrow().gesture.poly_crossing;
-            let base = resolve_selection_base_color(
-                crossing,
-                theme,
-                &self.selection_visual,
-                self.crosshair_bg,
+            let blend = crate::ui::motion::value_or(
+                crate::ui::motion::SELECT_CROSS_POLY,
+                if crossing { 1.0 } else { 0.0 },
             );
+            let base = crate::ui::motion::mix(
+                resolve_selection_base_color(
+                    false,
+                    theme,
+                    &self.selection_visual,
+                    self.crosshair_bg,
+                ),
+                resolve_selection_base_color(
+                    true,
+                    theme,
+                    &self.selection_visual,
+                    self.crosshair_bg,
+                ),
+                blend,
+            );
+            let crossing = blend >= 0.5;
             let canvas_light = crate::ui::style::common::canvas_is_light(self.crosshair_bg);
             if self.selection_visual.area && self.selection_visual.opacity > 0 {
                 let alpha =
@@ -1514,7 +1719,7 @@ impl canvas::Program<Message> for SelectionCanvas {
                 },
                 ..Default::default()
             };
-            frame.stroke(&path, stroke_style.clone());
+            frame.stroke(&path, stroke_style);
             if let Some(cur) = self.selection.borrow().input.last_move_pos {
                 let start = self.selection.borrow().gesture.poly_points[0];
                 let last = *self.selection.borrow().gesture.poly_points.last().unwrap();
@@ -1582,6 +1787,59 @@ impl canvas::Program<Message> for SelectionCanvas {
             });
         }
 
+        // ── Angle-takeover sweep (item 11) ─────────────────────────────────
+        // A translucent sector sweeps from the free cursor angle to the
+        // locked angle while the track runs. Nothing draws when the
+        // constraint is not engaged: the update layer only fills the sector
+        // on the takeover edge, and the running gate empties it afterwards.
+        if let Some(sweep) = self.angle_sweep {
+            if crate::ui::motion::running(crate::ui::motion::ANGLE_SWEEP) {
+                let t = crate::ui::motion::value(crate::ui::motion::ANGLE_SWEEP);
+                let end = sweep.from + (sweep.to - sweep.from) * t;
+                let [r, g, b, _] = crate::scene::view::render::adapt_to_bg(
+                    [0.95, 0.55, 0.10, 1.0],
+                    self.crosshair_bg,
+                );
+                let fill = Color::from_rgba(r, g, b, 0.35 * (1.0 - t));
+                // Polyline fan instead of an arc primitive: 24 segments read
+                // smooth at a ≤120 px radius over a 100 ms sweep.
+                let sector = canvas::Path::new(|b| {
+                    b.move_to(sweep.center);
+                    const STEPS: usize = 24;
+                    for k in 0..=STEPS {
+                        let a = sweep.from + (end - sweep.from) * (k as f32 / STEPS as f32);
+                        b.line_to(Point::new(
+                            sweep.center.x + sweep.radius * a.cos(),
+                            sweep.center.y + sweep.radius * a.sin(),
+                        ));
+                    }
+                    b.close();
+                });
+                frame.fill(&sector, fill);
+            }
+        }
+
+        // ── First-point anchor pulse (item 13) ─────────────────────────────
+        // One-shot expanding ring on the first committed point; the running
+        // gate is the whole lifetime, so later points and settled frames draw
+        // nothing even though the screen point stays latched.
+        if let Some(p) = self.first_point_pulse {
+            if crate::ui::motion::running(crate::ui::motion::FIRST_POINT_PULSE) {
+                let t = crate::ui::motion::value(crate::ui::motion::FIRST_POINT_PULSE);
+                let [r, g, b, _] = crate::scene::view::render::adapt_to_bg(
+                    [0.95, 0.55, 0.10, 1.0],
+                    self.crosshair_bg,
+                );
+                let ring = canvas::Path::circle(p, 4.0 + 10.0 * t);
+                frame.stroke(
+                    &ring,
+                    canvas::Stroke::default()
+                        .with_color(Color::from_rgba(r, g, b, 0.6 * (1.0 - t)))
+                        .with_width(1.5),
+                );
+            }
+        }
+
         // ── Snap marker ───────────────────────────────────────────────────
         if let Some((snap_point, snap_type)) = self.snap {
             // Zero ink at most 1 px in, so a point on the viewport edge still
@@ -1603,6 +1861,16 @@ impl canvas::Program<Message> for SelectionCanvas {
                 style: canvas::Style::Solid(marker),
                 ..Default::default()
             };
+            // Acquisition pulse: the marker swells to 1.15 and settles back.
+            // Scaling about the snap point keeps the glyph pinned to the
+            // geometry it names instead of growing off it.
+            let pulse = crate::ui::motion::value_or(crate::ui::motion::SNAP_PULSE, 1.0);
+            frame.push_transform();
+            if (pulse - 1.0).abs() > 1e-4 {
+                frame.translate(iced::Vector::new(sp.x, sp.y));
+                frame.scale(pulse);
+                frame.translate(iced::Vector::new(-sp.x, -sp.y));
+            }
             match snap_type {
                 SnapType::ObjectPick => {
                     // Target box + center dot (object-acquisition glyph).
@@ -1611,7 +1879,7 @@ impl canvas::Program<Message> for SelectionCanvas {
                         Point::new(sp.x - h, sp.y - h),
                         Size::new(h * 2.0, h * 2.0),
                     );
-                    frame.stroke(&rect, stroke.clone());
+                    frame.stroke(&rect, stroke);
                     let r = 3.0_f32;
                     frame.fill(
                         &canvas::Path::circle(sp, r),
@@ -1662,14 +1930,14 @@ impl canvas::Program<Message> for SelectionCanvas {
                         }
                         b.close();
                     });
-                    frame.stroke(&path, stroke.clone());
+                    frame.stroke(&path, stroke);
                     frame.fill(&canvas::Path::circle(sp, 1.6), marker);
                 }
                 SnapType::Node => {
                     // Circle with an inscribed X.
                     let r = 5.5_f32;
                     let cpath = canvas::Path::circle(sp, r);
-                    frame.stroke(&cpath, stroke.clone());
+                    frame.stroke(&cpath, stroke);
                     let d = r * std::f32::consts::FRAC_1_SQRT_2;
                     let x1 = canvas::Path::new(|b| {
                         b.move_to(Point::new(sp.x - d, sp.y - d));
@@ -1679,7 +1947,7 @@ impl canvas::Program<Message> for SelectionCanvas {
                         b.move_to(Point::new(sp.x - d, sp.y + d));
                         b.line_to(Point::new(sp.x + d, sp.y - d));
                     });
-                    frame.stroke(&x1, stroke.clone());
+                    frame.stroke(&x1, stroke);
                     frame.stroke(&x2, stroke);
                 }
                 SnapType::Quadrant => {
@@ -1731,7 +1999,7 @@ impl canvas::Program<Message> for SelectionCanvas {
                         b.move_to(Point::new(sp.x - r, sp.y + r));
                         b.line_to(Point::new(sp.x + r, sp.y - r));
                     });
-                    frame.stroke(&p1, stroke.clone());
+                    frame.stroke(&p1, stroke);
                     frame.stroke(&p2, stroke);
                 }
                 SnapType::ApparentIntersection => {
@@ -1742,7 +2010,7 @@ impl canvas::Program<Message> for SelectionCanvas {
                         Point::new(sp.x - r, sp.y - r),
                         Size::new(r * 2.0, r * 2.0),
                     );
-                    frame.stroke(&rect, stroke.clone());
+                    frame.stroke(&rect, stroke);
                     let xr = r - 1.5;
                     let p1 = canvas::Path::new(|b| {
                         b.move_to(Point::new(sp.x - xr, sp.y - xr));
@@ -1752,7 +2020,7 @@ impl canvas::Program<Message> for SelectionCanvas {
                         b.move_to(Point::new(sp.x - xr, sp.y + xr));
                         b.line_to(Point::new(sp.x + xr, sp.y - xr));
                     });
-                    frame.stroke(&p1, stroke.clone());
+                    frame.stroke(&p1, stroke);
                     frame.stroke(&p2, stroke);
                 }
                 SnapType::Insertion => {
@@ -1766,7 +2034,7 @@ impl canvas::Program<Message> for SelectionCanvas {
                         Point::new(sp.x - r, sp.y - r * 0.5),
                         Size::new(r * 2.0, r),
                     );
-                    frame.stroke(&outer, stroke.clone());
+                    frame.stroke(&outer, stroke);
                     frame.stroke(&inner, stroke);
                 }
                 SnapType::Perpendicular => {
@@ -1782,14 +2050,14 @@ impl canvas::Program<Message> for SelectionCanvas {
                         b.line_to(Point::new(sp.x, sp.y));
                         b.line_to(Point::new(sp.x, sp.y + r));
                     });
-                    frame.stroke(&p, stroke.clone());
+                    frame.stroke(&p, stroke);
                     frame.stroke(&foot, stroke);
                 }
                 SnapType::Tangent => {
                     // Circle with a tangent bar across the top.
                     let r = 5.5_f32;
                     let c = canvas::Path::circle(sp, r);
-                    frame.stroke(&c, stroke.clone());
+                    frame.stroke(&c, stroke);
                     let bar = canvas::Path::new(|b| {
                         b.move_to(Point::new(sp.x - r, sp.y - r));
                         b.line_to(Point::new(sp.x + r, sp.y - r));
@@ -1858,7 +2126,7 @@ impl canvas::Program<Message> for SelectionCanvas {
                         b.move_to(Point::new(sp.x - r + off, sp.y + r));
                         b.line_to(Point::new(sp.x + r + off, sp.y - r));
                     });
-                    frame.stroke(&b1, stroke.clone());
+                    frame.stroke(&b1, stroke);
                     frame.stroke(&b2, stroke);
                 }
                 SnapType::Grid => {
@@ -1871,7 +2139,7 @@ impl canvas::Program<Message> for SelectionCanvas {
                         b.move_to(Point::new(sp.x, sp.y - arm));
                         b.line_to(Point::new(sp.x, sp.y + arm));
                     });
-                    frame.stroke(&h, stroke.clone());
+                    frame.stroke(&h, stroke);
                     frame.stroke(&v, stroke);
                 }
                 SnapType::Vertex => {
@@ -1921,7 +2189,7 @@ impl canvas::Program<Message> for SelectionCanvas {
                         b.line_to(Point::new(sp.x - r, sp.y + r));
                         b.line_to(Point::new(sp.x + r, sp.y + r));
                     });
-                    frame.stroke(&p, stroke.clone());
+                    frame.stroke(&p, stroke);
                     frame.fill(&canvas::Path::circle(sp, 2.0_f32), marker);
                 }
                 SnapType::NearestFace => {
@@ -1937,12 +2205,58 @@ impl canvas::Program<Message> for SelectionCanvas {
                     frame.fill(&path, marker);
                 }
             }
+            frame.pop_transform();
+
+            // Type label (item 12): fades in on the acquisition edge and
+            // vanishes with the snap itself (no fade-out track). The diagonal
+            // offset clears the marker glyph; the box flips away from the
+            // cursor and clamps to the viewport so the label never sits under
+            // the pointer or half off-screen. Entity-geometry avoidance is
+            // best-effort: the overlay carries no entity geometry, so only
+            // the marker, the cursor and the viewport edges are known here.
+            let fade = crate::ui::motion::value_or(crate::ui::motion::SNAP_LABEL, 1.0);
+            if fade > 0.01 {
+                let label = snap_type_label(snap_type);
+                let text_h = 14.0_f32;
+                let text_w: f32 = label
+                    .chars()
+                    .map(|c| if c.is_ascii() { 6.0 } else { 11.0 })
+                    .sum();
+                let mut lx = sp.x + 12.0;
+                let mut ly = sp.y - 12.0 - text_h;
+                if let Some(cp) = cursor.position_in(bounds) {
+                    let overlaps = |x: f32, y: f32| {
+                        cp.x >= x - 6.0
+                            && cp.x <= x + text_w + 6.0
+                            && cp.y >= y - 6.0
+                            && cp.y <= y + text_h + 6.0
+                    };
+                    if overlaps(lx, ly) {
+                        ly = sp.y + 12.0;
+                        if overlaps(lx, ly) {
+                            lx = sp.x - 12.0 - text_w;
+                        }
+                    }
+                }
+                lx = lx.clamp(2.0, (bounds.width - text_w - 2.0).max(2.0));
+                ly = ly.clamp(2.0, (bounds.height - text_h - 2.0).max(2.0));
+                frame.fill_text(canvas::Text {
+                    content: label,
+                    position: Point::new(lx, ly),
+                    color: Color { a: fade, ..marker },
+                    size: iced::Pixels(11.0),
+                    align_x: iced::alignment::Horizontal::Left.into(),
+                    align_y: iced::alignment::Vertical::Top,
+                    shaping: iced::advanced::text::Shaping::Advanced,
+                    ..Default::default()
+                });
+            }
         }
 
         // ── CAD crosshair cursor ──────────────────────────────────────────────
         let over_viewcube = self.show_viewcube && {
             use crate::scene::{VIEWCUBE_PAD, VIEWCUBE_REGION_PX};
-            cursor.position_in(bounds).map_or(false, |pos| {
+            cursor.position_in(bounds).is_some_and(|pos| {
                 let vc_x = bounds.width - VIEWCUBE_REGION_PX - VIEWCUBE_PAD;
                 let vc_y = VIEWCUBE_PAD;
                 pos.x >= vc_x
@@ -1987,11 +2301,8 @@ impl canvas::Program<Message> for SelectionCanvas {
                     self.crosshair.pick_pending,
                     point_mode,
                 );
-                let [r, g, b] = crate::ui::canvas_fx::crosshair_rgb(
-                    form,
-                    [r, g, b],
-                    [0.30, 0.55, 0.98],
-                );
+                let [r, g, b] =
+                    crate::ui::canvas_fx::crosshair_rgb(form, [r, g, b], [0.30, 0.55, 0.98]);
                 let color = Color {
                     r,
                     g,
@@ -2042,7 +2353,7 @@ impl canvas::Program<Message> for SelectionCanvas {
                             path.move_to(Point::new(cp.x - dir.x * gap, cp.y - dir.y * gap));
                             path.line_to(Point::new(cp.x - dir.x * arm, cp.y - dir.y * arm));
                         });
-                        frame.stroke(&arms, stroke.clone());
+                        frame.stroke(&arms, stroke);
                     }
                 }
                 if point_mode {
@@ -2203,7 +2514,7 @@ impl canvas::Program<Message> for SelectionCanvas {
                 b.move_to(Point::new(m.x - r + off, m.y + r));
                 b.line_to(Point::new(m.x + r + off, m.y - r));
             });
-            frame.stroke(&b1, stroke.clone());
+            frame.stroke(&b1, stroke);
             frame.stroke(&b2, stroke);
         }
         // Draw + hover + tooltip all read the memoised entries' precomputed
@@ -2266,7 +2577,11 @@ impl canvas::Program<Message> for SelectionCanvas {
                     frame.fill(&pill, bg);
                 }
                 if *is_selected {
-                    let ring = if bare_glyph { glyphs.bare_ring } else { badge.ring };
+                    let ring = if bare_glyph {
+                        glyphs.bare_ring
+                    } else {
+                        badge.ring
+                    };
                     frame.stroke(
                         &pill,
                         canvas::Stroke::default()
@@ -2342,8 +2657,9 @@ impl canvas::Program<Message> for SelectionCanvas {
                 // The cross is struck on the drawing itself, at the relation's
                 // picked points — the same danger hue as a conflict, solved for
                 // the canvas rather than for a badge.
-                let stroke =
-                    canvas::Stroke::default().with_color(glyphs.hover).with_width(1.5);
+                let stroke = canvas::Stroke::default()
+                    .with_color(glyphs.hover)
+                    .with_width(1.5);
                 for point in self.constraint_glyphs[index].hover.iter() {
                     let first = canvas::Path::line(
                         Point::new(
@@ -2365,8 +2681,8 @@ impl canvas::Program<Message> for SelectionCanvas {
                             point.y - CONSTRAINT_HOVER_MARKER_RADIUS,
                         ),
                     );
-                    frame.stroke(&first, stroke.clone());
-                    frame.stroke(&second, stroke.clone());
+                    frame.stroke(&first, stroke);
+                    frame.stroke(&second, stroke);
                 }
                 if let Some(label) = &self.constraint_glyph_tooltip {
                     let (glyph_top_left, glyph_size) = (
@@ -2432,7 +2748,7 @@ impl canvas::Program<Message> for SelectionCanvas {
                     y: tp.y + sz,
                 },
             );
-            frame.stroke(&h, stroke.clone());
+            frame.stroke(&h, stroke);
             frame.stroke(&v, stroke);
         }
 
@@ -2447,6 +2763,19 @@ const MIN_GRID_PX: f32 = 20.0;
 /// Stop an infinite perspective grid before adjacent lines merge at the horizon.
 const MIN_HORIZON_GRID_PX: f32 = 5.0;
 
+/// Item 42 — ink of one grid colour component at cross-fade weight `ink`.
+///
+/// `ink == 1` is the nominal colour, `ink == 0` is the page luminance, and
+/// anything between is an RGB mix. It deliberately rides RGB rather than
+/// `Color::a`: `transparency_enable` defaults to off, where an alpha tint
+/// stays at 1 and would silently not fade at all.
+#[must_use]
+pub fn grid_ink(c: f32, page: f32, ink: f32) -> f32 {
+    let ink = ink.clamp(0.0, 1.0);
+    let page = page.clamp(0.0, 1.0);
+    c + (page - c) * (1.0 - ink)
+}
+
 #[allow(clippy::too_many_arguments)]
 fn draw_grid(
     frame: &mut canvas::Frame,
@@ -2460,6 +2789,7 @@ fn draw_grid(
     grid_axes: (Vec3, Vec3, Vec3),
     limits: Option<(glam::DVec2, glam::DVec2)>,
     style: GridStyle,
+    ink: f32,
 ) {
     let alpha = (style.opacity as f32 / 100.0).clamp(0.02, 1.0);
     // Major lines stay subtle: ~1.5x the minor alpha with a slightly heavier
@@ -2470,6 +2800,16 @@ fn draw_grid(
     } else {
         (0.80, 0.80, 0.80)
     };
+    // Item 42: density cross-fade. `ink` mixes the line colour toward the page
+    // colour (the style's measured background luminance, grey by construction),
+    // so a fading-out spacing dissolves into the sheet instead of dimming
+    // through an alpha channel that the renderer may ignore.
+    let ink = ink.clamp(0.0, 1.0);
+    let (r, g, b) = (
+        grid_ink(r, style.bg_luminance, ink),
+        grid_ink(g, style.bg_luminance, ink),
+        grid_ink(b, style.bg_luminance, ink),
+    );
     let minor_stroke = canvas::Stroke {
         width: 0.5,
         style: canvas::Style::Solid(Color { r, g, b, a: alpha }),
@@ -2728,7 +3068,7 @@ pub fn grid_segments(
                 continue;
             };
             let gap = if family == 0 { gaps.0 } else { gaps.1 };
-            if best.map_or(true, |(_, _, best_gap)| gap > best_gap) {
+            if best.is_none_or(|(_, _, best_gap)| gap > best_gap) {
                 best = Some((*screen, *world, gap));
             }
         }
@@ -4185,6 +4525,86 @@ impl canvas::Program<Message> for DynInputCanvas {
     }
 }
 
+/// Item 46 (P1, batch 5): the MATCHPROP transfer line.
+///
+/// One straight run per destination plus a travelling head at `t`. The view
+/// pushes this layer only while the flow track runs, and the track itself is
+/// planted by the transfer's apply step — so with no source anchor, no
+/// destination anchor, or no running track there is neither geometry nor a
+/// frame subscription. The head is the house progress curve sampled at `t`
+/// rather than a second easing.
+pub struct MatchPropFlow {
+    /// Canvas-local (source, destination) pair per destination.
+    wires: Vec<(Point, Point)>,
+    /// Travel progress 0..=1 read from `motion::MATCHPROP_FLOW`.
+    t: f32,
+    /// Line colour, copied so the element borrows nothing.
+    line: Color,
+    /// Head colour, likewise copied.
+    head: Color,
+}
+
+/// Head radius (px). Small enough to read as a spark rather than a marker.
+pub const MATCHPROP_FLOW_HEAD_PX: f32 = 3.0;
+/// Line width (px).
+pub const MATCHPROP_FLOW_LINE_PX: f32 = 1.5;
+
+impl canvas::Program<Message> for MatchPropFlow {
+    type State = ();
+
+    fn draw(
+        &self,
+        _state: &(),
+        renderer: &iced::Renderer,
+        _theme: &Theme,
+        bounds: iced::Rectangle,
+        _cursor: mouse::Cursor,
+    ) -> Vec<canvas::Geometry> {
+        if self.wires.is_empty() || !self.t.is_finite() || self.t <= 0.0 {
+            return Vec::new();
+        }
+        let t = self.t.clamp(0.0, 1.0);
+        let mut frame = canvas::Frame::new(renderer, bounds.size());
+        let stroke = canvas::Stroke::default()
+            .with_color(self.line.scale_alpha(0.85))
+            .with_width(MATCHPROP_FLOW_LINE_PX);
+        for (a, b) in &self.wires {
+            frame.stroke(&canvas::Path::line(*a, *b), stroke);
+            let head = Point::new(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t);
+            frame.fill(
+                &canvas::Path::circle(head, MATCHPROP_FLOW_HEAD_PX),
+                self.head,
+            );
+        }
+        vec![frame.into_geometry()]
+    }
+}
+
+/// Draw calls this layer issues for `targets` destinations: one line and one
+/// head each. Pure, so the per-render element count is testable without a
+/// renderer.
+pub fn matchprop_flow_draw_calls(targets: usize) -> usize {
+    targets * 2
+}
+
+/// The flow layer as an element. `wires` are canvas-local points; `theme`
+/// supplies both colours, which are copied out.
+pub fn matchprop_flow(
+    wires: Vec<(Point, Point)>,
+    t: f32,
+    theme: &Theme,
+) -> Element<'static, Message> {
+    canvas(MatchPropFlow {
+        wires,
+        t,
+        line: theme.palette().primary.base.color,
+        head: theme.palette().primary.strong.color,
+    })
+    .width(Length::Fill)
+    .height(Length::Fill)
+    .into()
+}
+
 #[cfg(test)]
 mod clip_tests {
     // Shared eye-plane projection shared by grid_segments and draw_axes (#46).
@@ -4455,6 +4875,7 @@ mod grid_key_tests {
             origin: glam::DVec3::new(0.0, 0.0, 0.0),
             axes: (Vec3::X, Vec3::Y, Vec3::Z),
             limits: None,
+            ink: 1.0,
         }
     }
 
@@ -4575,8 +4996,10 @@ mod grid_key_tests {
         );
 
         // style opacity: change opacity
-        let mut style = GridStyle::default();
-        style.opacity = 50;
+        let style = GridStyle {
+            opacity: 50,
+            ..Default::default()
+        };
         assert_ne!(
             GridKey::from_grids(&baseline_grids, baseline_bounds, style),
             baseline_key,
@@ -4584,8 +5007,10 @@ mod grid_key_tests {
         );
 
         // style bg_luminance: change luminance (dark to light)
-        let mut style = GridStyle::default();
-        style.bg_luminance = 0.9;
+        let style = GridStyle {
+            bg_luminance: 0.9,
+            ..Default::default()
+        };
         assert_ne!(
             GridKey::from_grids(&baseline_grids, baseline_bounds, style),
             baseline_key,
@@ -4606,7 +5031,7 @@ mod grid_key_tests {
         };
         let pane1 = baseline_params();
         let pane2 = baseline_params();
-        let both = vec![pane1.clone(), pane2.clone()];
+        let both = vec![pane1, pane2];
         let baseline = GridKey::from_grids(&both, bounds, GridStyle::default());
 
         let mut pane2_changed = pane2;
@@ -4832,6 +5257,7 @@ mod grid_canvas_state_tests {
             origin: grid_origin,
             axes: grid_axes,
             limits,
+            ink: 1.0,
         };
         let key = GridKey::from_grids(&[params], bounds, GridStyle::default());
 
@@ -4908,9 +5334,11 @@ mod selection_visual_color_tests {
 
     #[test]
     fn custom_aci_selection_colors_override_defaults() {
-        let mut visual = SelectionVisualOptions::default();
-        visual.crossing_color = 1; // Red
-        visual.window_color = 5; // Blue
+        let visual = SelectionVisualOptions {
+            crossing_color: 1, // Red
+            window_color: 5,   // Blue
+            ..Default::default()
+        };
         let dark_canvas = [0.0, 0.0, 0.0, 1.0];
         let light_canvas = [1.0, 1.0, 1.0, 1.0];
 
@@ -5017,7 +5445,10 @@ mod dyn_angle_layout_tests {
             for step in 0..16 {
                 let a = step as f32 * std::f32::consts::TAU / 16.0;
                 let (dx, dy) = (a.cos(), a.sin());
-                let cursor = Point { x: base.x + dx * radius, y: base.y + dy * radius };
+                let cursor = Point {
+                    x: base.x + dx * radius,
+                    y: base.y + dy * radius,
+                };
                 let mut n = (-dy, dx);
                 if n.1 < 0.0 {
                     n = (-n.0, -n.1);
@@ -5040,8 +5471,14 @@ mod dyn_angle_layout_tests {
     fn angle_readout_is_continuous_across_the_minus_x_axis() {
         let base = Point { x: 800.0, y: 400.0 };
         for radius in [120.0f32, 320.0, 600.0] {
-            let above = Point { x: base.x - radius, y: base.y + 1.0 };
-            let below = Point { x: base.x - radius, y: base.y - 1.0 };
+            let above = Point {
+                x: base.x - radius,
+                y: base.y + 1.0,
+            };
+            let below = Point {
+                x: base.x - radius,
+                y: base.y - 1.0,
+            };
             let c_above = DynInputCanvas::angle_center(
                 base,
                 above,
@@ -5061,9 +5498,122 @@ mod dyn_angle_layout_tests {
                 false,
             );
             let hop = (c_above.x - c_below.x).hypot(c_above.y - c_below.y);
-            assert!(hop <= 4.0, "radius {radius}: read-out hopped {hop:.1}px across -X");
+            assert!(
+                hop <= 4.0,
+                "radius {radius}: read-out hopped {hop:.1}px across -X"
+            );
         }
         // Sanity: the constant above is a real clearance, not zero.
-        assert!(DYN_BOX_H > 0.0);
+        const { assert!(DYN_BOX_H > 0.0) };
+    }
+}
+
+#[cfg(test)]
+mod p2b2_grid_fade_tests {
+    use super::*;
+
+    /// A minimal pane at `step` world units — only the fields the fade reads
+    /// are meaningful.
+    fn pane(step: f32) -> GridParams {
+        GridParams {
+            view_rot: Mat4::from_rotation_x(0.15),
+            eye: glam::DVec3::new(4.0, 3.5, 9.0),
+            bounds: iced::Rectangle {
+                x: 0.0,
+                y: 0.0,
+                width: 1280.0,
+                height: 720.0,
+            },
+            step_x: step,
+            step_y: step,
+            major_every: 5,
+            origin: glam::DVec3::ZERO,
+            axes: (Vec3::X, Vec3::Y, Vec3::Z),
+            limits: None,
+            ink: 1.0,
+        }
+    }
+
+    /// Item 42 — a density crossing draws the outgoing spacing at `1 - t` and
+    /// the incoming one at `t`; a second crossing mid-fade drops the older pair
+    /// in that same frame, so three spacings never share a frame. At rest a
+    /// pane is one full-ink entry.
+    #[test]
+    fn density_fade_never_shows_three_spacings() {
+        let mut fade = GridDensityFade::default();
+        let base = pane(80.0);
+        assert!(
+            !fade.observe(std::slice::from_ref(&base)),
+            "the first sighting of a pane must not start a fade"
+        );
+        assert_eq!(fade.expand(std::slice::from_ref(&base), 0.5).len(), 1);
+
+        let mid_step = pane(400.0);
+        assert!(
+            fade.observe(std::slice::from_ref(&mid_step)),
+            "a spacing change must start a fade"
+        );
+        let crossing = fade.expand(std::slice::from_ref(&mid_step), 0.5);
+        assert_eq!(
+            crossing.len(),
+            2,
+            "one crossing must draw exactly two spacings"
+        );
+        assert_eq!(crossing[0].step_x, 80.0, "the old spacing must fade out");
+        assert_eq!(crossing[1].step_x, 400.0, "the new spacing must fade in");
+        assert_eq!(crossing[0].ink, 0.5, "old ink is not 1 - t");
+        assert_eq!(crossing[1].ink, 0.5, "new ink is not t");
+        assert_eq!(crossing[0].major_every, crossing[1].major_every);
+
+        // Second crossing while the first fade is still mid-flight.
+        let far_step = pane(2000.0);
+        assert!(fade.observe(std::slice::from_ref(&far_step)));
+        let doubled = fade.expand(std::slice::from_ref(&far_step), 0.5);
+        assert_eq!(
+            doubled.len(),
+            2,
+            "three spacings reached one frame: {:?}",
+            doubled.iter().map(|g| g.step_x).collect::<Vec<_>>()
+        );
+        assert_eq!(
+            doubled[0].step_x, 400.0,
+            "the retiring spacing must be dropped"
+        );
+        assert_eq!(doubled[1].step_x, 2000.0);
+
+        let rest = fade.expand(std::slice::from_ref(&far_step), 1.0);
+        assert_eq!(rest.len(), 1, "a landed fade must draw one spacing");
+        assert_eq!(rest[0].ink, 1.0);
+
+        // A tiling change resyncs without a fade: there is no old/new pairing.
+        let other = pane(1234.0);
+        assert!(
+            !fade.observe(&[far_step, other]),
+            "a pane-count change must not spray a fade over a new tiling"
+        );
+        assert!(fade.prev.is_empty() || fade.prev.iter().all(Option::is_none));
+
+        // Ink rides an RGB mix toward the page luminance, not alpha, so the
+        // fade survives `transparency_enable = off`.
+        assert_eq!(
+            grid_ink(0.2, 0.9, 1.0),
+            0.2,
+            "full ink must be the nominal value"
+        );
+        assert_eq!(
+            grid_ink(0.2, 0.9, 0.0),
+            0.9,
+            "zero ink must be the page luminance"
+        );
+        let half = grid_ink(0.2, 0.9, 0.5);
+        assert!(
+            half > 0.2 && half < 0.9,
+            "half ink must be a real mix, got {half}"
+        );
+        assert_eq!(
+            grid_ink(0.5, 0.5, 0.0),
+            0.5,
+            "a page already at the line value is inert"
+        );
     }
 }

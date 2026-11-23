@@ -81,6 +81,12 @@ impl EqualConstraintCommand {
     }
 }
 
+impl Default for EqualConstraintCommand {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CadCommand for EqualConstraintCommand {
     fn name(&self) -> &'static str {
         "GCEQUAL"

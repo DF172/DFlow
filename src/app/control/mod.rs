@@ -1,5 +1,5 @@
 //! Semantic control shared by the GUI and headless clients.
-use super::{Message, DraftFlowCAD};
+use super::{DraftFlowCAD, Message};
 use crate::command::{InputKind, StepInput};
 use iced::Task;
 use serde_json::{json, Value};
@@ -10,11 +10,9 @@ pub(super) use transport::subscribe;
 pub(super) fn session_id() -> &'static str {
     static ID: OnceLock<String> = OnceLock::new();
     ID.get_or_init(|| {
-        {
-            let mut bytes = [0u8; 16];
-            getrandom::fill(&mut bytes).expect("OS random source");
-            bytes.iter().map(|v| format!("{v:02x}")).collect()
-        }
+        let mut bytes = [0u8; 16];
+        getrandom::fill(&mut bytes).expect("OS random source");
+        bytes.iter().map(|v| format!("{v:02x}")).collect()
     })
 }
 
@@ -33,9 +31,6 @@ impl Reply {
         let _ = sender.send(value);
     }
 }
-
-
-
 
 #[derive(Default)]
 pub(super) struct State {
@@ -853,16 +848,14 @@ impl DraftFlowCAD {
         Ok(match req["op"].as_str().unwrap_or("") {
             "new" => {
                 if let Some(template) = req["template"].as_str() {
-                    match self.apply_template(template) {
-                        Ok(purged) => {
-                            self.set_control_result(json!({
-                                "template": template,
-                                "purged": purged,
-                                "total": self.tabs[i].scene.document.entities().count(),
-                            }));
-                            Task::none()
-                        }
-                        Err(error) => return Err(error),
+                    {
+                        let purged = self.apply_template(template)?;
+                        self.set_control_result(json!({
+                            "template": template,
+                            "purged": purged,
+                            "total": self.tabs[i].scene.document.entities().count(),
+                        }));
+                        Task::none()
                     }
                 } else {
                     self.update(Message::TabNew)
@@ -1135,14 +1128,9 @@ impl DraftFlowCAD {
     pub(super) fn control_track(&mut self, task: Task<Message>) -> Task<Message> {
         let track_zero_unit = self.control.pending.as_ref().is_some_and(|p| {
             p.request["op"] == "run"
-                && p.request["cmd"]
-                    .as_str()
-                    .is_some_and(|cmd| {
-                        matches!(
-                            cmd.trim().to_ascii_uppercase().as_str(),
-                            "SAVE" | "QSAVE"
-                        )
-                    })
+                && p.request["cmd"].as_str().is_some_and(|cmd| {
+                    matches!(cmd.trim().to_ascii_uppercase().as_str(), "SAVE" | "QSAVE")
+                })
         });
         // Most zero-unit tasks are `Task::none()` and have already completed
         // synchronously. SAVE/QSAVE are the deliberate exception: the command
@@ -1605,10 +1593,7 @@ mod tests {
                 .as_nanos(),
         ));
         let _ = std::fs::remove_file(&path);
-        let saved = request(
-            &mut app,
-            json!({"op":"save","path":path,"overwrite":true}),
-        );
+        let saved = request(&mut app, json!({"op":"save","path":path,"overwrite":true}));
         assert_eq!(saved["ok"], true, "{saved}");
         assert_eq!(
             request(&mut app, json!({"op":"run","cmd":"LINE 0,5 10,5"}))["status"],
@@ -1645,10 +1630,7 @@ mod tests {
         ));
         std::fs::create_dir_all(&dir).unwrap();
         let path = dir.join("blocked.dwg");
-        let saved = request(
-            &mut app,
-            json!({"op":"save","path":path,"overwrite":true}),
-        );
+        let saved = request(&mut app, json!({"op":"save","path":path,"overwrite":true}));
         assert_eq!(saved["ok"], true, "{saved}");
         // A directory at the target path makes the next write fail
         // deterministically; the operation must settle as failed instead of
@@ -1662,7 +1644,9 @@ mod tests {
         let qsave = request(&mut app, json!({"op":"run","cmd":"QSAVE"}));
         assert_eq!(qsave["status"], "failed", "{qsave}");
         assert!(
-            qsave["error"].as_str().is_some_and(|error| !error.is_empty()),
+            qsave["error"]
+                .as_str()
+                .is_some_and(|error| !error.is_empty()),
             "{qsave}"
         );
         let _ = std::fs::remove_dir_all(&dir);
@@ -1673,7 +1657,8 @@ mod tests {
         let mut app = DraftFlowCAD::new_for_test();
         app.main_window = Some(iced::window::Id::unique());
         assert_eq!(request(&mut app, json!({"op":"new"}))["ok"], true);
-        let path = std::env::temp_dir().join(format!("draftflow-capture-frame-{}.png", session_id()));
+        let path =
+            std::env::temp_dir().join(format!("draftflow-capture-frame-{}.png", session_id()));
         let state = app.control_state();
         let parked = app
             .control_request(json!({
@@ -1686,7 +1671,10 @@ mod tests {
             }))
             .0;
         assert_eq!(parked["status"], "accepted", "{parked}");
-        assert!(app.control.capture_frame_pending, "capture should wait for a frame");
+        assert!(
+            app.control.capture_frame_pending,
+            "capture should wait for a frame"
+        );
         let running = app
             .control_request(json!({"op":"operation","request_id":"cap-frame"}))
             .0;
@@ -1694,11 +1682,8 @@ mod tests {
 
         let _frame_task = app.on_control_capture_frame(true);
         assert!(!app.control.capture_frame_pending);
-        let screenshot = iced::window::Screenshot::new(
-            vec![0u8; 4 * 4 * 4],
-            iced::Size::new(4, 4),
-            1.0,
-        );
+        let screenshot =
+            iced::window::Screenshot::new(vec![0u8; 4 * 4 * 4], iced::Size::new(4, 4), 1.0);
         app.control_screenshot(path.to_string_lossy().into_owned(), Some(screenshot));
         let done = app
             .control_request(json!({"op":"operation","request_id":"cap-frame"}))
@@ -1775,14 +1760,13 @@ mod tests {
         let mut app = DraftFlowCAD::new_for_test();
         request(&mut app, json!({"op":"new"}));
         request(&mut app, json!({"op":"run","cmd":"LINE 0,0 10,0"}));
-        let handle = request(&mut app, json!({"op":"query","type":"Line"}))["entities"][0]["handle"]
+        let handle = request(&mut app, json!({"op":"query","type":"Line"}))["entities"][0]
+            ["handle"]
             .as_str()
             .unwrap()
             .to_string();
         let before = app.control_state()["selection_revision"].as_u64().unwrap();
-        let selected = app.automation_op(&format!(
-            r#"{{"op":"select","handles":["{handle}"]}}"#
-        ));
+        let selected = app.automation_op(&format!(r#"{{"op":"select","handles":["{handle}"]}}"#));
         assert_eq!(selected["ok"], true, "{selected}");
         let state = app.control_state();
         assert_eq!(
@@ -1791,7 +1775,10 @@ mod tests {
             "selection revision should increment once: {state}"
         );
         assert!(
-            state["selection"].as_array().unwrap().contains(&json!(handle)),
+            state["selection"]
+                .as_array()
+                .unwrap()
+                .contains(&json!(handle)),
             "{state}"
         );
         let events = app.control_request(json!({"op":"events"})).0;
@@ -1799,7 +1786,10 @@ mod tests {
         assert_eq!(last["kind"], "selection", "{events}");
         assert_eq!(last["document_id"], state["document_id"], "{events}");
         assert!(
-            last["selection"].as_array().unwrap().contains(&json!(handle)),
+            last["selection"]
+                .as_array()
+                .unwrap()
+                .contains(&json!(handle)),
             "{events}"
         );
     }
@@ -2003,7 +1993,10 @@ mod tests {
     fn pending_request_id_reuse_rejects_changed_payload() {
         let mut app = DraftFlowCAD::new_for_test();
         app.main_window = Some(iced::window::Id::unique());
-        assert_eq!(request(&mut app, json!({"op":"new"}))["status"], "completed");
+        assert_eq!(
+            request(&mut app, json!({"op":"new"}))["status"],
+            "completed"
+        );
 
         let pending = request(
             &mut app,
@@ -2025,10 +2018,7 @@ mod tests {
         );
         assert_eq!(changed["code"], "request_id_reused", "{changed}");
         assert!(
-            changed["error"]
-                .as_str()
-                .unwrap()
-                .contains("pending-reuse"),
+            changed["error"].as_str().unwrap().contains("pending-reuse"),
             "{changed}"
         );
 
@@ -2455,9 +2445,7 @@ mod tests {
                 (1.0 - ndc.y) * 0.5 * bounds.height,
             )
         };
-        let _ = app.update(Message::ViewportMove(iced::Point::new(
-            sx as f32, sy as f32,
-        )));
+        let _ = app.update(Message::ViewportMove(iced::Point::new(sx, sy)));
 
         assert!(
             app.tabs[i].snap_result.is_some(),
@@ -2512,9 +2500,7 @@ mod tests {
                 (1.0 - ndc.y) * 0.5 * bounds.height,
             )
         };
-        let _ = app.update(Message::ViewportMove(iced::Point::new(
-            sx as f32, sy as f32,
-        )));
+        let _ = app.update(Message::ViewportMove(iced::Point::new(sx, sy)));
         assert!(
             app.tabs[i].snap_result.is_some(),
             "no object-snap marker while a user_select is pending"
@@ -2604,7 +2590,8 @@ mod tests {
             }
         }
 
-        let pdf = std::env::temp_dir().join(format!("draftflow-plot-lw-{}.pdf", std::process::id()));
+        let pdf =
+            std::env::temp_dir().join(format!("draftflow-plot-lw-{}.pdf", std::process::id()));
         let response = request(
             &mut app,
             json!({"op":"plot","path":pdf.to_string_lossy(),"plot_style":"monochrome.ctb"}),
@@ -2673,7 +2660,8 @@ mod tests {
             scene.add_entity(codec::EntityType::Line(true_color));
         }
 
-        let pdf = std::env::temp_dir().join(format!("draftflow-plot-aci-{}.pdf", std::process::id()));
+        let pdf =
+            std::env::temp_dir().join(format!("draftflow-plot-aci-{}.pdf", std::process::id()));
         let response = request(
             &mut app,
             json!({"op":"plot","path":pdf.to_string_lossy(),"plot_style":"monochrome.ctb"}),
@@ -2703,8 +2691,10 @@ mod tests {
 
         // Without a plot style the same drawing keeps its colours: the cyan
         // frame plots as the dark-blue print remap, the red line stays red.
-        let plain =
-            std::env::temp_dir().join(format!("draftflow-plot-aci-plain-{}.pdf", std::process::id()));
+        let plain = std::env::temp_dir().join(format!(
+            "draftflow-plot-aci-plain-{}.pdf",
+            std::process::id()
+        ));
         let response = request(
             &mut app,
             json!({"op":"plot","path":plain.to_string_lossy()}),

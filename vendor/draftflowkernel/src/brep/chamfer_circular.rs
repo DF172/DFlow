@@ -47,7 +47,10 @@ pub(super) fn chamfer_circular(
             })
             .collect::<Option<Vec<_>>>()?;
         if owners[0] == owners[1] {
-            if matches!(body.curves.get(edge.curve)?, Curve3::Line(_) | Curve3::Circle(_)) {
+            if matches!(
+                body.curves.get(edge.curve)?,
+                Curve3::Line(_) | Curve3::Circle(_)
+            ) {
                 continue;
             }
             return None;
@@ -143,9 +146,8 @@ pub(super) fn chamfer_circular(
                 torus.major_radius,
                 (Vec3::from(torus.frame.origin) - origin).dot(axis),
             ];
-            let angle = |node: usize| {
-                (points[node][1] - centre[1]).atan2(points[node][0] - centre[0])
-            };
+            let angle =
+                |node: usize| (points[node][1] - centre[1]).atan2(points[node][0] - centre[0]);
             let mut arc = Arc {
                 centre,
                 radius: torus.minor_radius,
@@ -158,15 +160,13 @@ pub(super) fn chamfer_circular(
                     return None;
                 }
                 let curve = body.curves.get(edge.curve)?;
-                matches!(curve, Curve3::Circle(_)).then(|| {
-                    curve.point_at((edge.start_parameter + edge.end_parameter) * 0.5)
-                })
+                matches!(curve, Curve3::Circle(_))
+                    .then(|| curve.point_at((edge.start_parameter + edge.end_parameter) * 0.5))
             })?;
             let delta = Vec3::from(seam) - origin;
             let height = delta.dot(axis);
             let middle = [(delta - axis * height).length(), height];
-            let middle_angle =
-                (middle[1] - centre[1]).atan2(middle[0] - centre[0]);
+            let middle_angle = (middle[1] - centre[1]).atan2(middle[0] - centre[0]);
             if (middle_angle - arc.start_angle).rem_euclid(TAU) > arc.sweep() + 1.0e-9 {
                 std::mem::swap(&mut arc.start_angle, &mut arc.end_angle);
             }
@@ -176,8 +176,7 @@ pub(super) fn chamfer_circular(
                 return None;
             }
             let curve = Curve::Arc(arc);
-            if Vec2::from(curve.point_at(curve.parameter_at(middle)))
-                .distance(Vec2::from(middle))
+            if Vec2::from(curve.point_at(curve.parameter_at(middle))).distance(Vec2::from(middle))
                 > tolerance
             {
                 return None;

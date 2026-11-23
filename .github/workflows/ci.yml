@@ -1,8 +1,7 @@
 name: Tests
 
 # Runs the workspace tests on every push to main and on every pull request,
-# on Linux, Windows and macOS. A separate lint job reports rustfmt and clippy
-# results without blocking merges until the existing tree has been cleaned up.
+# on Linux, Windows and macOS. The lint job gates rustfmt and clippy.
 
 on:
   push:
@@ -49,12 +48,10 @@ jobs:
         run: cargo test --workspace --locked
 
   lint:
-    name: lint (informational)
+    name: lint
     runs-on: ubuntu-22.04
-    # Non-blocking until the existing tree is cleaned up. The tree currently has
-    # thousands of rustfmt diffs and several clippy warnings and errors, so
-    # these checks report status without failing the workflow.
-    continue-on-error: true
+    # Blocking: the tree is rustfmt-clean and clippy is at zero warnings
+    # (95b7f34), so both checks now gate merges.
     steps:
       - uses: actions/checkout@v4
 
@@ -75,4 +72,4 @@ jobs:
         run: cargo fmt --all -- --check
 
       - name: cargo clippy
-        run: cargo clippy --workspace --all-targets --locked
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings

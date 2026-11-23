@@ -1,7 +1,7 @@
 //! Dock state changes: drags, hover, open / close, and the queries the view
 //! and drop targeting share.
 
-use crate::app::{Message, DraftFlowCAD};
+use crate::app::{DraftFlowCAD, Message};
 
 /// Pointer travel (px) before pressing a title bar or icon becomes a drag,
 /// so a plain click never moves anything.
@@ -197,33 +197,33 @@ impl DraftFlowCAD {
                     self.dock_hover_cancel();
                 }
             }
-            DockMsg::HoverSettled(gen) => {
-                if gen == self.dock_hover_gen && self.dock_drag.is_none() {
-                    match self.dock_hover_pending.take() {
-                        Some(HoverPending::Reveal(id)) if self.dock.auto_hides(id) => {
-                            self.dock_reveal(id)
-                        }
-                        Some(HoverPending::Hide)
-                            if self.dock_peek.is_some_and(|id| self.dock.auto_hides(id)) =>
-                        {
-                            // The auto-hide edge collapsed: arm the slide key
-                            // so the next reveal animates in from nothing.
-                            if let Some(id) = self.dock_peek {
-                                if let Some((side, gi)) = self.dock.location(id) {
-                                    crate::ui::motion::set(
-                                        crate::ui::motion::indexed_key(
-                                            "dockgrp:",
-                                            side as usize * 8 + gi,
-                                        ),
-                                        0.0,
-                                        0,
-                                    );
-                                }
-                            }
-                            self.dock_peek = None;
-                        }
-                        _ => {}
+            DockMsg::HoverSettled(gen)
+                if gen == self.dock_hover_gen && self.dock_drag.is_none() =>
+            {
+                match self.dock_hover_pending.take() {
+                    Some(HoverPending::Reveal(id)) if self.dock.auto_hides(id) => {
+                        self.dock_reveal(id)
                     }
+                    Some(HoverPending::Hide)
+                        if self.dock_peek.is_some_and(|id| self.dock.auto_hides(id)) =>
+                    {
+                        // The auto-hide edge collapsed: arm the slide key
+                        // so the next reveal animates in from nothing.
+                        if let Some(id) = self.dock_peek {
+                            if let Some((side, gi)) = self.dock.location(id) {
+                                crate::ui::motion::set(
+                                    crate::ui::motion::indexed_key(
+                                        "dockgrp:",
+                                        side as usize * 8 + gi,
+                                    ),
+                                    0.0,
+                                    0,
+                                );
+                            }
+                        }
+                        self.dock_peek = None;
+                    }
+                    _ => {}
                 }
             }
             _ => {}
@@ -234,6 +234,13 @@ impl DraftFlowCAD {
     /// Pointer released: land what was dragged and save a changed layout.
     fn dock_drag_release(&mut self) {
         use crate::ui::dock::{DockDrag, DropTarget, FloatPanel};
+        // Item 36: remember which panel is about to land so its body can
+        // ride the landing overshoot (a pure visual offset, never a layout
+        // change). Width / splitter / float-size drags have no landing.
+        let land_panel = match &self.dock_drag {
+            Some(DockDrag::Move { panel, .. }) => Some(*panel),
+            _ => None,
+        };
         let mut changed = false;
         match self.dock_drag.take() {
             Some(DockDrag::Move {
@@ -270,7 +277,30 @@ impl DraftFlowCAD {
         }
         if changed {
             self.save_config();
+            if let Some(panel) = land_panel {
+                // Overshoot along the drag's dominant axis, continuing the
+                // motion direction; a zero delta falls back to downwards.
+                let d = self.dock_drag_delta;
+                let dir = if d.x == 0.0 && d.y == 0.0 {
+                    iced::Vector::new(0.0, 1.0)
+                } else if d.x.abs() >= d.y.abs() {
+                    iced::Vector::new(if d.x < 0.0 { -1.0 } else { 1.0 }, 0.0)
+                } else {
+                    iced::Vector::new(0.0, if d.y < 0.0 { -1.0 } else { 1.0 })
+                };
+                self.dock_land_panel = Some(panel);
+                self.dock_land_dir = dir;
+                crate::ui::motion::spring_kick(
+                    crate::ui::motion::DOCK_LAND,
+                    crate::ui::motion::DOCK_LAND_AMP,
+                    0.0,
+                    0.0,
+                    crate::ui::motion::DOCK_LAND_K,
+                    crate::ui::motion::DOCK_LAND_DAMP,
+                );
+            }
         }
+        self.dock_drag_delta = iced::Vector::ZERO;
         self.dock_drag_last = None;
         self.xref_col_drag = None;
         self.xref_col_last = None;
@@ -287,6 +317,11 @@ impl DraftFlowCAD {
         use crate::app::config::DockSide;
         use crate::ui::dock::{DockDrag, DropTarget};
         let last = self.dock_drag_last.replace(point);
+        if let Some(last) = last {
+            // Item 36: the landing overshoot travels along the drag's last
+            // motion direction, so keep the most recent pointer delta.
+            self.dock_drag_delta = iced::Vector::new(point.x - last.x, point.y - last.y);
+        }
         let Some(drag) = self.dock_drag else {
             return;
         };
@@ -295,15 +330,15 @@ impl DraftFlowCAD {
                 panel,
                 group,
                 origin,
-                target,
+                target: previous_target,
                 grab,
             } => {
                 let origin = origin.unwrap_or(point);
                 let moved = (point.x - origin.x).hypot(point.y - origin.y);
-                let started = target.is_some() || moved >= DOCK_DRAG_THRESHOLD;
+                let started = previous_target.is_some() || moved >= DOCK_DRAG_THRESHOLD;
                 // Hold a floating panel where it was grabbed; a docked one by
                 // its title bar.
-                let grab = if target.is_none() && started {
+                let grab = if previous_target.is_none() && started {
                     match self.dock.float_rect(panel) {
                         Some(f) => iced::Vector::new(origin.x - f.x, origin.y - f.y),
                         None => iced::Vector::new(
@@ -327,8 +362,18 @@ impl DraftFlowCAD {
                         (Some(_), _) => None,
                     }
                 } else {
-                    target
+                    previous_target
                 };
+                // A target that appears or moves lands the preview from zero:
+                // the ghost is re-placed on every change, so without this it
+                // would teleport between edges instead of settling into each.
+                if target.is_some() && target != previous_target {
+                    crate::ui::motion::replay(
+                        crate::ui::motion::DOCK_DROP,
+                        1.0,
+                        crate::ui::motion::DOCK_DROP_TIME,
+                    );
+                }
                 self.dock_drag = Some(DockDrag::Move {
                     panel,
                     group,

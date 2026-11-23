@@ -136,7 +136,9 @@ pub enum BusyStage {
 pub enum InstallOutcome {
     /// Swapped in. `relaunch` is false when the replacement could not be
     /// scheduled — the update is on disk, but the user has to start it.
-    Installed { relaunch: bool },
+    Installed {
+        relaunch: bool,
+    },
     Failed(Failure),
     /// The user asked to stop before the swap; nothing on disk changed.
     Cancelled,
@@ -978,7 +980,9 @@ mod tests {
             ]
         }"#;
         let release = parse_release_json(body).unwrap();
-        let exe = release.exe.expect("a URL-less asset must be skipped, not fatal");
+        let exe = release
+            .exe
+            .expect("a URL-less asset must be skipped, not fatal");
         assert_eq!(exe.name, "portable.EXE", "matching is case-insensitive");
         assert_eq!(exe.sha256, None, "an unknown digest algorithm is no digest");
     }

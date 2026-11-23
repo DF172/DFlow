@@ -19,7 +19,9 @@ pub fn default_config_dir() -> Option<PathBuf> {
     // user's alias file holding a single line. Every store routes through here,
     // so one per-process scratch folder isolates them all.
     if cfg!(test) {
-        return Some(std::env::temp_dir().join(format!("draftflow-test-config-{}", std::process::id())));
+        return Some(
+            std::env::temp_dir().join(format!("draftflow-test-config-{}", std::process::id())),
+        );
     }
     let base: PathBuf = if cfg!(target_os = "windows") {
         std::env::var_os("APPDATA").map(PathBuf::from)?
@@ -108,7 +110,7 @@ mod pointer {
             unsafe { RegCloseKey(key) };
             return None;
         }
-        let mut buffer = vec![0u16; (bytes as usize + 1) / 2 + 1];
+        let mut buffer = vec![0u16; (bytes as usize).div_ceil(2) + 1];
         let mut written = bytes;
         let rc = unsafe {
             RegQueryValueExW(
@@ -124,7 +126,10 @@ mod pointer {
         if rc != 0 {
             return None;
         }
-        let len = buffer.iter().position(|unit| *unit == 0).unwrap_or(buffer.len());
+        let len = buffer
+            .iter()
+            .position(|unit| *unit == 0)
+            .unwrap_or(buffer.len());
         let text = String::from_utf16_lossy(&buffer[..len]);
         if text.trim().is_empty() {
             None
@@ -155,8 +160,16 @@ mod pointer {
         let name = wide(&value_name());
         let data = wide(&path.display().to_string());
         let cb = (data.len() * std::mem::size_of::<u16>()) as u32;
-        let rc =
-            unsafe { RegSetValueExW(key, name.as_ptr(), 0, REG_SZ, data.as_ptr() as *const u8, cb) };
+        let rc = unsafe {
+            RegSetValueExW(
+                key,
+                name.as_ptr(),
+                0,
+                REG_SZ,
+                data.as_ptr() as *const u8,
+                cb,
+            )
+        };
         unsafe { RegCloseKey(key) };
         if rc != 0 {
             return Err(format!("Could not store the folder location ({rc})"));
@@ -195,7 +208,8 @@ mod pointer {
     }
 
     pub(super) fn read() -> Option<PathBuf> {
-        file().and_then(|path| std::fs::read_to_string(path).ok())
+        file()
+            .and_then(|path| std::fs::read_to_string(path).ok())
             .map(|text| PathBuf::from(text.trim()))
             .filter(|path| path.is_absolute())
     }
@@ -454,7 +468,8 @@ fn plan_move(
     if !from.exists() {
         return Ok(());
     }
-    let entries = std::fs::read_dir(from).map_err(|error| format!("{}: {error}", from.display()))?;
+    let entries =
+        std::fs::read_dir(from).map_err(|error| format!("{}: {error}", from.display()))?;
     for entry in entries.flatten() {
         let src = entry.path();
         let name = entry.file_name();
@@ -537,6 +552,48 @@ pub fn plot_styles_dir_override() -> Option<PathBuf> {
 
 pub fn autosave_dir_override() -> Option<PathBuf> {
     cloned_override(&AUTOSAVE_OVERRIDE)
+}
+
+// ── Last file-dialog directory ───────────────────────────────────────────────
+
+use std::path::Path;
+use std::sync::{Mutex, OnceLock};
+
+fn last_dir_store() -> &'static Mutex<Option<PathBuf>> {
+    static STORE: OnceLock<Mutex<Option<PathBuf>>> = OnceLock::new();
+    STORE.get_or_init(|| {
+        // Seed from the persisted value; discard it if the folder is gone.
+        let loaded = config_dir()
+            .map(|d| d.join("last_dir.txt"))
+            .and_then(|f| std::fs::read_to_string(f).ok())
+            .map(|s| PathBuf::from(s.trim()))
+            .filter(|p| p.is_dir());
+        Mutex::new(loaded)
+    })
+}
+
+/// The directory the last file dialog picked or saved into, if it still
+/// exists — used to seed the next dialog so pickers reopen where the user
+/// left off. Persisted across runs.
+pub fn last_dialog_dir() -> Option<PathBuf> {
+    last_dir_store().lock().ok()?.clone().filter(|p| p.is_dir())
+}
+
+/// Record the directory of a path a file dialog just returned.
+pub fn remember_dialog_dir(file_path: &Path) {
+    let Some(dir) = file_path.parent().filter(|d| d.is_dir()) else {
+        return;
+    };
+    if let Ok(mut store) = last_dir_store().lock() {
+        if store.as_deref() == Some(dir) {
+            return; // unchanged — skip the disk write
+        }
+        *store = Some(dir.to_path_buf());
+    }
+    if let Some(cfg) = config_dir() {
+        let _ = std::fs::create_dir_all(&cfg);
+        let _ = std::fs::write(cfg.join("last_dir.txt"), dir.display().to_string());
+    }
 }
 
 #[cfg(test)]
@@ -648,47 +705,5 @@ mod tests {
             "in the way"
         );
         let _ = std::fs::remove_dir_all(&root);
-    }
-}
-
-// ── Last file-dialog directory ───────────────────────────────────────────────
-
-use std::path::Path;
-use std::sync::{Mutex, OnceLock};
-
-fn last_dir_store() -> &'static Mutex<Option<PathBuf>> {
-    static STORE: OnceLock<Mutex<Option<PathBuf>>> = OnceLock::new();
-    STORE.get_or_init(|| {
-        // Seed from the persisted value; discard it if the folder is gone.
-        let loaded = config_dir()
-            .map(|d| d.join("last_dir.txt"))
-            .and_then(|f| std::fs::read_to_string(f).ok())
-            .map(|s| PathBuf::from(s.trim()))
-            .filter(|p| p.is_dir());
-        Mutex::new(loaded)
-    })
-}
-
-/// The directory the last file dialog picked or saved into, if it still
-/// exists — used to seed the next dialog so pickers reopen where the user
-/// left off. Persisted across runs.
-pub fn last_dialog_dir() -> Option<PathBuf> {
-    last_dir_store().lock().ok()?.clone().filter(|p| p.is_dir())
-}
-
-/// Record the directory of a path a file dialog just returned.
-pub fn remember_dialog_dir(file_path: &Path) {
-    let Some(dir) = file_path.parent().filter(|d| d.is_dir()) else {
-        return;
-    };
-    if let Ok(mut store) = last_dir_store().lock() {
-        if store.as_deref() == Some(dir) {
-            return; // unchanged — skip the disk write
-        }
-        *store = Some(dir.to_path_buf());
-    }
-    if let Some(cfg) = config_dir() {
-        let _ = std::fs::create_dir_all(&cfg);
-        let _ = std::fs::write(cfg.join("last_dir.txt"), dir.display().to_string());
     }
 }

@@ -5,7 +5,7 @@
 use std::path::{Path, PathBuf};
 
 use crate::app::settings::PaletteBlockRef;
-use crate::app::{Message, DraftFlowCAD};
+use crate::app::{DraftFlowCAD, Message};
 use crate::modules::insert::insert_block::{BlockCatalog, InsertBlockCommand};
 use crate::ui::window::block_palette::{
     BlockEntry, BlockPaletteMsg, Item, LibraryEntry, MenuAction, OptionMsg, Tab,

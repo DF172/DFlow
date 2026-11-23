@@ -168,10 +168,13 @@ pub(crate) mod windows_impl {
     use std::ffi::c_void;
     use std::os::windows::ffi::OsStrExt;
 
+    #[allow(clippy::upper_case_acronyms)] // Win32 ABI type names
     type HRESULT = i32;
+    #[allow(clippy::upper_case_acronyms)] // Win32 ABI type names
     type BOOL = i32;
 
     #[repr(C)]
+    #[allow(clippy::upper_case_acronyms)] // Win32 ABI type names
     struct GUID {
         data1: u32,
         data2: u16,

@@ -7,7 +7,7 @@
 //! value like the other variables. `PSETUPIN` brings named page setups in
 //! from another drawing (see `app::update::page_setup_import`).
 
-use crate::app::{Message, DraftFlowCAD};
+use crate::app::{DraftFlowCAD, Message};
 use iced::Task;
 
 /// The variables this family answers for, for the command registry and the
@@ -182,7 +182,9 @@ impl DraftFlowCAD {
                 let task = self.on_layout_switch(target);
                 Ok(Outcome::Drawing((model as u8).to_string(), task))
             }
-            _ => Err(String::from(crate::tf!("SETVAR: unknown variable \"{name}\"."))),
+            _ => Err(String::from(crate::tf!(
+                "SETVAR: unknown variable \"{name}\"."
+            ))),
         }
     }
 }

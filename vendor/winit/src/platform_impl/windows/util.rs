@@ -219,6 +219,8 @@ pub type GetDpiForMonitor = unsafe extern "system" fn(
     dpi_y: *mut u32,
 ) -> HRESULT;
 pub type EnableNonClientDpiScaling = unsafe extern "system" fn(hwnd: HWND) -> BOOL;
+// Win32 ABI parameter names are kept verbatim.
+#[allow(non_snake_case)]
 pub type AdjustWindowRectExForDpi = unsafe extern "system" fn(
     rect: *mut RECT,
     dwStyle: u32,
@@ -227,6 +229,7 @@ pub type AdjustWindowRectExForDpi = unsafe extern "system" fn(
     dpi: u32,
 ) -> BOOL;
 
+#[allow(non_snake_case)]
 pub type GetPointerFrameInfoHistory = unsafe extern "system" fn(
     pointerId: u32,
     entriesCount: *mut u32,
@@ -234,16 +237,20 @@ pub type GetPointerFrameInfoHistory = unsafe extern "system" fn(
     pointerInfo: *mut POINTER_INFO,
 ) -> BOOL;
 
+#[allow(non_snake_case)]
 pub type SkipPointerFrameMessages = unsafe extern "system" fn(pointerId: u32) -> BOOL;
+#[allow(non_snake_case)]
 pub type GetPointerDeviceRects = unsafe extern "system" fn(
     device: HANDLE,
     pointerDeviceRect: *mut RECT,
     displayRect: *mut RECT,
 ) -> BOOL;
 
+#[allow(non_snake_case)]
 pub type GetPointerTouchInfo =
     unsafe extern "system" fn(pointerId: u32, touchInfo: *mut POINTER_TOUCH_INFO) -> BOOL;
 
+#[allow(non_snake_case)]
 pub type GetPointerPenInfo =
     unsafe extern "system" fn(pointId: u32, penInfo: *mut POINTER_PEN_INFO) -> BOOL;
 

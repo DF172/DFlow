@@ -131,12 +131,7 @@ pub fn fillet_between_rays(
 /// Empty when neither offset pair crosses, and for curves whose offset is not
 /// itself a line or a circle — a spline, an ellipse. Those need the general
 /// offset machinery rather than this closed form.
-pub fn fillets_between(
-    a: &Curve,
-    b: &Curve,
-    radius: f64,
-    tolerance: Tolerance,
-) -> Vec<Fillet> {
+pub fn fillets_between(a: &Curve, b: &Curve, radius: f64, tolerance: Tolerance) -> Vec<Fillet> {
     if radius.is_nan() || radius <= 0.0 || !radius.is_finite() {
         return Vec::new();
     }
@@ -198,9 +193,10 @@ pub fn fillets_between(
                 // The four offset combinations meet at the same place where
                 // the two curves are tangent to each other, so the same
                 // centre can arrive more than once.
-                if !out.iter().any(|kept| {
-                    Vec2::from(kept.centre).distance(centre) <= tolerance.linear()
-                }) {
+                if !out
+                    .iter()
+                    .any(|kept| Vec2::from(kept.centre).distance(centre) <= tolerance.linear())
+                {
                     out.push(fillet);
                 }
             }
@@ -231,10 +227,17 @@ impl Extended {
                     start: (Vec2::from(origin) - unit * reach).to_array(),
                     end: (Vec2::from(origin) + unit * reach).to_array(),
                 });
-                Self { curve: line, from: 0.0, to: 1.0 }
+                Self {
+                    curve: line,
+                    from: 0.0,
+                    to: 1.0,
+                }
             }
             Curve::Arc(arc) => Self {
-                curve: Curve::Circle(Circle { centre: arc.centre, radius: arc.radius }),
+                curve: Curve::Circle(Circle {
+                    centre: arc.centre,
+                    radius: arc.radius,
+                }),
                 from: 0.0,
                 to: 1.0,
             },
@@ -243,7 +246,11 @@ impl Extended {
                 from: 0.0,
                 to: 1.0,
             },
-            other => Self { curve: other.clone(), from: 0.0, to: 1.0 },
+            other => Self {
+                curve: other.clone(),
+                from: 0.0,
+                to: 1.0,
+            },
         })
     }
 
@@ -255,7 +262,9 @@ impl Extended {
     fn normal(&self, t: f64) -> Option<Vec2> {
         let h = 1e-6 * (self.to - self.from);
         let (lo, hi) = ((t - h).max(self.from), (t + h).min(self.to));
-        (self.point(hi) - self.point(lo)).normalize().map(|d| d.perpendicular())
+        (self.point(hi) - self.point(lo))
+            .normalize()
+            .map(|d| d.perpendicular())
     }
 
     /// The offset point at `t` on `side` (+1 left, -1 right).
@@ -276,14 +285,18 @@ fn general_fillets(a: &Curve, b: &Curve, radius: f64, tolerance: Tolerance) -> V
     const SAMPLES: usize = 256;
     let size = |c: &Curve| {
         let pts = c.tessellate(4.0);
-        pts.iter().fold(0.0_f64, |m, p| m.max(Vec2::from(*p).distance(Vec2::from(pts[0]))))
+        pts.iter().fold(0.0_f64, |m, p| {
+            m.max(Vec2::from(*p).distance(Vec2::from(pts[0])))
+        })
     };
     let reach = 4.0 * (size(a) + size(b) + radius);
     let (Some(ea), Some(eb)) = (Extended::of(a, reach), Extended::of(b, reach)) else {
         return Vec::new();
     };
     let params = |e: &Extended| -> Vec<f64> {
-        (0..=SAMPLES).map(|i| e.from + (e.to - e.from) * i as f64 / SAMPLES as f64).collect()
+        (0..=SAMPLES)
+            .map(|i| e.from + (e.to - e.from) * i as f64 / SAMPLES as f64)
+            .collect()
     };
     let (ta, tb) = (params(&ea), params(&eb));
     let mut out: Vec<Fillet> = Vec::new();
@@ -292,9 +305,13 @@ fn general_fillets(a: &Curve, b: &Curve, radius: f64, tolerance: Tolerance) -> V
             let pa: Vec<Option<Vec2>> = ta.iter().map(|t| ea.offset(*t, side_a, radius)).collect();
             let pb: Vec<Option<Vec2>> = tb.iter().map(|t| eb.offset(*t, side_b, radius)).collect();
             for i in 0..SAMPLES {
-                let (Some(a0), Some(a1)) = (pa[i], pa[i + 1]) else { continue };
+                let (Some(a0), Some(a1)) = (pa[i], pa[i + 1]) else {
+                    continue;
+                };
                 for j in 0..SAMPLES {
-                    let (Some(b0), Some(b1)) = (pb[j], pb[j + 1]) else { continue };
+                    let (Some(b0), Some(b1)) = (pb[j], pb[j + 1]) else {
+                        continue;
+                    };
                     let Some((s, w)) = super::intersect::line_line(
                         a0.to_array(),
                         (a1 - a0).to_array(),
@@ -306,7 +323,10 @@ fn general_fillets(a: &Curve, b: &Curve, radius: f64, tolerance: Tolerance) -> V
                     if !(0.0..=1.0).contains(&s) || !(0.0..=1.0).contains(&w) {
                         continue;
                     }
-                    let seed = (ta[i] + (ta[i + 1] - ta[i]) * s, tb[j] + (tb[j + 1] - tb[j]) * w);
+                    let seed = (
+                        ta[i] + (ta[i + 1] - ta[i]) * s,
+                        tb[j] + (tb[j + 1] - tb[j]) * w,
+                    );
                     let converged = converge(&ea, &eb, side_a, side_b, radius, seed, tolerance);
                     let Some((t, u)) = converged else { continue };
                     let (Some(centre), Some(tangent1), tangent2) =
@@ -418,18 +438,10 @@ fn touch_point(curve: &Curve, centre: Vec2, radius: f64, tolerance: Tolerance) -
             }
             origin + along * ((centre - origin).dot(along) / squared)
         }
-        Curve::Circle(circle) => circle_touch(
-            Vec2::from(circle.centre),
-            circle.radius,
-            centre,
-            radius,
-        )?,
-        Curve::Arc(arc) => circle_touch(
-            Vec2::from(arc.centre),
-            arc.radius,
-            centre,
-            radius,
-        )?,
+        Curve::Circle(circle) => {
+            circle_touch(Vec2::from(circle.centre), circle.radius, centre, radius)?
+        }
+        Curve::Arc(arc) => circle_touch(Vec2::from(arc.centre), arc.radius, centre, radius)?,
         _ => return None,
     };
     let off_by = (touch.distance(centre) - radius).abs();
@@ -474,9 +486,9 @@ fn arc_through(centre: Vec2, tangent1: Vec2, tangent2: Vec2) -> Fillet {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::angle::arc_span;
     use super::super::curve::Line;
+    use super::*;
     use std::f64::consts::{FRAC_PI_2, PI};
 
     /// A right-angle corner at the origin, opening into the first quadrant.
@@ -592,8 +604,7 @@ mod tests {
         let y = 7.0f64.sqrt();
         assert!(found.iter().any(|fillet| {
             (fillet.centre[0].abs() < 1e-9)
-                && ((fillet.centre[1] - y).abs() < 1e-9
-                    || (fillet.centre[1] + y).abs() < 1e-9)
+                && ((fillet.centre[1] - y).abs() < 1e-9 || (fillet.centre[1] + y).abs() < 1e-9)
         }));
     }
 
@@ -611,8 +622,7 @@ mod tests {
         let x = 7.0f64.sqrt();
         assert!(found.iter().any(|fillet| {
             (fillet.centre[1] - 5.0).abs() < 1e-9
-                && ((fillet.centre[0] - x).abs() < 1e-9
-                    || (fillet.centre[0] + x).abs() < 1e-9)
+                && ((fillet.centre[0] - x).abs() < 1e-9 || (fillet.centre[0] + x).abs() < 1e-9)
         }));
     }
 
@@ -680,7 +690,10 @@ mod tests {
             end: [0.0, 10.0],
         });
         for radius in [0.0, -1.0, f64::NAN, f64::INFINITY] {
-            assert!(fillets_between(&a, &b, radius, tol()).is_empty(), "{radius}");
+            assert!(
+                fillets_between(&a, &b, radius, tol()).is_empty(),
+                "{radius}"
+            );
         }
     }
 

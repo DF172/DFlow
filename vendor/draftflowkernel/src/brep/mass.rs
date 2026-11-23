@@ -55,7 +55,11 @@ pub fn mass_properties(body: &Body) -> Option<MassProperties> {
     if let Some(properties) = analytic_mass_properties(body) {
         return Some(properties);
     }
-    let points: Vec<[f64; 3]> = body.vertices.iter().map(|(_, vertex)| vertex.point).collect();
+    let points: Vec<[f64; 3]> = body
+        .vertices
+        .iter()
+        .map(|(_, vertex)| vertex.point)
+        .collect();
     let size = super::bounds::around_points(&points)
         .map(|bounds| Vec3::from(bounds.min).distance(Vec3::from(bounds.max)))
         .filter(|size| *size > 0.0)
@@ -64,11 +68,12 @@ pub fn mass_properties(body: &Body) -> Option<MassProperties> {
     // step does, so both meshes are fined down by the same rule.
     let meshed = |angle: f64| {
         let chord = size * 1e-5 * (angle / 0.05).powi(2);
-        let mesh = super::mesh::tessellate(
-            body,
-            super::mesh::TessellationTolerance::new(angle, chord),
-        );
-        mesh.missing_faces.is_empty().then(|| mesh.mesh.inertial_properties()).flatten()
+        let mesh =
+            super::mesh::tessellate(body, super::mesh::TessellationTolerance::new(angle, chord));
+        mesh.missing_faces
+            .is_empty()
+            .then(|| mesh.mesh.inertial_properties())
+            .flatten()
     };
     let fine = meshed(0.05).or_else(|| meshed(0.2))?;
     // A face too fine to triangulate whole at the finer step still has its
@@ -97,7 +102,10 @@ fn extrapolated(fine: &MassProperties, coarse: &MassProperties) -> Option<MassPr
         return None;
     }
     let centroid: [f64; 3] = std::array::from_fn(|axis| {
-        mix(fine.volume * fine.centroid[axis], coarse.volume * coarse.centroid[axis]) / volume
+        mix(
+            fine.volume * fine.centroid[axis],
+            coarse.volume * coarse.centroid[axis],
+        ) / volume
     });
     // About the origin, where each entry is an integral of its own.
     let tensor = |properties: &MassProperties| {

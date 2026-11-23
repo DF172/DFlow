@@ -13,7 +13,7 @@
 //! 10. UI Ribbon View Widget Tree Construction
 //! 11. UI Viewport Grid Geometry Projection & Overlay Cache Key Evaluation
 //! 12. UI Themed SVG Icon Lookup Caching vs Uncached Parse
-//! 12b. Plot Style Layer-Usage Table Rebuild (256-bucket ACI table)
+//!     12b. Plot Style Layer-Usage Table Rebuild (256-bucket ACI table)
 //! 13. Wide & Tapered Arc + Donut Tessellation (7.5k offset polyline curves)
 //! 14. Model Space Extents & Bounding Box Calculation (ZOOM EXTENTS)
 //! 15. Batch Entity Transformation & Incremental Dirty-Tracking
@@ -45,14 +45,10 @@ use codec::{CadDocument, DxfReader, DxfWriter, EntityType};
 use glam::{DVec3, Mat4, Vec3};
 use iced::{Color, Point, Rectangle};
 
-use DraftFlowCAD::scene::parametric_constraints::{
-    ConstraintKind, ParametricRef, ParametricScope,
-};
+use DraftFlowCAD::scene::parametric_constraints::{ConstraintKind, ParametricRef, ParametricScope};
 use DraftFlowCAD::scene::pick::hit_test::{box_hit, click_hit};
 use DraftFlowCAD::scene::pick::interaction_index::InteractionIndex;
-use DraftFlowCAD::scene::pick::selection_state::{
-    SelectionGesture, SelectionState, SelectionView,
-};
+use DraftFlowCAD::scene::pick::selection_state::{SelectionGesture, SelectionState, SelectionView};
 use DraftFlowCAD::scene::pipeline::wire_arena::partition_wires;
 use DraftFlowCAD::scene::view::camera::Camera;
 use DraftFlowCAD::scene::{ChangeKind, Scene};
@@ -851,7 +847,7 @@ fn bench_ui_ribbon_view_construction(runner: &mut BenchmarkRunner) {
     // Warm-up for allocator and tree settling
     let theme = iced::Theme::Light;
     for _ in 0..10 {
-        let _ = black_box(ribbon.chrome(false, false, 0, 0, false, None, 0, None, &theme));
+        let _ = black_box(ribbon.chrome(false, false, 0, 0, false, None, 0, None, None, &theme));
     }
 
     let n = if runner.quick_mode { 20 } else { 100 };
@@ -861,7 +857,7 @@ fn bench_ui_ribbon_view_construction(runner: &mut BenchmarkRunner) {
     for _ in 0..runs {
         let t0 = Instant::now();
         for _ in 0..n {
-            let elem = ribbon.chrome(false, false, 0, 0, false, None, 0, None, &theme);
+            let elem = ribbon.chrome(false, false, 0, 0, false, None, 0, None, None, &theme);
             black_box(elem);
         }
         let per_us = (t0.elapsed().as_micros() as f64) / (n as f64);
@@ -997,6 +993,7 @@ fn bench_ui_grid_geometry(runner: &mut BenchmarkRunner) {
             origin: origin1,
             axes: axes1,
             limits: limits1,
+            ink: 1.0,
         };
         let params2 = GridParams {
             view_rot: view_rot2,
@@ -1008,6 +1005,7 @@ fn bench_ui_grid_geometry(runner: &mut BenchmarkRunner) {
             origin: origin2,
             axes: axes2,
             limits: limits2,
+            ink: 1.0,
         };
         let grids = vec![params1, params2];
         let canvas_bounds = Rectangle {
@@ -1133,7 +1131,7 @@ fn bench_ui_plotstyle_layer_usage(runner: &mut BenchmarkRunner) {
 
     let mut doc = CadDocument::new();
     for i in 0..200 {
-        let mut layer = codec::tables::Layer::new(&format!("LAYER_{i:03}"));
+        let mut layer = codec::tables::Layer::new(format!("LAYER_{i:03}"));
         layer.handle = doc.allocate_handle();
         layer.color = codec::types::Color::Index((i % 8 + 1) as u8);
         let _ = doc.layers.add(layer);
@@ -1525,6 +1523,8 @@ fn build_selection_overlay_element(
     use DraftFlowCAD::scene::parametric_constraints::GlyphEntry;
     use DraftFlowCAD::snap::SnapType;
 
+    // Single-threaded bench fixture; the Arc is kept for parity with the app.
+    #[allow(clippy::arc_with_non_send_sync)]
     let selection = Arc::new(std::cell::RefCell::new(SelectionState::default()));
     let grips: Vec<GripMarker> = (0..n_grips)
         .map(|i| GripMarker {
@@ -1532,6 +1532,7 @@ fn build_selection_overlay_element(
             shape: GripShape::Square,
             is_hot: false,
             is_hovered: false,
+            hover_w: 0.0,
             dir: None,
         })
         .collect();
@@ -1553,6 +1554,8 @@ fn build_selection_overlay_element(
     selection_overlay(
         selection,
         Some((Point::new(400.0, 300.0), SnapType::Endpoint)),
+        None,
+        None,
         None,
         None,
         grips,

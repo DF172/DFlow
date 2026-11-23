@@ -115,11 +115,8 @@ impl Curve {
         let origin = self.point_at(0.0);
         let local = self.transformed(&Transform::translation([-origin[0], -origin[1]]))?;
         let (area, first_x, first_y) = local.enclosed_moments();
-        (area.is_finite()
-            && area != 0.0
-            && first_x.is_finite()
-            && first_y.is_finite())
-        .then_some([origin[0] + first_x / area, origin[1] + first_y / area])
+        (area.is_finite() && area != 0.0 && first_x.is_finite() && first_y.is_finite())
+            .then_some([origin[0] + first_x / area, origin[1] + first_y / area])
     }
 
     /// Centroid of the region obtained by closing a bounded curve with its
@@ -134,11 +131,8 @@ impl Curve {
         let end = local.point_at(1.0);
         let (area, first_x, first_y) =
             add_moments(local.enclosed_moments(), line_moments(end, start));
-        (area.is_finite()
-            && area != 0.0
-            && first_x.is_finite()
-            && first_y.is_finite())
-        .then_some([origin[0] + first_x / area, origin[1] + first_y / area])
+        (area.is_finite() && area != 0.0 && first_x.is_finite() && first_y.is_finite())
+            .then_some([origin[0] + first_x / area, origin[1] + first_y / area])
     }
 
     fn enclosed_moments(&self) -> (f64, f64, f64) {
@@ -316,7 +310,8 @@ fn integrated_first_moments(
 fn circular_area(centre: [f64; 2], radius: f64, start: f64, end: f64) -> f64 {
     let centre = Vec2::from(centre);
     let sweep = end - start;
-    let along = radius * (centre.x * (end.sin() - start.sin()) - centre.y * (end.cos() - start.cos()));
+    let along =
+        radius * (centre.x * (end.sin() - start.sin()) - centre.y * (end.cos() - start.cos()));
     0.5 * (along + radius * radius * sweep)
 }
 
@@ -351,7 +346,10 @@ mod tests {
         // density a drawing renders at, the polygon is visibly short.
         let curve = circle([0.0, 0.0], 1.0);
         let sampled = crate::geom2d::signed_area(&curve.tessellate(20.0));
-        assert!(sampled < PI - 1e-4, "the polygon should read short: {sampled}");
+        assert!(
+            sampled < PI - 1e-4,
+            "the polygon should read short: {sampled}"
+        );
         assert!((curve.enclosed_area() - PI).abs() < 1e-12);
     }
 
@@ -391,7 +389,10 @@ mod tests {
     fn an_open_polyline_shares_a_chain_without_its_chord() {
         // Three sides of the square as one piece and the fourth as another:
         // their shares of the chain add up to the square.
-        let vertex = |position| PolylineVertex { position, bulge: 0.0 };
+        let vertex = |position| PolylineVertex {
+            position,
+            bulge: 0.0,
+        };
         let three_sides = Curve::Polyline(Polyline {
             vertices: [[0.0, 0.0], [10.0, 0.0], [10.0, 10.0], [0.0, 10.0]]
                 .into_iter()
@@ -399,7 +400,10 @@ mod tests {
                 .collect(),
             closed: false,
         });
-        let last = Curve::Line(Line { start: [0.0, 10.0], end: [0.0, 0.0] });
+        let last = Curve::Line(Line {
+            start: [0.0, 10.0],
+            end: [0.0, 0.0],
+        });
         assert!((three_sides.chain_area() + last.chain_area() - 100.0).abs() < 1e-9);
     }
 
@@ -549,9 +553,6 @@ mod tests {
         // The remote form subtracts two numbers around 10^12, so it cannot be
         // exact — but it must still land on the right answer to a part in a
         // billion rather than losing the area entirely.
-        assert!(
-            (local - remote).abs() < 1e-6 * local,
-            "{local} vs {remote}"
-        );
+        assert!((local - remote).abs() < 1e-6 * local, "{local} vs {remote}");
     }
 }

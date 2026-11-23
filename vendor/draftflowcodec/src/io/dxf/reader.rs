@@ -7,8 +7,8 @@ mod text_reader;
 
 pub use binary_reader::DxfBinaryReader;
 pub use stream_reader::DxfStreamReader;
-pub use text_reader::DxfTextReader;
 use stream_reader::XDataRecorder;
+pub use text_reader::DxfTextReader;
 
 use section_reader::SectionReader;
 
@@ -76,11 +76,15 @@ impl DxfReader {
 
         // Create appropriate reader
         let reader: Box<dyn DxfStreamReader> = if is_binary {
-            Box::new(XDataRecorder::new(Box::new(DxfBinaryReader::new(buf_reader)?)))
+            Box::new(XDataRecorder::new(Box::new(DxfBinaryReader::new(
+                buf_reader,
+            )?)))
         } else {
             // Seek back to start for text DXF files
             buf_reader.seek(std::io::SeekFrom::Start(0))?;
-            Box::new(XDataRecorder::new(Box::new(DxfTextReader::new(buf_reader)?)))
+            Box::new(XDataRecorder::new(Box::new(DxfTextReader::new(
+                buf_reader,
+            )?)))
         };
 
         Ok(Self {
@@ -107,11 +111,15 @@ impl DxfReader {
 
         // Create appropriate reader
         let reader: Box<dyn DxfStreamReader> = if is_binary {
-            Box::new(XDataRecorder::new(Box::new(DxfBinaryReader::new(buf_reader)?)))
+            Box::new(XDataRecorder::new(Box::new(DxfBinaryReader::new(
+                buf_reader,
+            )?)))
         } else {
             // Seek back to start for text DXF files
             buf_reader.seek(std::io::SeekFrom::Start(0))?;
-            Box::new(XDataRecorder::new(Box::new(DxfTextReader::new(buf_reader)?)))
+            Box::new(XDataRecorder::new(Box::new(DxfTextReader::new(
+                buf_reader,
+            )?)))
         };
 
         Ok(Self {
@@ -780,7 +788,11 @@ fn rewire_dangling_layout_block_records(document: &mut CadDocument) {
             if records.contains_key(&layout.block_record.value()) {
                 owned.insert(layout.block_record.value());
             } else {
-                dangling.push((layout.tab_order, *handle, layout.name.eq_ignore_ascii_case("Model")));
+                dangling.push((
+                    layout.tab_order,
+                    *handle,
+                    layout.name.eq_ignore_ascii_case("Model"),
+                ));
             }
         }
     }
@@ -795,7 +807,11 @@ fn rewire_dangling_layout_block_records(document: &mut CadDocument) {
         .filter(|(handle, _)| !owned.contains(*handle))
         .filter_map(|(handle, name)| {
             let suffix = name.strip_prefix("*paper_space")?;
-            let order = if suffix.is_empty() { None } else { Some(suffix.parse().ok()?) };
+            let order = if suffix.is_empty() {
+                None
+            } else {
+                Some(suffix.parse().ok()?)
+            };
             Some((order, *handle))
         })
         .collect();

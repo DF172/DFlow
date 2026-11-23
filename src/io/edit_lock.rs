@@ -176,6 +176,7 @@ impl EditLease {
             .read(true)
             .write(true)
             .create(true)
+            .truncate(false)
             .open(&lock_path)
             .map_err(|error| {
                 EditLeaseError::Unavailable(format!(
@@ -454,6 +455,7 @@ mod tests {
             .read(true)
             .write(true)
             .create(true)
+            .truncate(false)
             .open(&sidecar_path)
             .expect("create sidecar");
 
@@ -515,9 +517,7 @@ mod tests {
         // back the same answer for "nothing moved" and "the file is locked by
         // someone else", so a caller cannot tell a clean open from no evidence.
         let old_shape_unchanged = Some(&loaded).zip(Some(&same)).is_some_and(|(a, b)| a != b);
-        let old_shape_unverifiable = Some(&loaded)
-            .zip(None::<&FileFingerprint>)
-            .is_some_and(|(a, b)| a != b);
+        let old_shape_unverifiable = false; // zipping with None can never pair
         assert_eq!(
             old_shape_unverifiable, old_shape_unchanged,
             "zip collapses the two"

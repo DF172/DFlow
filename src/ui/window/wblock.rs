@@ -18,30 +18,20 @@ static ICON_SELECT_OBJECTS: &[u8] =
 static ICON_QUICK_SELECT: &[u8] = include_bytes!("../../../assets/icons/blocks/quick_select.svg");
 static ICON_WARN: &[u8] = include_bytes!("../../../assets/icons/ui/warning_triangle.svg");
 
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
 pub enum WblockSourceMode {
     Block,
     EntireDrawing,
+    #[default]
     Objects,
 }
 
-impl Default for WblockSourceMode {
-    fn default() -> Self {
-        WblockSourceMode::Objects
-    }
-}
-
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
 pub enum WblockObjectMode {
+    #[default]
     Retain,
     Convert,
     Delete,
-}
-
-impl Default for WblockObjectMode {
-    fn default() -> Self {
-        WblockObjectMode::Retain
-    }
 }
 
 /// Dropdown entry for the Unit picker.
@@ -186,9 +176,12 @@ pub fn view_window<'a>(
     // ── Source: Base Point Sub-group ──────────────────────────────────────────
     let pick_pt_icon = crate::ui::icons::semantic(ICON_PICK_POINT, 14.0);
     let pick_pt_btn = kit::btn(
-        row![pick_pt_icon, text(t!("Pick point")).size(tokens::TEXT_LABEL)]
-            .spacing(tokens::GAP_CONTROL)
-            .align_y(iced::Center),
+        row![
+            pick_pt_icon,
+            text(t!("Pick point")).size(tokens::TEXT_LABEL)
+        ]
+        .spacing(tokens::GAP_CONTROL)
+        .align_y(iced::Center),
         kit::Role::Standard,
         kit::Size::Control,
         if is_objects {
@@ -240,9 +233,12 @@ pub fn view_window<'a>(
     let sel_obj_icon = crate::ui::icons::semantic(ICON_SELECT_OBJECTS, 14.0);
     let qsel_icon = crate::ui::icons::semantic(ICON_QUICK_SELECT, 14.0);
     let sel_obj_btn = kit::btn(
-        row![sel_obj_icon, text(t!("Select objects")).size(tokens::TEXT_LABEL)]
-            .spacing(tokens::GAP_CONTROL)
-            .align_y(iced::Center),
+        row![
+            sel_obj_icon,
+            text(t!("Select objects")).size(tokens::TEXT_LABEL)
+        ]
+        .spacing(tokens::GAP_CONTROL)
+        .align_y(iced::Center),
         kit::Role::Standard,
         kit::Size::Compact,
         if is_objects {
@@ -383,11 +379,12 @@ pub fn view_window<'a>(
         .find(|choice| choice.code == state.unit)
         .cloned();
 
-    let unit_picker = crate::ui::kit::themed_pick_list(selected_unit, unit_options, |choice| choice.to_string())
-        .on_select(|choice| Message::WblockUnit(choice.code))
-        .text_size(tokens::TEXT_LABEL)
-        .padding(kit::PAD_FIELD)
-        .width(Fill);
+    let unit_picker =
+        crate::ui::kit::themed_pick_list(selected_unit, unit_options, |choice| choice.to_string())
+            .on_select(|choice| Message::WblockUnit(choice.code))
+            .text_size(tokens::TEXT_LABEL)
+            .padding(kit::PAD_FIELD)
+            .width(Fill);
 
     let units_row = row![
         text(t!("Insert units:"))

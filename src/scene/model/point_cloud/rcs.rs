@@ -160,7 +160,7 @@ pub fn decode(b: &[u8]) -> Option<Scan> {
         scan.local.reserve(points);
         scan.colors.reserve(points);
         scan.intensity.reserve(points);
-        for rec in bytes.chunks_exact(16) {
+        for rec in bytes.as_chunks::<16>().0 {
             let v = u64::from_le_bytes(rec[0..8].try_into().ok()?);
             let q = |shift: u32| ((v >> shift) & 0x3FFFF) as f64 * 1e-3;
             scan.local

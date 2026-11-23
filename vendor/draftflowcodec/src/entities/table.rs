@@ -836,7 +836,8 @@ impl CellStyle {
         if self.legacy_override_bits {
             self.property_flags
         } else {
-            self.property_flags | CellStylePropertyFlags::from_bits_truncate(self.override_flags as u32)
+            self.property_flags
+                | CellStylePropertyFlags::from_bits_truncate(self.override_flags as u32)
         }
     }
 

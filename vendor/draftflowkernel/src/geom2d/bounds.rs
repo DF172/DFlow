@@ -37,7 +37,8 @@ fn conic(bounds: &mut Option<Bounds>, ellipse: Ellipse, start: f64, end: f64) ->
     let minor = ellipse.minor_axis();
     for axis in 0..2 {
         // The coordinate derivative is -a*sin(t) + b*cos(t).
-        let maximum = (ellipse.minor_radius * minor[axis]).atan2(ellipse.major_radius * ellipse.major_axis[axis]);
+        let maximum = (ellipse.minor_radius * minor[axis])
+            .atan2(ellipse.major_radius * ellipse.major_axis[axis]);
         for parameter in [maximum, maximum + PI] {
             if (end - start).abs() >= TAU || angle_within_arc(parameter, start, end) {
                 absorb(bounds, ellipse.point_at(parameter))?;
@@ -136,8 +137,14 @@ mod tests {
 
     fn close(actual: Bounds, expected: Bounds) {
         for axis in 0..2 {
-            assert!((actual.0[axis] - expected.0[axis]).abs() < 1e-9, "{actual:?}");
-            assert!((actual.1[axis] - expected.1[axis]).abs() < 1e-9, "{actual:?}");
+            assert!(
+                (actual.0[axis] - expected.0[axis]).abs() < 1e-9,
+                "{actual:?}"
+            );
+            assert!(
+                (actual.1[axis] - expected.1[axis]).abs() < 1e-9,
+                "{actual:?}"
+            );
         }
     }
 

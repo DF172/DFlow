@@ -325,8 +325,8 @@ mod tests {
             "the driver offered the sheet whatever it said about margins"
         );
         assert_eq!(caps.margins_for(&a4), None);
-        let a3 = paper_catalog::resolve("ISO_A3_(297.00_x_420.00_MM)")
-            .expect("A3 is in the catalogue");
+        let a3 =
+            paper_catalog::resolve("ISO_A3_(297.00_x_420.00_MM)").expect("A3 is in the catalogue");
         assert!(
             !caps.lists_sheet(&a3),
             "a sheet the driver never listed is not offered"

@@ -411,7 +411,13 @@ pub fn flip_rect(
     let (cross_start, cross_len, cross_anchor, cross_anchor_size, cross_size) = if vertical {
         (bounds.x, bounds.width, anchor.x, anchor.width, size.width)
     } else {
-        (bounds.y, bounds.height, anchor.y, anchor.height, size.height)
+        (
+            bounds.y,
+            bounds.height,
+            anchor.y,
+            anchor.height,
+            size.height,
+        )
     };
     let centred = cross_anchor + (cross_anchor_size - cross_size) / 2.0;
     let cross = centred.clamp(

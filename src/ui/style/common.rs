@@ -96,20 +96,16 @@ pub(crate) fn wcag_contrast(c1: Color, c2: Color) -> f32 {
 /// would be noise under an 8-bit channel.
 #[must_use]
 pub(crate) fn oklab_of(color: Color) -> [f32; 3] {
-    let (r, g, b) = (
-        to_linear(color.r),
-        to_linear(color.g),
-        to_linear(color.b),
-    );
+    let (r, g, b) = (to_linear(color.r), to_linear(color.g), to_linear(color.b));
     // linear sRGB -> cone response -> the cube-rooted space the axes are
     // near-orthogonal in.
-    let l = (0.4122_214_7 * r + 0.5363_325_4 * g + 0.0514_459_9 * b).cbrt();
-    let m = (0.2119_035_0 * r + 0.6806_995_5 * g + 0.1073_969_6 * b).cbrt();
-    let s = (0.0883_024_6 * r + 0.2817_188_4 * g + 0.6299_787_0 * b).cbrt();
+    let l = (0.412_221_47 * r + 0.536_332_54 * g + 0.051_445_99 * b).cbrt();
+    let m = (0.211_903_5 * r + 0.680_699_5 * g + 0.107_396_96 * b).cbrt();
+    let s = (0.088_302_46 * r + 0.281_718_84 * g + 0.629_978_7 * b).cbrt();
     [
-        0.2104_542_6 * l + 0.7936_177_8 * m - 0.0040_720_5 * s,
-        1.9779_985_0 * l - 2.4285_922_1 * m + 0.4505_937_1 * s,
-        0.0259_040_4 * l + 0.7827_717_7 * m - 0.8086_757_7 * s,
+        0.210_454_26 * l + 0.793_617_8 * m - 0.004_072_05 * s,
+        1.977_998_5 * l - 2.428_592_2 * m + 0.450_593_7 * s,
+        0.025_904_04 * l + 0.782_771_77 * m - 0.808_675_77 * s,
     ]
 }
 
@@ -121,19 +117,18 @@ pub(crate) fn oklab_channels(lab: [f32; 3]) -> [f32; 3] {
     let [l, a, b] = lab;
     // The inverse has no guard for a negative cone response: `powi(3)` keeps the
     // sign, and a negative LMS is exactly the out-of-gamut signal above.
-    let lt = l + 0.3963_377_8 * a + 0.2158_037_6 * b;
-    let mt = l - 0.1055_613_5 * a - 0.0638_541_7 * b;
-    let st = l - 0.0894_841_8 * a - 1.2914_855_5 * b;
+    let lt = l + 0.396_337_78 * a + 0.215_803_76 * b;
+    let mt = l - 0.105_561_35 * a - 0.063_854_17 * b;
+    let st = l - 0.089_484_18 * a - 1.291_485_5 * b;
     let (l_, m_, s_) = (lt.powi(3), mt.powi(3), st.powi(3));
     [
-        from_linear(4.0767_416_6 * l_ - 3.3077_115_9 * m_ + 0.2309_699_3 * s_),
-        from_linear(-1.2684_380_0 * l_ + 2.6097_574_0 * m_ - 0.3413_194_0 * s_),
-        from_linear(-0.0041_960_9 * l_ - 0.7034_186_1 * m_ + 1.7076_147_0 * s_),
+        from_linear(4.076_741_7 * l_ - 3.307_711_6 * m_ + 0.230_969_93 * s_),
+        from_linear(-1.268_438 * l_ + 2.609_757_4 * m_ - 0.341_319_4 * s_),
+        from_linear(-0.004_196_09 * l_ - 0.703_418_6 * m_ + 1.707_614_7 * s_),
     ]
 }
 
 /// The same triple brought onto the display, which is what a pixel is.
-#[must_use]
 pub(crate) fn oklab_to_color(lab: [f32; 3]) -> Color {
     let [r, g, b] = oklab_channels(lab);
     Color::from_rgb(r.clamp(0.0, 1.0), g.clamp(0.0, 1.0), b.clamp(0.0, 1.0))

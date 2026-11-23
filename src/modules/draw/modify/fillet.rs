@@ -586,12 +586,12 @@ fn fillet_entire_lwpolyline(poly: &LwPolyline, radius: f64) -> Option<LwPolyline
 
     for (i, original) in poly.vertices.iter().enumerate() {
         if let Some(corner) = corners[i] {
-            let mut tangent_in = original.clone();
+            let mut tangent_in = *original;
             tangent_in.location.x = corner.incoming[0];
             tangent_in.location.y = corner.incoming[1];
             tangent_in.bulge = corner.bulge;
 
-            let mut tangent_out = original.clone();
+            let mut tangent_out = *original;
             tangent_out.location.x = corner.outgoing[0];
             tangent_out.location.y = corner.outgoing[1];
 
@@ -601,7 +601,7 @@ fn fillet_entire_lwpolyline(poly: &LwPolyline, radius: f64) -> Option<LwPolyline
             result.vertices.push(tangent_in);
             result.vertices.push(tangent_out);
         } else {
-            result.vertices.push(original.clone());
+            result.vertices.push(*original);
         }
     }
 
@@ -619,8 +619,8 @@ fn lwpoly_replace_corner(
 ) -> LwPolyline {
     let mut new_poly = poly.clone();
     new_poly.common.handle = Handle::NULL;
-    let orig = poly.vertices[corner_idx].clone();
-    let mut vt1 = orig.clone();
+    let orig = poly.vertices[corner_idx];
+    let mut vt1 = orig;
     vt1.location.x = t1[0];
     vt1.location.y = t1[1];
     vt1.bulge = bulge;
@@ -1117,11 +1117,9 @@ fn fillet_line_arc(
         let arc_click_angle = arc_angle_at(ac, click_arc);
         let arc_click_clamped = clamp_angle_to_arc(arc_click_angle, a_start, a_end);
         // Keep the arc side from i_clamped toward the click
-        let new_arc = if {
-            let sp_to_click = arc_span(i_clamped, arc_click_clamped);
-            let sp_click_to_end = arc_span(arc_click_clamped, a_end);
-            sp_to_click <= sp_click_to_end
-        } {
+        let sp_to_click = arc_span(i_clamped, arc_click_clamped);
+        let sp_click_to_end = arc_span(arc_click_clamped, a_end);
+        let new_arc = if sp_to_click <= sp_click_to_end {
             trim_arc(arc, i_clamped, a_end)
         } else {
             trim_arc(arc, a_start, i_clamped)
@@ -1501,7 +1499,7 @@ impl FilletCommand {
             .collect();
         let entity_index = ModifyEntityIndex::build(&all_entities);
         Self {
-            radius: radius as f64,
+            radius,
             trim: defaults::get_fillet_trim(),
             step: FilletStep::First,
             all_entities,
@@ -1781,14 +1779,12 @@ impl CadCommand for FilletCommand {
         if handle.is_null() {
             return CmdResult::NeedPoint;
         }
-        let click = [pt.x as f64, pt.y as f64]; // drawing plane is world XY
+        let click = [pt.x, pt.y]; // drawing plane is world XY
 
         match &self.step {
             FilletStep::WaitingForRadius
             | FilletStep::RadiusSecondPoint { .. }
-            | FilletStep::TrimMode => {
-                return CmdResult::NeedPoint;
-            }
+            | FilletStep::TrimMode => CmdResult::NeedPoint,
 
             FilletStep::Polyline => {
                 let poly = self
@@ -1886,7 +1882,7 @@ impl CadCommand for FilletCommand {
         if handle.is_null() {
             return vec![];
         }
-        let click = [pt.x as f64, pt.y as f64];
+        let click = [pt.x, pt.y];
 
         match &self.step {
             FilletStep::WaitingForRadius
@@ -2145,8 +2141,7 @@ enum ChamferStep {
 }
 
 /// The refusal a no-trim CHAMFER prints for anything but two independent Lines.
-const NO_TRIM_CHAMFER_LINES_ONLY: &str =
-    "No-trim chamfer supports two independent lines only.";
+const NO_TRIM_CHAMFER_LINES_ONLY: &str = "No-trim chamfer supports two independent lines only.";
 
 pub struct ChamferCommand {
     dist1: f64,
@@ -2176,7 +2171,7 @@ impl ChamferCommand {
             .collect();
         let entity_index = ModifyEntityIndex::build(&all_entities);
         Self {
-            dist1: dist as f64,
+            dist1: dist,
             dist2: defaults::get_chamfer_dist2(),
             trim: defaults::get_fillet_trim(),
             step: ChamferStep::First,
@@ -2496,12 +2491,10 @@ impl CadCommand for ChamferCommand {
         if handle.is_null() {
             return CmdResult::NeedPoint;
         }
-        let click = [pt.x as f64, pt.y as f64];
+        let click = [pt.x, pt.y];
 
         match &self.step {
-            ChamferStep::WaitingForDist1 | ChamferStep::WaitingForDist2 => {
-                return CmdResult::NeedPoint;
-            }
+            ChamferStep::WaitingForDist1 | ChamferStep::WaitingForDist2 => CmdResult::NeedPoint,
             ChamferStep::First => {
                 match self.entity_index.get(&self.all_entities, handle) {
                     Some(EntityType::Line(l)) => {
@@ -2513,9 +2506,7 @@ impl CadCommand for ChamferCommand {
                     }
                     Some(EntityType::LwPolyline(p)) => {
                         if !self.trim {
-                            return CmdResult::ReportError(
-                                NO_TRIM_CHAMFER_LINES_ONLY.to_string(),
-                            );
+                            return CmdResult::ReportError(NO_TRIM_CHAMFER_LINES_ONLY.to_string());
                         }
                         self.step = ChamferStep::SecondPoly {
                             h1: handle,
@@ -2533,9 +2524,7 @@ impl CadCommand for ChamferCommand {
                 if !self.trim {
                     self.step = ChamferStep::First;
                     self.resume_pick = None;
-                    return CmdResult::ReportError(
-                        NO_TRIM_CHAMFER_LINES_ONLY.to_string(),
-                    );
+                    return CmdResult::ReportError(NO_TRIM_CHAMFER_LINES_ONLY.to_string());
                 }
                 let h1 = *h1;
                 let poly = poly.clone();
@@ -2608,10 +2597,10 @@ impl CadCommand for ChamferCommand {
         if handle.is_null() {
             return vec![];
         }
-        let click = [pt.x as f64, pt.y as f64];
+        let click = [pt.x, pt.y];
 
         match &self.step {
-            ChamferStep::WaitingForDist1 | ChamferStep::WaitingForDist2 => return vec![],
+            ChamferStep::WaitingForDist1 | ChamferStep::WaitingForDist2 => vec![],
             ChamferStep::First => {
                 let pts = self
                     .entity_index
@@ -2768,7 +2757,10 @@ mod tests {
             CmdResult::ReplaceManyContinue(_)
         ));
         assert_eq!(keywords(&command), ["U", "P", "R", "T"]);
-        assert!(matches!(command.on_text_input("U"), Some(CmdResult::UndoDocument)));
+        assert!(matches!(
+            command.on_text_input("U"),
+            Some(CmdResult::UndoDocument)
+        ));
         assert_eq!(keywords(&command), ["P", "R", "T"]);
         // The host hands the restored document back; the cache follows it.
         let mut doc = codec::CadDocument::new();
@@ -2782,10 +2774,7 @@ mod tests {
     fn no_trim_fillet_adds_only_an_arc_and_keeps_source_handles() {
         let first = Handle::new(1);
         let second = Handle::new(2);
-        let original = vec![
-            line(0.0, 0.0, 10.0, 0.0, 1),
-            line(0.0, 0.0, 0.0, 10.0, 2),
-        ];
+        let original = vec![line(0.0, 0.0, 10.0, 0.0, 1), line(0.0, 0.0, 0.0, 10.0, 2)];
         let mut command = FilletCommand::new(1.0, original);
         command.trim = false;
         assert!(matches!(
@@ -2828,8 +2817,14 @@ mod tests {
                 _ => None,
             })
             .collect();
-        assert_eq!(source_lines[0], (Vector3::new(0.0, 0.0, 0.0), Vector3::new(10.0, 0.0, 0.0)));
-        assert_eq!(source_lines[1], (Vector3::new(0.0, 0.0, 0.0), Vector3::new(0.0, 10.0, 0.0)));
+        assert_eq!(
+            source_lines[0],
+            (Vector3::new(0.0, 0.0, 0.0), Vector3::new(10.0, 0.0, 0.0))
+        );
+        assert_eq!(
+            source_lines[1],
+            (Vector3::new(0.0, 0.0, 0.0), Vector3::new(0.0, 10.0, 0.0))
+        );
     }
 
     #[test]
@@ -2844,8 +2839,15 @@ mod tests {
         ));
 
         let mut multi = ChamferCommand::new(1.0, lines());
-        assert!(matches!(multi.on_text_input("M"), Some(CmdResult::NeedPoint)));
-        assert_eq!(keywords(&multi), ["D", "N"], "Multiple is not offered twice");
+        assert!(matches!(
+            multi.on_text_input("M"),
+            Some(CmdResult::NeedPoint)
+        ));
+        assert_eq!(
+            keywords(&multi),
+            ["D", "N"],
+            "Multiple is not offered twice"
+        );
         multi.on_entity_pick(Handle::new(1), DVec3::new(5.0, 0.0, 0.0));
         match multi.on_entity_pick(Handle::new(2), DVec3::new(0.0, 5.0, 0.0)) {
             CmdResult::ReplaceManyContinue(replacements) => {
@@ -2856,17 +2858,17 @@ mod tests {
             _ => panic!("multiple mode should keep the command active"),
         }
         assert_eq!(keywords(&multi), ["U", "D", "N"]);
-        assert!(matches!(multi.on_text_input("U"), Some(CmdResult::UndoDocument)));
+        assert!(matches!(
+            multi.on_text_input("U"),
+            Some(CmdResult::UndoDocument)
+        ));
     }
 
     #[test]
     fn no_trim_chamfer_adds_only_the_cut_line_and_keeps_source_handles() {
         let first = Handle::new(1);
         let second = Handle::new(2);
-        let lines = || vec![
-            line(0.0, 0.0, 10.0, 0.0, 1),
-            line(0.0, 0.0, 0.0, 10.0, 2),
-        ];
+        let lines = || vec![line(0.0, 0.0, 10.0, 0.0, 1), line(0.0, 0.0, 0.0, 10.0, 2)];
 
         let mut single = ChamferCommand::new(1.0, lines());
         single.dist2 = 1.0;
@@ -2899,7 +2901,10 @@ mod tests {
 
         let mut multi = ChamferCommand::new(1.0, lines());
         multi.dist2 = 1.0;
-        assert!(matches!(multi.on_text_input("M"), Some(CmdResult::NeedPoint)));
+        assert!(matches!(
+            multi.on_text_input("M"),
+            Some(CmdResult::NeedPoint)
+        ));
         multi.trim = false;
         assert!(matches!(
             multi.on_entity_pick(first, DVec3::new(5.0, 0.0, 0.0)),
@@ -2923,12 +2928,18 @@ mod tests {
     fn no_trim_chamfer_refuses_polyline_corners() {
         for token in ["N", "NOTRIM", "NO TRIM", "TRIM=FALSE"] {
             let mut command = ChamferCommand::new(1.0, Vec::new());
-            assert!(matches!(command.on_text_input(token), Some(CmdResult::NeedPoint)));
+            assert!(matches!(
+                command.on_text_input(token),
+                Some(CmdResult::NeedPoint)
+            ));
             assert!(!command.trim, "{token}");
         }
         for token in ["T", "TRIM", "TRIM=TRUE"] {
             let mut command = ChamferCommand::new(1.0, Vec::new());
-            assert!(matches!(command.on_text_input(token), Some(CmdResult::NeedPoint)));
+            assert!(matches!(
+                command.on_text_input(token),
+                Some(CmdResult::NeedPoint)
+            ));
             assert!(command.trim, "{token}");
         }
 

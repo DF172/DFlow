@@ -177,6 +177,12 @@ impl HelixCommand {
     }
 }
 
+impl Default for HelixCommand {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CadCommand for HelixCommand {
     fn set_working_plane(&mut self, plane: WorkingPlane) {
         self.plane = plane;

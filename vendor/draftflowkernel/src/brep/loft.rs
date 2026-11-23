@@ -3,8 +3,7 @@
 use super::geometry::{Curve3, Line3, Surface};
 use super::nurbs_builder::{RationalCurve2, RationalCurve3};
 use super::topology::{
-    Body, Coedge, Edge, EdgeKey, Face, Loop, Lump, Shell, ShellKey, Vertex,
-    VertexKey,
+    Body, Coedge, Edge, EdgeKey, Face, Loop, Lump, Shell, ShellKey, Vertex, VertexKey,
 };
 use super::Provenance;
 use crate::geom2d::{Curve, Line};
@@ -155,7 +154,10 @@ fn polygon_loft(sections: &[(Plane, Vec<Curve>)], align_rings: bool) -> Option<B
                 let surface = NurbsSurface3::new(
                     1,
                     1,
-                    vec![vec![a.to_array(), d.to_array()], vec![b.to_array(), c.to_array()]],
+                    vec![
+                        vec![a.to_array(), d.to_array()],
+                        vec![b.to_array(), c.to_array()],
+                    ],
                     vec![0.0, 0.0, 1.0, 1.0],
                     vec![0.0, 0.0, 1.0, 1.0],
                     None,
@@ -253,7 +255,11 @@ fn curved_loft(sections: &[(Plane, Vec<Curve>)]) -> Option<Body> {
     });
     let vertices = points
         .iter()
-        .map(|ring| ring.iter().map(|point| add_vertex(&mut body, *point)).collect::<Vec<_>>())
+        .map(|ring| {
+            ring.iter()
+                .map(|point| add_vertex(&mut body, *point))
+                .collect::<Vec<_>>()
+        })
         .collect::<Vec<_>>();
     let rims = rings
         .iter()
@@ -283,10 +289,25 @@ fn curved_loft(sections: &[(Plane, Vec<Curve>)]) -> Option<Body> {
     let winding = Vec3::from(sections[0].0.normal()?) * first_area.signum();
     let forward = winding.dot(direction) > 0.0;
     let first_normal = Vec3::from(sections[0].0.normal()?);
-    let first_normal = if first_normal.dot(direction) > 0.0 { -first_normal } else { first_normal };
+    let first_normal = if first_normal.dot(direction) > 0.0 {
+        -first_normal
+    } else {
+        first_normal
+    };
     let last_normal = Vec3::from(sections.last()?.0.normal()?);
-    let last_normal = if last_normal.dot(direction) > 0.0 { last_normal } else { -last_normal };
-    add_cap(&mut body, shell, &points[0], &rims[0], first_normal, !forward)?;
+    let last_normal = if last_normal.dot(direction) > 0.0 {
+        last_normal
+    } else {
+        -last_normal
+    };
+    add_cap(
+        &mut body,
+        shell,
+        &points[0],
+        &rims[0],
+        first_normal,
+        !forward,
+    )?;
     add_cap(
         &mut body,
         shell,
@@ -419,8 +440,8 @@ fn tolerance(rings: &[Vec<[f64; 3]>]) -> f64 {
 fn polygon_normal(points: &[[f64; 3]]) -> Option<Vec3> {
     let origin = Vec3::from(*points.first()?);
     for index in 1..points.len() - 1 {
-        let normal = (Vec3::from(points[index]) - origin)
-            .cross(Vec3::from(points[index + 1]) - origin);
+        let normal =
+            (Vec3::from(points[index]) - origin).cross(Vec3::from(points[index + 1]) - origin);
         if let Some(normal) = normal.normalize() {
             return Some(normal);
         }
@@ -489,7 +510,11 @@ fn add_cap(
     let circuit = if along_edges {
         edges.iter().map(|edge| (*edge, true)).collect::<Vec<_>>()
     } else {
-        edges.iter().rev().map(|edge| (*edge, false)).collect::<Vec<_>>()
+        edges
+            .iter()
+            .rev()
+            .map(|edge| (*edge, false))
+            .collect::<Vec<_>>()
     };
     add_face(body, shell, surface, &circuit)
 }

@@ -34,7 +34,6 @@
 //! | AC1032      | R2018   | Paged + LZ77 |
 
 pub mod annotative_eed;
-pub(crate) mod typeface_eed;
 pub mod checksum;
 pub mod compression;
 pub mod compressor_ac21;
@@ -56,6 +55,7 @@ mod legacy_viewport;
 mod parallel;
 pub mod preview;
 pub mod reed_solomon;
+pub(crate) mod typeface_eed;
 
 pub use dwg_reader::DwgReadOptions;
 pub use dwg_reader::DwgReader;

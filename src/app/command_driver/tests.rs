@@ -302,10 +302,12 @@ mod parametric_constraint_undo_tests {
     fn horizontal_minor_axis_rotates_an_ellipse_around_its_center() {
         let mut app = DraftFlowCAD::new_for_test();
         let _ = app.automation_op(r#"{"op":"new"}"#);
-        let mut ellipse = codec::entities::Ellipse::default();
-        ellipse.center = codec::types::Vector3::new(3.0, 7.0, 0.0);
-        ellipse.major_axis = codec::types::Vector3::new(3.0, 4.0, 0.0);
-        ellipse.minor_axis_ratio = 0.4;
+        let ellipse = codec::entities::Ellipse {
+            center: codec::types::Vector3::new(3.0, 7.0, 0.0),
+            major_axis: codec::types::Vector3::new(3.0, 4.0, 0.0),
+            minor_axis_ratio: 0.4,
+            ..Default::default()
+        };
         let handle = app.tabs[app.active_tab]
             .scene
             .add_entity(codec::EntityType::Ellipse(ellipse));
@@ -1726,9 +1728,11 @@ mod block_base_point_tests {
             .get("VIS_BP")
             .expect("the block record")
             .handle;
-        let mut param = codec::objects::BlockVisibilityParameter::default();
-        param.owner = def_block;
-        param.def_point = Vector3::new(12.0, 3.0, 0.0);
+        let param = codec::objects::BlockVisibilityParameter {
+            owner: def_block,
+            def_point: Vector3::new(12.0, 3.0, 0.0),
+            ..Default::default()
+        };
         app.tabs[i]
             .scene
             .document

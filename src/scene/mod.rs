@@ -269,7 +269,7 @@ impl Scene {
     /// their own points and are left alone; non-solids are untouched.
     /// Idempotent: a wire already carrying 3D snaps is skipped, so shared
     /// memo entries can pass through every assembly path safely.
-    pub(crate) fn attach_solid_snaps(&self, handle: Handle, wires: &mut Vec<WireModel>) {
+    pub(crate) fn attach_solid_snaps(&self, handle: Handle, wires: &mut [WireModel]) {
         use crate::scene::model::wire_model::SnapHint;
         let points = self.solid_snap_points(handle);
         if points.is_empty() {
@@ -326,7 +326,7 @@ impl Scene {
         if !(aperture_px.is_finite() && aperture_px > 0.0) {
             return None;
         }
-        let perp_base = want_perp.then(|| base).flatten();
+        let perp_base = want_perp.then_some(base).flatten();
         let project = |world: glam::DVec3| {
             let ndc = view_rot.project_point3((world - eye).as_vec3());
             [
@@ -350,7 +350,7 @@ impl Scene {
                             screen: [f32; 2],
                             d2: f32,
                             handle: Handle| {
-            if !(d2 < radius2) || !in_bounds(screen) {
+            if d2.is_nan() || d2 >= radius2 || !in_bounds(screen) {
                 return;
             }
             let (tier, sub) = (snap_tier(snap_type), snap_priority(snap_type));
@@ -429,7 +429,7 @@ impl Scene {
             let start = candidate.start as usize;
             let mut v = [glam::DVec3::ZERO; 3];
             let mut ok = true;
-            for slot in 0..3 {
+            for (slot, target) in v.iter_mut().enumerate() {
                 let Some(&index) = lod.indices.get(start + slot) else {
                     ok = false;
                     break;
@@ -444,12 +444,12 @@ impl Scene {
                     ok = false;
                     break;
                 };
-                v[slot] = glam::DVec3::new(
+                *target = glam::DVec3::new(
                     high[0] as f64 + low[0] as f64,
                     high[1] as f64 + low[1] as f64,
                     high[2] as f64 + low[2] as f64,
                 );
-                if !v[slot].is_finite() {
+                if !target.is_finite() {
                     ok = false;
                     break;
                 }
@@ -510,9 +510,15 @@ impl Scene {
 /// index is content-addressed (XOR folding keeps the value stable across
 /// HashMap iteration order) instead of trusting every invalidation site.
 fn mesh_set_signature(meshes: &HashMap<Handle, MeshLodSet>) -> u64 {
-    meshes.iter().fold(meshes.len() as u64, |signature, (handle, _)| {
-        signature ^ handle.value().wrapping_mul(0x9E37_79B9_7F4A_7C15).rotate_left(17)
-    })
+    meshes
+        .iter()
+        .fold(meshes.len() as u64, |signature, (handle, _)| {
+            signature
+                ^ handle
+                    .value()
+                    .wrapping_mul(0x9E37_79B9_7F4A_7C15)
+                    .rotate_left(17)
+        })
 }
 
 /// World-space triangle entries over every mesh's LOD 0, for `solid_face_snaps`.
@@ -524,7 +530,7 @@ fn build_mesh_face_index(
         let Some(lod) = set.geometry_lods().first() else {
             continue;
         };
-        for (tri_index, tri) in lod.indices.chunks_exact(3).enumerate() {
+        for (tri_index, tri) in lod.indices.as_chunks::<3>().0.iter().enumerate() {
             let mut v = [glam::DVec3::ZERO; 3];
             let mut ok = true;
             for (slot, index) in v.iter_mut().zip(tri.iter()) {
@@ -848,6 +854,7 @@ impl UndoRecording {
     /// command; every parametric-constraint scope's before-image is a real
     /// `ParametricConstraintSet` (its `Vec` entry, once created, is never
     /// removed, so there is no "didn't exist before" case there).
+    #[allow(clippy::type_complexity)]
     pub fn into_recorded_images(
         mut self,
     ) -> (
@@ -1218,7 +1225,6 @@ pub struct OpenTimings {
     /// it indistinguishable from parse time in an open that appeared to stall.
     pub finalize_ms: u32,
 }
-
 
 /// Build open-time caches while reporting monotonic progress in 0..=10000.
 ///
@@ -1636,9 +1642,7 @@ fn offset_centroid(e: &EntityType, model_block: Handle, prep: &OffsetPrep) -> Op
         set.contains(&h)
     } else if c.owner_handle == model_block {
         true
-    } else if !c.owner_handle.is_null() {
-        false
-    } else if prep.owned_by_other_block.contains(&h) {
+    } else if !c.owner_handle.is_null() || prep.owned_by_other_block.contains(&h) {
         false
     } else {
         // owner null + h not enumerated by any block: legacy permissive
@@ -2053,6 +2057,11 @@ pub struct Scene {
     /// Previous swaps with this snapshot, allowing the user to toggle between
     /// the two most recent views without touching drawing history.
     previous_view: Option<ViewSnapshot>,
+    /// P2 batch 1 item 6: the in-flight 3D view reposition. `Some` while a
+    /// perspective ZOOM EXTENTS / entity zoom is flying; it holds the exact
+    /// takeoff and landing pose so the render can interpolate in f64 without
+    /// ever routing a (possibly UTM-scale) target through an f32 spring.
+    view_fly: Option<camera_ops::ViewFly>,
     /// Model-space tiled viewport layout. One full-window tile by default;
     /// the split buttons / VPORTS subdivide the active tile.
     pub(crate) model_tiles: RefCell<Vec<ModelTile>>,
@@ -2142,6 +2151,12 @@ pub struct Scene {
     /// Entity drawn with the selection-highlight colour without being part
     /// of the real selection — used to preview a row in the cycling list box.
     pub hover_highlight: Option<Handle>,
+    /// Batch 2 item 14: previous cycling-list preview candidate, kept for the
+    /// 60 ms RGB cross-fade so the rollover highlight migrates instead of
+    /// teleporting. `cycle_fade_t` is the eased progress (0 = old full hover,
+    /// 1 = new full hover); written every MotionTick while the track runs.
+    pub cycle_fade_old: Option<Handle>,
+    pub cycle_fade_t: f32,
     /// All entities related to the constraint indicator currently under the cursor.
     constraint_hover_highlights: HashSet<Handle>,
     /// Sub-entity references related to that indicator. Polyline segments are
@@ -2166,6 +2181,10 @@ pub struct Scene {
     /// capture; the renderer merges it under the live preview each frame so
     /// the per-event path never re-clones/re-fades the full reference set.
     pub preview_ghost_wires: Vec<WireModel>,
+    /// Remaining opacity factor applied to `preview_ghost_wires` at draw time
+    /// (1.0 = as published). The drag path lowers it with distance instead of
+    /// re-colouring the stored set on every cursor move.
+    pub preview_ghost_fade: f32,
     /// Candidate wireframes produced by editable solid-history grips. The
     /// resident body remains untouched until the grip is committed.
     solid_history_preview_wires: HashMap<Handle, Vec<WireModel>>,
@@ -2316,6 +2335,7 @@ pub struct Scene {
     /// filtered variants. Viewports sharing a frozen set share one entry (like
     /// the resident wire set). Empty for a viewport with no frozen layers (it
     /// reuses the unfiltered `*_arc` sets directly).
+    #[allow(clippy::type_complexity)]
     frozen_hatch_cache:
         RefCell<HashMap<(Handle, u64), HashMap<String, (u64, u64, Arc<Vec<HatchModel>>)>>>,
     frozen_wipeout_cache:
@@ -2326,7 +2346,8 @@ pub struct Scene {
     point_cloud_cache: RefCell<
         HashMap<(Handle, u64), (u64, Arc<crate::scene::model::point_cloud::PointCloudSet>)>,
     >,
-    frozen_mesh_cache: RefCell<HashMap<(Handle, u64), HashMap<String, (u64, Arc<Vec<MeshLodSet>>)>>>,
+    frozen_mesh_cache:
+        RefCell<HashMap<(Handle, u64), HashMap<String, (u64, Arc<Vec<MeshLodSet>>)>>>,
     /// Viewports that carry layer color/alpha/linetype/lineweight overrides.
     /// Cached per geometry epoch so ordinary viewports can share render data.
     viewport_style_override_cache: RefCell<Option<(u64, HashSet<Handle>)>>,
@@ -2434,6 +2455,7 @@ pub struct Scene {
     layout_names_cache: RefCell<Option<(u64, std::sync::Arc<Vec<String>>)>>,
     /// Bump on any annotation-scale list mutation.
     scale_epoch: u64,
+    #[allow(clippy::type_complexity)]
     scale_picker_cache: RefCell<
         Option<(
             u64,
@@ -2734,6 +2756,7 @@ impl Scene {
         Self {
             camera: Rc::new(RefCell::new(Camera::default())),
             previous_view: None,
+            view_fly: None,
             model_tiles: RefCell::new(vec![ModelTile {
                 rect: iced::Rectangle {
                     x: 0.0,
@@ -2753,6 +2776,8 @@ impl Scene {
             // One pane mapped to tile 0 — matches the single default tile above.
             model_panes: iced::widget::pane_grid::State::new(0).0,
             model_pane_min_px: std::sync::Arc::new(std::sync::atomic::AtomicU32::new(0)),
+            // Single-threaded UI state; the Arc is historical.
+            #[allow(clippy::arc_with_non_send_sync)]
             selection: std::sync::Arc::new(std::cell::RefCell::new(SelectionState::default())),
             document: CadDocument::new(),
             last_created_dimension: None,
@@ -2767,6 +2792,8 @@ impl Scene {
             refedit_keep: None,
             count_display: None,
             hover_highlight: None,
+            cycle_fade_old: None,
+            cycle_fade_t: 1.0,
             constraint_hover_highlights: HashSet::default(),
             constraint_hover_refs: Vec::new(),
             constraint_hover_wires: Vec::new(),
@@ -2777,6 +2804,7 @@ impl Scene {
             selection_filter: HashSet::default(),
             preview_wires: vec![],
             preview_ghost_wires: vec![],
+            preview_ghost_fade: 1.0,
             solid_history_preview_wires: HashMap::default(),
             preview_hatches: Arc::new(Vec::new()),
             preview_text: vec![],
@@ -3213,7 +3241,7 @@ impl Scene {
         }
         // Complex-linetype glyphs ride the host entity's wire.
         let lt = crate::scene::view::render::linetype_name_for(&self.document, entity);
-        crate::io::linetypes::resolve_complex_lt(&self.document, &lt).is_some()
+        crate::io::linetypes::resolve_complex_lt(&self.document, lt).is_some()
     }
 
     /// Stage the cache categories an entity belongs to before erase removes the
@@ -3626,7 +3654,7 @@ impl Scene {
             // A host inside a block definition is drawn by every reference
             // to that block, and a table by its own block of cell texts.
             if let Some(index) = self.dependency_index_cache.borrow().as_ref() {
-                if let Some(users) = index.block_roots.get(&record_handle) {
+                if let Some(users) = index.block_roots.get(record_handle) {
                     targets.render_handles.extend(users.iter().copied());
                 }
             }
@@ -4106,7 +4134,7 @@ impl Scene {
         }
         self.nav_changed_at
             .get()
-            .map_or(false, |t| t.elapsed().as_millis() < Self::NAV_SETTLE_MS)
+            .is_some_and(|t| t.elapsed().as_millis() < Self::NAV_SETTLE_MS)
     }
 
     pub(crate) fn record_nav_perf(&self, op: NavPerfOp, started: iced::time::Instant) {
@@ -4159,9 +4187,9 @@ impl Scene {
     /// (hatched) frame actually renders after the cursor stops, even when no
     /// input event would otherwise trigger a redraw. Read-only (no side effect).
     pub fn is_settling(&self) -> bool {
-        self.nav_changed_at.get().map_or(false, |t| {
-            t.elapsed().as_millis() < Self::NAV_SETTLE_MS + 130
-        })
+        self.nav_changed_at
+            .get()
+            .is_some_and(|t| t.elapsed().as_millis() < Self::NAV_SETTLE_MS + 130)
     }
 
     /// Prepare display geometry without changing the entity or resident caches.
@@ -6252,8 +6280,25 @@ impl Scene {
             .hover_highlight
             .map(|handle| self.handles_expanded_for_selectable_groups(&[handle]))
             .unwrap_or_default();
+        // Batch 2 item 14: during the cross-fade the previous candidate keeps
+        // contributing (at a fading tint strength) so the highlight migrates.
+        if let Some(old) = self.cycle_fade_old {
+            if Some(old) != self.hover_highlight {
+                handles.extend(self.handles_expanded_for_selectable_groups(&[old]));
+            }
+        }
         handles.extend(self.constraint_hover_highlights.iter().copied());
         handles
+    }
+
+    /// Batch 2 item 14: drop any in-flight cycling cross-fade (list closed,
+    /// candidate committed, cycling toggled off). Forces one xray rebuild so
+    /// the stale old-candidate tint disappears on the next frame.
+    pub fn clear_cycle_fade(&mut self) {
+        if self.cycle_fade_old.take().is_some() {
+            self.cycle_fade_t = 1.0;
+            self.bump_selection();
+        }
     }
 
     pub fn set_constraint_hover_highlights(
@@ -8883,12 +8928,16 @@ impl Scene {
             *self.viewport_style_override_cache.borrow_mut() =
                 Some((self.geometry_epoch, overridden));
         }
-        self.viewport_style_override_cache
+        let overridden = self
+            .viewport_style_override_cache
             .borrow()
             .as_ref()
-            .is_some_and(|(_, overridden)| overridden.contains(&viewport))
-            .then_some(viewport.value())
-            .unwrap_or(0)
+            .is_some_and(|(_, overridden)| overridden.contains(&viewport));
+        if overridden {
+            viewport.value()
+        } else {
+            0
+        }
     }
 
     /// Hatch / 2-D-solid fills for a content viewport, with its frozen layers
@@ -9037,10 +9086,10 @@ impl Scene {
                         self.document
                             .layers
                             .get(&common.layer)
-                            .map(|layer| layer.color.clone())
-                            .unwrap_or(common.color.clone())
+                            .map(|layer| layer.color)
+                            .unwrap_or(common.color)
                     } else {
-                        common.color.clone()
+                        common.color
                     };
                     let object_color = color.rgb().map_or([255; 3], |(r, g, b)| [r, g, b]);
                     clouds.extend(point_cloud::placed(
@@ -9106,10 +9155,10 @@ impl Scene {
                 self.document
                     .layers
                     .get(&common.layer)
-                    .map(|layer| layer.color.clone())
-                    .unwrap_or(common.color.clone())
+                    .map(|layer| layer.color)
+                    .unwrap_or(common.color)
             } else {
-                common.color.clone()
+                common.color
             };
             let (r, g, b) = color.rgb().unwrap_or((255, 255, 255));
             wires.push(WireModel::solid_f64(
@@ -9595,7 +9644,6 @@ impl Scene {
     }
 
     /// Instanced hatch models keyed by their block-backed host handle.
-
     pub fn insert_hatches_for_click(&self) -> Arc<HashMap<Handle, Vec<HatchModel>>> {
         let interaction_block = self.interaction_block_handle();
         let space_key = self.interaction_space_key();
@@ -11807,10 +11855,7 @@ vis_index={:.1} visible_probe={:.1}",
         // capable of declaring ownership, so an unknown-owner entity is
         // an orphan (typically a block-defn entity whose owner was lost on
         // round-trip) and must not leak into the queried block.
-        if map.is_empty() {
-            return true;
-        }
-        false
+        map.is_empty()
     }
 
     /// Build (and epoch-cache) a reverse map: entity_handle → block_record_handle,
@@ -12002,7 +12047,10 @@ vis_index={:.1} visible_probe={:.1}",
                     continue;
                 }
                 if owner.is_null() || layout_blocks.contains(&owner) {
-                    roots.entry(dependency.block).or_default().insert(common.handle);
+                    roots
+                        .entry(dependency.block)
+                        .or_default()
+                        .insert(common.handle);
                 } else {
                     parents.entry(dependency.block).or_default().insert(owner);
                 }
@@ -12789,7 +12837,7 @@ vis_index={:.1} visible_probe={:.1}",
         let margin = 1.1_f64;
         let scale_w = vp.width / (content_w as f64 * margin);
         let scale_h = vp.height / (content_h as f64 * margin);
-        let fit_scale = scale_w.min(scale_h).min(1000.0).max(1e-6);
+        let fit_scale = scale_w.min(scale_h).clamp(1e-6, 1000.0);
 
         vp.custom_scale = fit_scale;
         vp.view_height = vp.height / fit_scale;
@@ -12822,14 +12870,14 @@ mod section_tests {
             bottom_height: 2.0,
             indicator_alpha: 70,
             indicator_color: Color::from_index(9),
-            back_line_vertices: (depth > 0.0)
-                .then(|| {
-                    vertices
-                        .iter()
-                        .map(|point| *point + Vector3::new(-depth, 0.0, 0.0))
-                        .collect()
-                })
-                .unwrap_or_default(),
+            back_line_vertices: if depth > 0.0 {
+                vertices
+                    .iter()
+                    .map(|point| *point + Vector3::new(-depth, 0.0, 0.0))
+                    .collect()
+            } else {
+                Default::default()
+            },
             vertices,
             settings_handle: Handle::NULL,
         }
@@ -14279,8 +14327,9 @@ mod selection_arc_tests {
     }
 
     #[test]
+    #[allow(clippy::assertions_on_constants)] // placeholder test kept for the suite baseline
     fn selection_overlay_takes_arc() {
-        assert!(true);
+        const { assert!(true) };
     }
 }
 
@@ -14422,17 +14471,23 @@ mod layout_cache_tests {
     #[test]
     fn resident_wires_are_zoom_independent_and_gpu_analytical() {
         let mut s = Scene::new();
-        let mut circle = codec::entities::Circle::default();
-        circle.radius = 100.0;
+        let circle = codec::entities::Circle {
+            radius: 100.0,
+            ..Default::default()
+        };
         let handle = s.add_entity(EntityType::Circle(circle));
 
         // Far camera: distance is large
-        let mut cam_far = Camera::default();
-        cam_far.distance = 1000.0;
+        let cam_far = Camera {
+            distance: 1000.0,
+            ..Default::default()
+        };
 
         // Close camera: distance is small
-        let mut cam_close = Camera::default();
-        cam_close.distance = 1.0;
+        let cam_close = Camera {
+            distance: 1.0,
+            ..Default::default()
+        };
 
         let wires_far = s.model_tile_wires_arc(0, &cam_far, 1.0, 1000.0);
         let circle_wire_far = wires_far
@@ -14460,14 +14515,18 @@ mod layout_cache_tests {
     fn block_circles_and_arcs_extract_as_analytical_gpu_instances() {
         let mut s = Scene::new();
         // Create initial entities
-        let mut circle = codec::entities::Circle::default();
-        circle.radius = 50.0;
+        let circle = codec::entities::Circle {
+            radius: 50.0,
+            ..Default::default()
+        };
         let c_h = s.add_entity(EntityType::Circle(circle));
 
-        let mut arc = codec::entities::Arc::default();
-        arc.radius = 25.0;
-        arc.start_angle = 0.0;
-        arc.end_angle = std::f64::consts::PI;
+        let arc = codec::entities::Arc {
+            radius: 25.0,
+            start_angle: 0.0,
+            end_angle: std::f64::consts::PI,
+            ..Default::default()
+        };
         let a_h = s.add_entity(EntityType::Arc(arc));
 
         let line = codec::entities::Line::from_points(
@@ -14898,4 +14957,123 @@ pub(crate) fn is_locked_point_cloud(entity: &EntityType) -> bool {
         EntityType::Extended(extended)
             if matches!(&extended.data, codec::entities::ExtendedEntityData::PointCloudEx(data) if data.locked)
     )
+}
+
+#[cfg(test)]
+mod f4_camera_generation_cost {
+    //! F4 (item 3): measure the per-frame cost of `camera_generation += 1`
+    //! during inertial zoom on a large drawing (~20 000 entities, near item
+    //! 38's reveal threshold). The original report premise was "~18 frames
+    //! continuously re-upload the GPU wire set". This probe tests that against
+    //! the real wire-build path: in Model space the resident set is
+    //! camera-independent (keyed on `geometry_epoch` only, see
+    //! `resident_wires_for`), so a camera tick must NOT re-tessellate, must
+    //! return the SAME wire `Arc`, and therefore must NOT mint a new
+    //! `WIRE_CONTENT_GEN` id (the GPU upload gate in `view::render`).
+    use super::*;
+    use codec::entities::Line;
+    use codec::types::Vector3;
+
+    const N: usize = 20_000;
+    const FRAMES: usize = 18;
+
+    fn large_model_scene() -> Scene {
+        let mut s = Scene::new();
+        s.current_layout = "Model".to_string();
+        for k in 0..N {
+            let x = (k % 200) as f64;
+            let y = (k / 200) as f64;
+            s.add_entity(EntityType::Line(Line::from_points(
+                Vector3::new(x, y, 0.0),
+                Vector3::new(x + 1.0, y + 1.0, 0.0),
+            )));
+        }
+        s.bump_geometry();
+        s
+    }
+
+    fn median(mut v: Vec<f64>) -> f64 {
+        v.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        v[v.len() / 2]
+    }
+
+    #[test]
+    fn camera_tick_does_not_rebuild_the_model_wire_set() {
+        let mut s = large_model_scene();
+
+        // One-time cold tessellation (fresh geometry_epoch).
+        let t0 = std::time::Instant::now();
+        let cold = s.entity_wires();
+        let cold_ms = t0.elapsed().as_secs_f64() * 1000.0;
+        // observed>0 self-check: the fixture really produced wires.
+        assert!(
+            cold.len() >= N,
+            "fixture produced {} wires for {N} entities",
+            cold.len()
+        );
+        let cold_gen = s.last_model_wire_gen.get();
+
+        // Variant A: bump camera_generation EVERY frame (what inertial zoom does).
+        let base_gen = s.camera_generation;
+        let mut a_ms = Vec::new();
+        let mut prev = Arc::clone(&cold);
+        for _ in 0..FRAMES {
+            s.camera_generation += 1;
+            let t = std::time::Instant::now();
+            let w = s.entity_wires();
+            a_ms.push(t.elapsed().as_secs_f64() * 1000.0);
+            // Same Arc => no re-tessellation on a camera tick.
+            assert!(
+                Arc::ptr_eq(&prev, &w),
+                "camera_generation tick re-tessellated the Model resident wire set"
+            );
+            // Same content id => the GPU wire vertex upload stays skipped.
+            assert_eq!(
+                s.last_model_wire_gen.get(),
+                cold_gen,
+                "camera tick minted a new WIRE_CONTENT_GEN id (would force GPU re-upload)"
+            );
+            prev = w;
+        }
+
+        // Variant B: hold camera_generation constant, bump only first/last.
+        s.camera_generation = base_gen;
+        let mut b_ms = Vec::new();
+        let mut prev = Arc::clone(&cold);
+        for f in 0..FRAMES {
+            if f == 0 || f == FRAMES - 1 {
+                s.camera_generation += 1;
+            }
+            let t = std::time::Instant::now();
+            let w = s.entity_wires();
+            b_ms.push(t.elapsed().as_secs_f64() * 1000.0);
+            assert!(
+                Arc::ptr_eq(&prev, &w),
+                "held camera_generation still changed the Model wire Arc"
+            );
+            prev = w;
+        }
+
+        let a_med = median(a_ms);
+        let b_med = median(b_ms);
+        eprintln!(
+            "[F4] N={N} FRAMES={FRAMES} wire_len={} cold_build_ms={cold_ms:.3} \
+             per_frame_bump_median_ms={a_med:.4} first_last_only_median_ms={b_med:.4} \
+             arc_stable=true content_id_stable=true",
+            cold.len()
+        );
+
+        // The expensive tessellation is one-time, not per-frame: a camera tick
+        // is far cheaper than the cold build.
+        assert!(
+            a_med < cold_ms.max(1.0),
+            "per-frame camera tick {a_med:.4}ms not below cold build {cold_ms:.3}ms"
+        );
+        // Bumping every frame is no more expensive than holding it: both are
+        // resident-cache hits, so there is no per-frame re-upload to throttle.
+        assert!(
+            a_med < b_med * 3.0 + 0.5,
+            "per-frame bump {a_med:.4}ms materially worse than first/last-only {b_med:.4}ms"
+        );
+    }
 }

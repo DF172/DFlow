@@ -1,5 +1,7 @@
 use draftflowcodec::entities::Viewport;
-use draftflowcodec::{CadDocument, DwgReader, DwgWriter, DxfReader, DxfWriter, EntityType, Vector3};
+use draftflowcodec::{
+    CadDocument, DwgReader, DwgWriter, DxfReader, DxfWriter, EntityType, Vector3,
+};
 use std::io::Cursor;
 
 fn assert_angle(actual: f64, expected: f64) {

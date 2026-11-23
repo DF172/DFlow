@@ -9,10 +9,10 @@
 //! - `{"op":"new"}`                          — start an empty document
 //! - `{"op":"open","path":"file.dwg"}`       — load a drawing
 //! - `{"op":"run","cmd":"LAYER Walls"}`      — run a command (the same dispatcher
-//!                                             the GUI command line uses)
+//!   the GUI command line uses)
 //! - `{"op":"entities"}`                     — summary count by entity type
 //! - `{"op":"save","path":"out.dwg"}`        — write the document (path optional
-//!                                             once opened/saved)
+//!   once opened/saved)
 
 use crate::io::line_read::{lines_capped, MAX_LINE_BYTES};
 use std::collections::{BTreeMap, HashSet};
@@ -536,10 +536,7 @@ pub(super) fn requested_save_target(
 }
 
 fn is_generated_dimension_block_name(name: &str) -> bool {
-    let Some(suffix) = name
-        .strip_prefix("*D")
-        .or_else(|| name.strip_prefix("*d"))
-    else {
+    let Some(suffix) = name.strip_prefix("*D").or_else(|| name.strip_prefix("*d")) else {
         return false;
     };
     !suffix.is_empty() && suffix.bytes().all(|byte| byte.is_ascii_digit())
@@ -550,9 +547,10 @@ fn is_generated_dimension_block_name(name: &str) -> bool {
 /// logical drawing entities; named block members remain part of the manifest.
 fn is_dimension_display_entity(document: &codec::CadDocument, entity: &codec::EntityType) -> bool {
     let owner = entity.common().owner_handle;
-    document.block_records.iter().any(|block| {
-        block.handle == owner && is_generated_dimension_block_name(&block.name)
-    })
+    document
+        .block_records
+        .iter()
+        .any(|block| block.handle == owner && is_generated_dimension_block_name(&block.name))
 }
 
 fn document_manifest(document: &codec::CadDocument) -> Value {
@@ -589,7 +587,7 @@ fn audit_ascii_dxf_references(path: &std::path::Path) -> Result<Value, String> {
     }
     let text = String::from_utf8_lossy(&bytes).replace("\r\n", "\n");
     let lines: Vec<&str> = text.lines().collect();
-    if lines.len() % 2 != 0 {
+    if !lines.len().is_multiple_of(2) {
         return Ok(
             json!({"ok":false,"malformed_pairs":true,"duplicate_handles":[],"dangling_handles":[]}),
         );
@@ -600,7 +598,7 @@ fn audit_ascii_dxf_references(path: &std::path::Path) -> Result<Value, String> {
     let mut pairs = Vec::new();
     let mut version = None;
     let mut variable = None;
-    for pair in lines.chunks_exact(2) {
+    for pair in lines.as_chunks::<2>().0 {
         let Ok(code) = pair[0].trim().parse::<i32>() else {
             return Ok(
                 json!({"ok":false,"malformed_pairs":true,"duplicate_handles":[],"dangling_handles":[]}),
@@ -1256,6 +1254,9 @@ impl DraftFlowCAD {
         if !matches!(detail, "summary" | "geometry" | "full") {
             return err("query detail must be summary, geometry or full");
         }
+        // The source-text guard in both_where_op_sites_share_one_reader pins the
+        // borrow form, so keep it explicit and silence the mechanical lint here.
+        #[allow(clippy::needless_borrow)]
         let (offset, limit) = match page_window(&req) {
             Ok(window) => window,
             Err(error) => return err(error),
@@ -1796,17 +1797,13 @@ mod tests {
         detail.handle = document.allocate_handle();
         let detail_handle = detail.handle;
         document.block_records.add(detail).unwrap();
-        let mut detail_line = Line::from_points(
-            Vector3::new(20.0, 0.0, 0.0),
-            Vector3::new(30.0, 0.0, 0.0),
-        );
+        let mut detail_line =
+            Line::from_points(Vector3::new(20.0, 0.0, 0.0), Vector3::new(30.0, 0.0, 0.0));
         detail_line.common.owner_handle = detail_handle;
         document.add_entity(EntityType::Line(detail_line)).unwrap();
 
-        let mut dimension = DimensionLinear::new(
-            Vector3::new(0.0, 0.0, 0.0),
-            Vector3::new(10.0, 0.0, 0.0),
-        );
+        let mut dimension =
+            DimensionLinear::new(Vector3::new(0.0, 0.0, 0.0), Vector3::new(10.0, 0.0, 0.0));
         dimension.definition_point = Vector3::new(0.0, 5.0, 0.0);
         dimension.base.text_middle_point = Vector3::new(5.0, 5.0, 0.0);
         document
@@ -1827,10 +1824,8 @@ mod tests {
 
         let mut app = super::DraftFlowCAD::new_for_test();
         app.automation_op(r#"{"op":"new"}"#);
-        let mut dimension = DimensionLinear::new(
-            Vector3::new(0.0, 0.0, 0.0),
-            Vector3::new(10.0, 0.0, 0.0),
-        );
+        let mut dimension =
+            DimensionLinear::new(Vector3::new(0.0, 0.0, 0.0), Vector3::new(10.0, 0.0, 0.0));
         dimension.definition_point = Vector3::new(0.0, 5.0, 0.0);
         dimension.base.text_middle_point = Vector3::new(5.0, 5.0, 0.0);
         app.tabs[app.active_tab]
@@ -1866,10 +1861,8 @@ mod tests {
 
         let mut app = super::DraftFlowCAD::new_for_test();
         app.automation_op(r#"{"op":"new"}"#);
-        let mut dimension = DimensionLinear::new(
-            Vector3::new(0.0, 0.0, 0.0),
-            Vector3::new(10.0, 0.0, 0.0),
-        );
+        let mut dimension =
+            DimensionLinear::new(Vector3::new(0.0, 0.0, 0.0), Vector3::new(10.0, 0.0, 0.0));
         dimension.definition_point = Vector3::new(0.0, 5.0, 0.0);
         dimension.base.text_middle_point = Vector3::new(5.0, 5.0, 0.0);
         let i = app.active_tab;
@@ -1901,9 +1894,8 @@ mod tests {
         let captured = crate::io::edit_lock::FileFingerprint::capture(&path).unwrap();
         assert_eq!(app.tabs[i].disk_fingerprint.as_ref(), Some(&captured));
 
-        let ordinary = app.automation_op(
-            &serde_json::json!({"op":"save", "path":path}).to_string(),
-        );
+        let ordinary =
+            app.automation_op(&serde_json::json!({"op":"save", "path":path}).to_string());
         assert_eq!(ordinary["ok"], true, "{ordinary}");
         assert!(!ordinary["error"]
             .as_str()
@@ -1965,8 +1957,10 @@ mod tests {
 
     #[test]
     fn raw_dxf_audit_detects_dangling_handle_references() {
-        let path =
-            std::env::temp_dir().join(format!("draftflow_dangling_handle_{}.dxf", std::process::id()));
+        let path = std::env::temp_dir().join(format!(
+            "draftflow_dangling_handle_{}.dxf",
+            std::process::id()
+        ));
         std::fs::write(&path, "  0\nLINE\n  5\n1\n330\n2\n").unwrap();
         let audit = super::audit_ascii_dxf_references(&path).unwrap();
         assert_eq!(audit["ok"], false, "{audit}");
@@ -1976,7 +1970,8 @@ mod tests {
 
     #[test]
     fn raw_dxf_audit_marks_binary_input_as_skipped() {
-        let path = std::env::temp_dir().join(format!("draftflow_binary_dxf_{}.dxf", std::process::id()));
+        let path =
+            std::env::temp_dir().join(format!("draftflow_binary_dxf_{}.dxf", std::process::id()));
         std::fs::write(&path, b"AutoCAD Binary DXF\r\n\x1a\0").unwrap();
         let audit = super::audit_ascii_dxf_references(&path).unwrap();
         assert_eq!(audit["ok"], true, "{audit}");
@@ -1986,8 +1981,10 @@ mod tests {
 
     #[test]
     fn raw_dxf_audit_detects_objects_orphaned_from_the_root_dictionary() {
-        let path =
-            std::env::temp_dir().join(format!("draftflow_orphaned_object_{}.dxf", std::process::id()));
+        let path = std::env::temp_dir().join(format!(
+            "draftflow_orphaned_object_{}.dxf",
+            std::process::id()
+        ));
         std::fs::write(
             &path,
             "0\nSECTION\n2\nOBJECTS\n0\nDICTIONARY\n5\nC\n330\n0\n0\nDICTIONARY\n5\n23\n330\nC\n0\nENDSEC\n0\nEOF\n",
@@ -2325,7 +2322,8 @@ mod tests {
             .map(|e| format!("\"{}\"", e["handle"].as_str().unwrap()))
             .collect();
 
-        let path = std::env::temp_dir().join(format!("draftflow_wblock_{}.dxf", std::process::id()));
+        let path =
+            std::env::temp_dir().join(format!("draftflow_wblock_{}.dxf", std::process::id()));
         let _ = std::fs::remove_file(&path);
         let p = path.to_string_lossy().replace('\\', "\\\\");
         let r = app.automation_op(&format!(
@@ -3183,14 +3181,7 @@ mod tests {
             .and_then(|s| s.split('}').next())
             .expect("the start_allowed gate moved — re-point this test");
         // Welcome-page links plus app-wide configuration commands.
-        let standalone = [
-            "REPORT",
-            "ABOUT",
-            "CHANGELOG",
-            "HELP",
-            "CUI",
-            "ALIASEDIT",
-        ];
+        let standalone = ["REPORT", "ABOUT", "CHANGELOG", "HELP", "CUI", "ALIASEDIT"];
         for cmd in standalone {
             assert!(
                 gate.contains(&format!("\"{cmd}\"")),
@@ -3471,7 +3462,10 @@ mod tests {
         // Any existing file will do: OpenRecent only stats it, and the actual
         // load is an async Task this test drops.
         let dir = std::env::temp_dir();
-        let (a, b) = (dir.join("draftflow_si_a.dwg"), dir.join("draftflow_si_b.dwg"));
+        let (a, b) = (
+            dir.join("draftflow_si_a.dwg"),
+            dir.join("draftflow_si_b.dwg"),
+        );
         std::fs::write(&a, b"x").unwrap();
         std::fs::write(&b, b"x").unwrap();
 
@@ -3550,8 +3544,10 @@ mod tests {
     #[test]
     fn save_then_open_round_trips() {
         let mut app = DraftFlowCAD::new_for_test();
-        let path =
-            std::env::temp_dir().join(format!("draftflow_automation_test_{}.dxf", std::process::id()));
+        let path = std::env::temp_dir().join(format!(
+            "draftflow_automation_test_{}.dxf",
+            std::process::id()
+        ));
         let _ = std::fs::remove_file(&path);
         let p = path.to_string_lossy().replace('\\', "\\\\");
         app.automation_op(r#"{"op":"new"}"#);
@@ -3887,7 +3883,10 @@ mod tests {
         // Snapper is now forced on with only Midpoint enabled
         assert!(app.snapper.snap_enabled);
         assert_eq!(app.snapper.enabled.len(), 1);
-        assert!(app.snapper.enabled.contains(&crate::snap::SnapType::Midpoint));
+        assert!(app
+            .snapper
+            .enabled
+            .contains(&crate::snap::SnapType::Midpoint));
 
         // Submit first point (0,0)
         let _ = app.update(Message::CommandInput("0,0".to_string()));
@@ -3900,7 +3899,10 @@ mod tests {
         let _ = app.update(Message::CommandInput("END".to_string()));
         let _ = app.update(Message::CommandSubmit);
         assert!(app.snapper.snap_enabled);
-        assert!(app.snapper.enabled.contains(&crate::snap::SnapType::Endpoint));
+        assert!(app
+            .snapper
+            .enabled
+            .contains(&crate::snap::SnapType::Endpoint));
 
         // Escape cancels LINE and clears unconsumed snap override
         let _ = app.update(Message::CommandEscape);
@@ -4079,7 +4081,10 @@ mod silent_default_tests {
             (0, DEFAULT_PAGE_LIMIT as usize),
             page_window(&json!({"offset":null,"limit":null})).unwrap()
         );
-        assert_eq!((7, 25), page_window(&json!({"offset":7,"limit":25})).unwrap());
+        assert_eq!(
+            (7, 25),
+            page_window(&json!({"offset":7,"limit":25})).unwrap()
+        );
         // A value that is present but not a non-negative integer used to become
         // "start from row 0", answering a question nobody asked.
         for bad in [

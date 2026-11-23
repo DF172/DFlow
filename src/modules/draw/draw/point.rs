@@ -36,6 +36,12 @@ impl PointCommand {
     }
 }
 
+impl Default for PointCommand {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CadCommand for PointCommand {
     fn name(&self) -> &'static str {
         if self.multiple {
@@ -59,7 +65,7 @@ impl CadCommand for PointCommand {
 
     fn on_point(&mut self, pt: DVec3) -> CmdResult {
         let p = CadPoint {
-            location: Vector3::new(pt.x as f64, pt.y as f64, pt.z as f64),
+            location: Vector3::new(pt.x, pt.y, pt.z),
             ..Default::default()
         };
         if self.multiple {

@@ -364,7 +364,7 @@ fn is_cancel_for(line: &str, mkey: &str) -> bool {
     message
         .get("params")
         .and_then(|params| params.get("requestId"))
-        .is_some_and(|id| id.to_string() == mkey)
+        .is_some_and(|id| mcp_key(id) == mkey)
 }
 
 fn wait_deadline(op: &str, wait_seconds: f64) -> Duration {
@@ -1969,7 +1969,7 @@ fn read_resource(
                         if result["ok"].as_bool() != Some(true)
                             || result["status"].as_str() != Some("completed")
                         {
-                            return Err(result.to_string().into());
+                            return Err(result.to_string());
                         }
                         let bytes = std::fs::read(&path).map_err(|error| error.to_string())?;
                         let _ = std::fs::remove_file(path);
@@ -2024,7 +2024,8 @@ fn read_resource(
                     }
                 }
             } else if subpath == "viewport.png" {
-                let path = std::env::temp_dir().join(format!("draftflow-resource-{}.png", random_id()?));
+                let path =
+                    std::env::temp_dir().join(format!("draftflow-resource-{}.png", random_id()?));
                 let req = json!({
                     "op": "capture",
                     "path": path.to_string_lossy(),
@@ -2858,9 +2859,7 @@ fn handle_message(
     }
     let id = message.get("id").cloned();
     let method = message.get("method").and_then(Value::as_str)?;
-    if id.is_none() {
-        return None;
-    }
+    id.as_ref()?;
     let id = id.unwrap();
     let params = message.get("params").cloned().unwrap_or_else(|| json!({}));
     if let Some(requested) = params["_meta"]["io.modelcontextprotocol/protocolVersion"].as_str() {
@@ -2992,7 +2991,14 @@ fn handle_message(
             };
             // Unknown tools are Protocol Errors (-32602), never isError
             // results; the valid names ride along so the model can recover.
-            if !["draftflow_sessions", "draftflow_read", "draftflow_execute", "draftflow_capture"].contains(&name) {
+            if ![
+                "draftflow_sessions",
+                "draftflow_read",
+                "draftflow_execute",
+                "draftflow_capture",
+            ]
+            .contains(&name)
+            {
                 return Some(rpc_error(
                     id,
                     -32602,
@@ -3111,7 +3117,7 @@ pub fn sync_agent_tool_schemas() -> bool {
         return false;
     }
     let base_dir = mcp_root.join("draftflow");
-    if let Err(_) = std::fs::create_dir_all(&base_dir) {
+    if std::fs::create_dir_all(&base_dir).is_err() {
         return false;
     }
 
@@ -3189,10 +3195,7 @@ pub fn run() {
         rx,
         backlog: VecDeque::new(),
     };
-    loop {
-        let Some(line) = pump.next() else {
-            break;
-        };
+    while let Some(line) = pump.next() {
         // Serve the in-flight request with the old schema first (it was made
         // against it), then exit so the client respawns a fresh bridge. This
         // ordering means a rebuild never fails a call that is already running.
@@ -3255,7 +3258,12 @@ mod tests {
             .collect();
         assert_eq!(
             names,
-            ["draftflow_sessions", "draftflow_read", "draftflow_execute", "draftflow_capture"]
+            [
+                "draftflow_sessions",
+                "draftflow_read",
+                "draftflow_execute",
+                "draftflow_capture"
+            ]
         );
         // The build announcement must live in the entry-point tool
         // description: global instructions don't reliably reach agents.
@@ -3567,7 +3575,12 @@ mod tests {
         .unwrap();
         assert_eq!(unknown["error"]["code"], -32602);
         let message = unknown["error"]["message"].as_str().unwrap();
-        for name in ["draftflow_sessions", "draftflow_read", "draftflow_execute", "draftflow_capture"] {
+        for name in [
+            "draftflow_sessions",
+            "draftflow_read",
+            "draftflow_execute",
+            "draftflow_capture",
+        ] {
             assert!(message.contains(name), "{message}");
         }
     }
@@ -3837,7 +3850,10 @@ mod tests {
         )
         .unwrap();
         assert_eq!(guided["ok"], false);
-        assert!(guided["error"].as_str().unwrap().contains("draftflow_capture"));
+        assert!(guided["error"]
+            .as_str()
+            .unwrap()
+            .contains("draftflow_capture"));
     }
 
     #[test]

@@ -5,12 +5,12 @@
 //! plain `Scale` objects rather than symbol-table styles, so it drives its own
 //! messages instead of the StyleKind machinery.
 
-use crate::ui::style::tokens;
 use crate::app::Message;
 use crate::t;
 use crate::ui::kit;
 use crate::ui::kit::muted_style;
 use crate::ui::style::style_manager::{hdivider, tb_button, vsep};
+use crate::ui::style::tokens;
 use iced::widget::{column, container, mouse_area, row, text, text_input, Space};
 use iced::{Element, Theme};
 use std::borrow::Cow;
@@ -50,51 +50,60 @@ pub fn view_window<'a, 'b>(
     .padding(kit::Size::Compact.padding());
 
     // ── Left: scale list ──────────────────────────────────────────────────
-    let rows: Vec<Element<'_, Message>> =
-        scales
-            .iter()
-            .map(|(name, ratio)| {
-                // The row being renamed shows an inline text field; a single click
-                // selects, a double click starts renaming.
-                if rename_active == Some(name.as_str()) {
-                    return text_input("", rename_buf)
-                        .id(rename_input_id())
-                        .on_input(Message::ScaleRenameEdit)
-                        .on_submit(Message::ScaleRenameCommit)
-                        .style(kit::field_style)
-                        .size(tokens::TEXT_LABEL)
-                        .padding(crate::ui::kit::Size::Compact.padding())
-                        .width(sizing.width)
-                        .into();
-                }
-                let is_sel = name.as_str() == selected;
-                let is_cur = name.eq_ignore_ascii_case(current);
-                let check = crate::ui::icons::themed_check_cell(is_cur);
-                let label = row![
-                    check,
-                    text(name.clone()).size(tokens::TEXT_LABEL).width(sizing.width),
-                    text(ratio.clone()).size(tokens::TEXT_MICRO).style(muted_style),
-                ]
-                .spacing(tokens::GAP_TIGHT)
-                .align_y(iced::Center);
-                let cell = container(label).padding(crate::ui::kit::Size::Compact.padding()).width(sizing.width).style(
-                    move |theme: &Theme| kit::selected_row_wash_style(theme, is_sel),
-                );
-                mouse_area(cell)
-                    .on_press(Message::ScaleManagerSelect(name.clone()))
-                    .on_double_click(Message::ScaleRenameStart(name.clone()))
-                    .into()
-            })
-            .collect();
+    let rows: Vec<Element<'_, Message>> = scales
+        .iter()
+        .map(|(name, ratio)| {
+            // The row being renamed shows an inline text field; a single click
+            // selects, a double click starts renaming.
+            if rename_active == Some(name.as_str()) {
+                return text_input("", rename_buf)
+                    .id(rename_input_id())
+                    .on_input(Message::ScaleRenameEdit)
+                    .on_submit(Message::ScaleRenameCommit)
+                    .style(kit::field_style)
+                    .size(tokens::TEXT_LABEL)
+                    .padding(crate::ui::kit::Size::Compact.padding())
+                    .width(sizing.width)
+                    .into();
+            }
+            let is_sel = name.as_str() == selected;
+            let is_cur = name.eq_ignore_ascii_case(current);
+            let check = crate::ui::icons::themed_check_cell(is_cur);
+            let label = row![
+                check,
+                text(name.clone())
+                    .size(tokens::TEXT_LABEL)
+                    .width(sizing.width),
+                text(ratio.clone())
+                    .size(tokens::TEXT_MICRO)
+                    .style(muted_style),
+            ]
+            .spacing(tokens::GAP_TIGHT)
+            .align_y(iced::Center);
+            let cell = container(label)
+                .padding(crate::ui::kit::Size::Compact.padding())
+                .width(sizing.width)
+                .style(move |theme: &Theme| kit::selected_row_wash_style(theme, is_sel));
+            mouse_area(cell)
+                .on_press(Message::ScaleManagerSelect(name.clone()))
+                .on_double_click(Message::ScaleRenameStart(name.clone()))
+                .into()
+        })
+        .collect();
 
     let list_panel = container(
         column![
-            text(t!("Scales")).size(tokens::TEXT_MICRO).style(muted_style),
-            container(crate::ui::kit::themed_scrollable(column(rows).spacing(tokens::GAP_SEAM)).height(sizing.height))
-                .style(kit::pane_plate_style)
-                .width(sizing.width)
-                .height(sizing.height)
-                .padding(tokens::GAP_HAIRLINE),
+            text(t!("Scales"))
+                .size(tokens::TEXT_MICRO)
+                .style(muted_style),
+            container(
+                crate::ui::kit::themed_scrollable(column(rows).spacing(tokens::GAP_SEAM))
+                    .height(sizing.height)
+            )
+            .style(kit::pane_plate_style)
+            .width(sizing.width)
+            .height(sizing.height)
+            .padding(tokens::GAP_HAIRLINE),
         ]
         .spacing(tokens::GAP_TIGHT)
         .height(sizing.height),
@@ -114,7 +123,10 @@ pub fn view_window<'a, 'b>(
                  value: &str,
                  on: fn(String) -> Message| {
         row![
-            text(label).size(tokens::TEXT_LABEL).style(muted_style).width(96),
+            text(label)
+                .size(tokens::TEXT_LABEL)
+                .style(muted_style)
+                .width(96),
             text_input(ph.as_ref(), value)
                 .on_input(on)
                 .style(kit::field_style)

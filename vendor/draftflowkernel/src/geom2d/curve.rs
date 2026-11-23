@@ -316,9 +316,7 @@ impl Curve {
                     arc.centre[1] + arc.radius * angle.sin(),
                 ]
             }
-            Self::Ellipse(arc) => arc
-                .ellipse
-                .point_at(arc.start_parameter + t * arc.sweep()),
+            Self::Ellipse(arc) => arc.ellipse.point_at(arc.start_parameter + t * arc.sweep()),
             Self::Polyline(polyline) => point_on_polyline(polyline, t),
             Self::Nurbs(curve) => curve.point_at(t),
             Self::Ray(ray) => [
@@ -485,8 +483,7 @@ fn parameter_on_polyline(polyline: &Polyline, point: [f64; 2]) -> f64 {
                 if squared < 1e-24 {
                     0.0
                 } else {
-                    ((Vec2::from(point) - Vec2::from(start)).dot(along) / squared)
-                        .clamp(0.0, 1.0)
+                    ((Vec2::from(point) - Vec2::from(start)).dot(along) / squared).clamp(0.0, 1.0)
                 }
             }
         };
@@ -638,7 +635,10 @@ mod tests {
         });
         assert_eq!(polyline.segment_count(), 3);
         assert!(polyline.is_closed());
-        assert!(close(polyline.point_at(1.0), [0.0, 0.0]), "should return home");
+        assert!(
+            close(polyline.point_at(1.0), [0.0, 0.0]),
+            "should return home"
+        );
     }
 
     #[test]

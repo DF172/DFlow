@@ -78,14 +78,36 @@ pub enum InferredConstraint {
         second: usize,
         second_endpoint: Endpoint,
     },
-    Collinear { first: usize, second: usize },
-    Concentric { first: usize, second: usize },
-    Parallel { first: usize, second: usize },
-    Perpendicular { first: usize, second: usize },
-    Horizontal { entity: usize },
-    Vertical { entity: usize },
-    Tangent { first: usize, second: usize },
-    Equal { first: usize, second: usize },
+    Collinear {
+        first: usize,
+        second: usize,
+    },
+    Concentric {
+        first: usize,
+        second: usize,
+    },
+    Parallel {
+        first: usize,
+        second: usize,
+    },
+    Perpendicular {
+        first: usize,
+        second: usize,
+    },
+    Horizontal {
+        entity: usize,
+    },
+    Vertical {
+        entity: usize,
+    },
+    Tangent {
+        first: usize,
+        second: usize,
+    },
+    Equal {
+        first: usize,
+        second: usize,
+    },
 }
 
 impl InferredConstraint {
@@ -258,12 +280,8 @@ fn axis_state(candidates: &[InferredConstraint], entity: usize) -> (bool, bool) 
     candidates
         .iter()
         .fold((false, false), |(horizontal, vertical), item| match *item {
-            InferredConstraint::Horizontal { entity: found } if found == entity => {
-                (true, vertical)
-            }
-            InferredConstraint::Vertical { entity: found } if found == entity => {
-                (horizontal, true)
-            }
+            InferredConstraint::Horizontal { entity: found } if found == entity => (true, vertical),
+            InferredConstraint::Vertical { entity: found } if found == entity => (horizontal, true),
             _ => (horizontal, vertical),
         })
 }
@@ -353,15 +371,12 @@ pub fn infer_constraints_with_settings(
                         candidates.push(InferredConstraint::Concentric { first, second });
                     } else if circle_circle_contact(a, b, distance).is_some_and(|point| {
                         !settings.tangent_must_share_point
-                            || (primitive_contains_circle_point(
-                                primitives[first],
-                                point,
-                                distance,
-                            ) && primitive_contains_circle_point(
-                                primitives[second],
-                                point,
-                                distance,
-                            ))
+                            || (primitive_contains_circle_point(primitives[first], point, distance)
+                                && primitive_contains_circle_point(
+                                    primitives[second],
+                                    point,
+                                    distance,
+                                ))
                     }) {
                         candidates.push(InferredConstraint::Tangent { first, second });
                     }
@@ -483,10 +498,7 @@ mod tests {
             }),
         ];
         let found = infer_constraints(&curves, Tolerance::new(1e-6), 1e-6);
-        assert!(matches!(
-            found[0],
-            InferredConstraint::Coincident { .. }
-        ));
+        assert!(matches!(found[0], InferredConstraint::Coincident { .. }));
         assert!(!found
             .iter()
             .any(|item| matches!(item, InferredConstraint::Collinear { .. })));

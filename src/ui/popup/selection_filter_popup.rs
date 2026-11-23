@@ -5,13 +5,13 @@
 use rustc_hash::FxHashSet as HashSet;
 
 use crate::t;
-use iced::widget::{container, row, text};
 use crate::ui::kit::plain_button;
+use iced::widget::{container, row, text};
 use iced::{Element, Fill, Theme};
 
 use crate::app::Message;
-use crate::ui::statusbar::status_menu::Entry;
 use crate::ui::kit;
+use crate::ui::statusbar::status_menu::Entry;
 use crate::ui::style::tokens;
 
 /// - `types`: entity-type names present in the current layout.
@@ -64,7 +64,9 @@ fn type_row(name: String, included: bool) -> Element<'static, Message> {
 
     let lbl = text(t!(name.as_str())).size(tokens::TEXT_LABEL);
 
-    let content = row![check, lbl].spacing(tokens::GAP_CONTROL).align_y(iced::Center);
+    let content = row![check, lbl]
+        .spacing(tokens::GAP_CONTROL)
+        .align_y(iced::Center);
 
     plain_button(content)
         .on_press(Message::ToggleSelectionFilterType(name))
@@ -89,5 +91,7 @@ fn empty_row() -> Element<'static, Message> {
 fn header_btn(label: &str, msg: Message, enabled: bool) -> Element<'_, Message> {
     let b = plain_button(text(t!(label)).size(tokens::TEXT_MICRO));
     let b = if enabled { b.on_press(msg) } else { b };
-    b.style(kit::secondary_style).padding(kit::PAD_TRIGGER).into()
+    b.style(kit::secondary_style)
+        .padding(kit::PAD_TRIGGER)
+        .into()
 }

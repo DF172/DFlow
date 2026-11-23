@@ -4,16 +4,16 @@
 
 use std::fmt;
 
-use iced::widget::{column, combo_box, container, image, row, text, text_input, Space};
 use crate::ui::kit::plain_button;
+use iced::widget::{column, combo_box, container, image, row, text, text_input, Space};
 use iced::{Element, Fill, Length};
 
 use crate::app::Message;
 use crate::io::xref_model::Pathtype;
 use crate::t;
+use crate::ui::kit;
 use crate::ui::kit::muted_style;
 use crate::ui::style::tokens;
-use crate::ui::kit;
 
 /// One edit in the dialog.
 #[derive(Debug, Clone)]
@@ -198,7 +198,9 @@ pub fn view_window<'a>(
     .padding(kit::PAD_FIELD)
     .width(Fill);
     let name_section = column![
-        text(t!("Name:")).size(tokens::TEXT_LABEL).style(muted_style),
+        text(t!("Name:"))
+            .size(tokens::TEXT_LABEL)
+            .style(muted_style),
         row![
             name_combo,
             plain_button(text(t!("Browse...")).size(tokens::TEXT_LABEL))
@@ -222,7 +224,8 @@ pub fn view_window<'a>(
         container(preview_body)
             .width(Fill)
             .height(Length::Fixed(230.0))
-            .style(kit::preview_well_style));
+            .style(kit::preview_well_style),
+    );
     let reference_type = kit::group_box(
         t!("Reference Type").into_owned(),
         column![
@@ -233,7 +236,8 @@ pub fn view_window<'a>(
                 XrefAttachMsg::Overlay(v)
             ),),
         ]
-        .spacing(tokens::GAP_CONTROL));
+        .spacing(tokens::GAP_CONTROL),
+    );
     let left = column![preview, reference_type]
         .spacing(tokens::GAP_CONTROL)
         .width(Length::FillPortion(1));
@@ -265,7 +269,8 @@ pub fn view_window<'a>(
                 XrefAttachMsg::Uniform(v)
             )),
         ]
-        .spacing(tokens::GAP_CONTROL));
+        .spacing(tokens::GAP_CONTROL),
+    );
     let insert_enabled = !state.insert_on_screen;
     let insertion = kit::group_box(
         t!("Insertion point").into_owned(),
@@ -283,7 +288,8 @@ pub fn view_window<'a>(
                 XrefAttachMsg::Insert(2, v)
             )),
         ]
-        .spacing(tokens::GAP_CONTROL));
+        .spacing(tokens::GAP_CONTROL),
+    );
     let middle = column![scale, insertion]
         .spacing(tokens::GAP_CONTROL)
         .width(Length::FillPortion(1));
@@ -297,7 +303,8 @@ pub fn view_window<'a>(
         .on_select(|v| msg(XrefAttachMsg::PathType(v)))
         .text_size(tokens::TEXT_LABEL)
         .padding(kit::PAD_FIELD)
-        .width(Fill));
+        .width(Fill),
+    );
     let mut angle = text_input("", &state.rotation)
         .size(tokens::TEXT_LABEL)
         .padding(kit::PAD_FIELD)
@@ -322,19 +329,23 @@ pub fn view_window<'a>(
             .spacing(tokens::GAP_CONTROL)
             .align_y(iced::Center),
         ]
-        .spacing(tokens::GAP_CONTROL));
+        .spacing(tokens::GAP_CONTROL),
+    );
     let block_unit = kit::group_box(
         t!("Block Unit").into_owned(),
         column![
             read_only_field(t!("Unit:").into_owned(), &state.unit_label, 52.0),
             read_only_field(t!("Factor:").into_owned(), &state.unit_factor, 52.0),
         ]
-        .spacing(tokens::GAP_CONTROL));
+        .spacing(tokens::GAP_CONTROL),
+    );
     let right = column![path_type, rotation, block_unit]
         .spacing(tokens::GAP_CONTROL)
         .width(Length::FillPortion(1));
 
-    let body = row![left, middle, right].spacing(tokens::GAP_CONTROL).width(Fill);
+    let body = row![left, middle, right]
+        .spacing(tokens::GAP_CONTROL)
+        .width(Fill);
 
     // ── Details ─────────────────────────────────────────────────────────
     let details: Element<'a, Message> = if state.details {
@@ -344,8 +355,9 @@ pub fn view_window<'a>(
                 read_only_field(t!("Found in:").into_owned(), &state.found_in, 92.0),
                 read_only_field(t!("Saved path:").into_owned(), &state.saved_path, 92.0),
             ]
-            .spacing(tokens::GAP_CONTROL))
-            .into()
+            .spacing(tokens::GAP_CONTROL),
+        )
+        .into()
     } else {
         Space::new().height(0).into()
     };

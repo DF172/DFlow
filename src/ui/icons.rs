@@ -632,14 +632,10 @@ fn starts_with_word_ignore_ascii_case(source: &[u8], index: usize, word: &[u8]) 
     let Some(end) = index.checked_add(word.len()) else {
         return false;
     };
-    if end > source.len()
+    !(end > source.len()
         || !source[index..end].eq_ignore_ascii_case(word)
         || index > 0 && source[index - 1].is_ascii_alphabetic()
-        || end < source.len() && source[end].is_ascii_alphabetic()
-    {
-        return false;
-    }
-    true
+        || end < source.len() && source[end].is_ascii_alphabetic())
 }
 
 fn color_hex(color: Color) -> [u8; 7] {
@@ -761,6 +757,21 @@ pub fn themed_warning<'a, M: 'a>(bytes: &'static [u8], size: f32) -> Element<'a,
         .style(|theme: &Theme, _| svg::Style {
             color: Some(theme.palette().warning.base.color),
         })
+        .into()
+}
+
+/// Render a warning-state chrome icon at a chosen opacity. The save-state dot
+/// fades in and out, so it needs an alpha rather than the binary glyph.
+pub fn themed_warning_alpha<'a, M: 'a>(
+    bytes: &'static [u8],
+    size: f32,
+    alpha: f32,
+) -> Element<'a, M> {
+    glyph(bytes, size)
+        .style(|theme: &Theme, _| svg::Style {
+            color: Some(theme.palette().warning.base.color),
+        })
+        .opacity(alpha.clamp(0.0, 1.0))
         .into()
 }
 
@@ -1029,7 +1040,11 @@ mod tests {
         let text = String::from_utf8_lossy(&themed);
 
         assert!(!text.contains("currentColor"));
-        assert_eq!(text.matches(std::str::from_utf8(&colors.text).unwrap()).count(), 2);
+        assert_eq!(
+            text.matches(std::str::from_utf8(&colors.text).unwrap())
+                .count(),
+            2
+        );
     }
 
     #[test]
@@ -1100,9 +1115,8 @@ mod themed_cache_tests {
     fn themed_cache_remove_for_test(ptr: *const u8, len: usize) {
         THEMED_CACHE.with(|c| {
             let mut c = c.borrow_mut();
-            c.map.retain(|(address, length, _), _| {
-                !(*address == ptr as usize && *length == len)
-            });
+            c.map
+                .retain(|(address, length, _), _| !(*address == ptr as usize && *length == len));
             for slot in &mut c.mru {
                 if let Some(((address, length, _), _)) = slot {
                     if *address == ptr as usize && *length == len {
@@ -1455,7 +1469,9 @@ mod check_cell_tests {
             "a glyph is built outside `glyph`, so it ignores the entrance alpha"
         );
         assert_eq!(
-            source.matches(["svg(", "themed_handle("].concat().as_str()).count(),
+            source
+                .matches(["svg(", "themed_handle("].concat().as_str())
+                .count(),
             1,
             "more than one glyph construction path"
         );

@@ -1599,8 +1599,9 @@ impl DraftFlowCAD {
             self.command_line.push_output(
                 crate::tf!(
                     "TEXT REPLACE: replaced {total_replaced} occurrence(s) in {} object(s).",
-                    changed_handles.len()
-                , total_replaced = total_replaced)
+                    changed_handles.len(),
+                    total_replaced = total_replaced
+                )
                 .as_ref(),
             );
         }

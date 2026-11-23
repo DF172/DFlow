@@ -164,7 +164,7 @@ pub fn text_local_bounds(
 
     let shaping_family = face.ttf_family().or_else(|| {
         crate::scene::text::web_font::requires_shaping(text)
-            .then(|| crate::scene::text::web_font::fallback_family())
+            .then(crate::scene::text::web_font::fallback_family)
     });
     if let Some(family) = shaping_family {
         if let Some(run) = crate::scene::text::ttf_glyph::shape_run(family, text) {
@@ -252,7 +252,7 @@ pub fn text_char_cells(
     let wf = width_factor.abs().clamp(0.01, 100.0);
     let shaping_family = face.ttf_family().or_else(|| {
         crate::scene::text::web_font::requires_shaping(text)
-            .then(|| crate::scene::text::web_font::fallback_family())
+            .then(crate::scene::text::web_font::fallback_family)
     });
     if let Some(run) =
         shaping_family.and_then(|family| crate::scene::text::ttf_glyph::shape_run(family, text))
@@ -288,7 +288,7 @@ pub fn text_char_cells(
 /// - `%%o` / `%%O` → overline toggle (stripped)
 /// - `%%%%` → `%`
 /// - `%%nnn` (3 decimal digits) → Unicode scalar `nnn`
-/// Any unrecognised `%%x` is passed through unchanged.
+///   Any unrecognised `%%x` is passed through unchanged.
 pub fn resolve_dxf_special_chars(s: &str) -> String {
     let mut out = String::with_capacity(s.len());
     let mut chars = s.chars().peekable();
@@ -2893,8 +2893,10 @@ mod tests {
     #[test]
     fn unresolved_inline_font_falls_back_to_style_font() {
         let base = "txt";
-        let mut state = RunState::default();
-        state.font = Some("__definitely_not_an_installed_font__".to_string());
+        let state = RunState {
+            font: Some("__definitely_not_an_installed_font__".to_string()),
+            ..Default::default()
+        };
 
         assert_eq!(resolve_font(&state, base), base);
 

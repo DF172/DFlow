@@ -24,7 +24,9 @@ pub struct PdfLayer {
 fn text_string(bytes: &[u8]) -> String {
     if bytes.starts_with(&[0xFE, 0xFF]) {
         let units: Vec<u16> = bytes[2..]
-            .chunks_exact(2)
+            .as_chunks::<2>()
+            .0
+            .iter()
             .map(|c| u16::from_be_bytes([c[0], c[1]]))
             .collect();
         return String::from_utf16_lossy(&units);
@@ -98,10 +100,7 @@ pub fn source_with_layers(path: &str, hidden: &[String]) -> String {
     if all.is_empty() {
         return path.to_string();
     }
-    let off: Vec<&PdfLayer> = all
-        .iter()
-        .filter(|l| hidden.iter().any(|h| *h == l.name))
-        .collect();
+    let off: Vec<&PdfLayer> = all.iter().filter(|l| hidden.contains(&l.name)).collect();
     if off.is_empty() && all.iter().all(|l| l.on_by_default) {
         return path.to_string();
     }

@@ -478,7 +478,12 @@ fn nurbs_ray_hits(surface: &NurbsSurface3, origin: Vec3, direction: Vec3) -> Opt
     // The patch lies within its control net's box (positive weights); a
     // line passing the box meets none of it, and the grid below costs
     // thousands of evaluations a ray.
-    if surface.weights().iter().flatten().all(|weight| *weight > 0.0) {
+    if surface
+        .weights()
+        .iter()
+        .flatten()
+        .all(|weight| *weight > 0.0)
+    {
         let mut low = [f64::INFINITY; 3];
         let mut high = [f64::NEG_INFINITY; 3];
         for point in surface.control_points().iter().flatten() {
@@ -488,7 +493,10 @@ fn nurbs_ray_hits(surface: &NurbsSurface3, origin: Vec3, direction: Vec3) -> Opt
             }
         }
         let (start, along) = (origin.to_array(), direction.to_array());
-        let reach = (0..3).map(|axis| high[axis] - low[axis]).fold(0.0, f64::max) * 1e-9;
+        let reach = (0..3)
+            .map(|axis| high[axis] - low[axis])
+            .fold(0.0, f64::max)
+            * 1e-9;
         let (mut enter, mut leave) = (f64::NEG_INFINITY, f64::INFINITY);
         for axis in 0..3 {
             let (from, to) = (low[axis] - reach, high[axis] + reach);
@@ -498,7 +506,10 @@ fn nurbs_ray_hits(surface: &NurbsSurface3, origin: Vec3, direction: Vec3) -> Opt
                 }
                 continue;
             }
-            let (a, b) = ((from - start[axis]) / along[axis], (to - start[axis]) / along[axis]);
+            let (a, b) = (
+                (from - start[axis]) / along[axis],
+                (to - start[axis]) / along[axis],
+            );
             enter = enter.max(a.min(b));
             leave = leave.min(a.max(b));
         }
@@ -551,7 +562,10 @@ fn nurbs_ray_hits(surface: &NurbsSurface3, origin: Vec3, direction: Vec3) -> Opt
                     alpha * va + beta * vb + gamma * vc,
                 );
                 let t = refine_ray_hit(surface, origin, direction, guess, t)?;
-                if !hits.iter().any(|hit| (hit - t).abs() <= 1e-9 * (1.0 + t.abs())) {
+                if !hits
+                    .iter()
+                    .any(|hit| (hit - t).abs() <= 1e-9 * (1.0 + t.abs()))
+                {
                     hits.push(t);
                 }
             }

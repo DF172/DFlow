@@ -392,7 +392,7 @@ impl SpatialGrid {
             });
             slots.into_iter().map(AtomicU32::into_inner).collect()
         };
-        let oversized = SpatialBvh2::build(&entries, oversized);
+        let oversized = SpatialBvh2::build(entries, oversized);
 
         Self {
             min,
@@ -564,9 +564,7 @@ pub(crate) struct MeshFaceIndex {
 }
 
 impl MeshFaceIndex {
-    pub(crate) fn build(
-        triangles: impl IntoIterator<Item = ([f64; 6], MeshTriRef)>,
-    ) -> Self {
+    pub(crate) fn build(triangles: impl IntoIterator<Item = ([f64; 6], MeshTriRef)>) -> Self {
         let entries: Vec<Entry3<MeshTriRef>> = triangles
             .into_iter()
             .map(|(aabb, value)| Entry3 { aabb, value })
@@ -1446,6 +1444,9 @@ pub struct InteractionCandidates {
 pub trait WireSource {
     fn iter(&self) -> WireIter<'_>;
     fn len(&self) -> usize;
+    fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
     fn get(&self, index: usize) -> Option<&WireModel>;
     fn segments(&self) -> Option<&[SegmentRef]> {
         None
@@ -1527,6 +1528,10 @@ impl InteractionCandidates {
         self.wire_indices
             .as_ref()
             .map_or(self.wires.len(), Vec::len)
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
     }
 
     pub fn get(&self, index: usize) -> Option<&WireModel> {

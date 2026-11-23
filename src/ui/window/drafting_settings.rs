@@ -1,11 +1,12 @@
-use crate::ui::style::tokens;
 use crate::app::settings::IsoPlane;
 use crate::app::Message;
 use crate::snap::{SnapType, ALL_3D_SNAP_MODES, ALL_SNAP_MODES};
+use crate::ui::kit;
+use crate::ui::motion;
+use crate::ui::style::tokens;
 use iced::widget::{column, container, row, text, text_input, Space};
 use iced::{Element, Fill, Theme};
 use std::borrow::Cow;
-use crate::ui::kit;
 
 /// Active tab in the Drafting Settings dialog.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -114,6 +115,57 @@ pub fn parse_grid_major(s: &str) -> Option<u32> {
     (2..=100).contains(&v).then_some(v)
 }
 
+/// Item 29 — weight of the out-of-range tint for one field.
+///
+/// `chase` is the idempotent retarget: it continues from the current
+/// interpolated value and does nothing when the settled value already matches,
+/// so calling this on every layout pass neither restarts a running ease nor
+/// mints a track for a field that was always legal (a legal field therefore
+/// costs zero tracks and zero extra drawing).
+fn warn_weight(key: &'static str, legal: bool) -> f32 {
+    motion::edge_ramp(key, !legal, motion::FIELD_WARN);
+    motion::value(key)
+}
+
+/// Item 29 — field style with the warning weight mixed in.
+///
+/// At `w == 0` this is exactly [`kit::field_style`], so a legal field paints
+/// the stock control. As `w` rises the border and the entered ink are mixed
+/// toward the theme's `warning` token via [`motion::mix`] — an RGB mix, not an
+/// alpha fade, because `transparency_enable` is off by default and an alpha
+/// tint would silently stay at 1.
+fn warn_field_style(
+    theme: &Theme,
+    status: iced::widget::text_input::Status,
+    w: f32,
+) -> iced::widget::text_input::Style {
+    let mut style = kit::field_style(theme, status);
+    if w > 0.0 {
+        let warn = theme.palette().warning.base.color;
+        // At full weight the border and the ink must be the token itself; a
+        // 1.0 mix lands a few e-8 away on some channels and makes exact-token
+        // assertions (and palette audits) fail.
+        if w >= 1.0 {
+            style.border.color = warn;
+            style.value = warn;
+        } else {
+            style.border.color = motion::mix(style.border.color, warn, w);
+            style.value = motion::mix(style.value, warn, w);
+        }
+    }
+    style
+}
+
+/// Empty text is "not typed yet", not "out of range": it stays neutral so
+/// clearing a field to retype it does not flash the warning.
+fn legal_or_empty_f32(s: &str, parse: fn(&str) -> Option<f32>) -> bool {
+    s.trim().is_empty() || parse(s).is_some()
+}
+
+fn legal_or_empty_u32(s: &str, parse: fn(&str) -> Option<u32>) -> bool {
+    s.trim().is_empty() || parse(s).is_some()
+}
+
 pub fn view_window<'a>(
     state: &'a DraftingSettingsState,
     _dirty: bool,
@@ -171,45 +223,72 @@ pub fn view_window<'a>(
 
     let tab_divider = kit::hdivider(Fill);
 
-    let tab_bar = column![tab_row, tab_divider].spacing(tokens::GAP_NONE).width(Fill);
+    let tab_bar = column![tab_row, tab_divider]
+        .spacing(tokens::GAP_NONE)
+        .width(Fill);
 
     // ── Tab 1: Snap and Grid ─────────────────────────────────────────────
     let snap_and_grid_view = {
-        // Left Column: Snap settings
-        let snap_on_toggle = kit::labeled_checkbox(
-            crate::t!("Snap On (F9)"),
-            state.snap_on,
-            |_| Message::DraftingSettingsToggleSnap,
+        // Item 29: one out-of-range weight per numeric row, derived from the
+        // text currently in the buffer. Legal rows read 0 and hold no track.
+        let snap_x_w = warn_weight(
+            motion::FIELD_WARN_SNAP_X,
+            legal_or_empty_f32(&state.snap_x_input, parse_snap_spacing),
         );
+        let snap_y_w = warn_weight(
+            motion::FIELD_WARN_SNAP_Y,
+            legal_or_empty_f32(&state.snap_y_input, parse_snap_spacing),
+        );
+        let grid_x_w = warn_weight(
+            motion::FIELD_WARN_GRID_X,
+            legal_or_empty_f32(&state.grid_x_input, parse_snap_spacing),
+        );
+        let grid_y_w = warn_weight(
+            motion::FIELD_WARN_GRID_Y,
+            legal_or_empty_f32(&state.grid_y_input, parse_snap_spacing),
+        );
+        let grid_major_w = warn_weight(
+            motion::FIELD_WARN_GRID_MAJOR,
+            legal_or_empty_u32(&state.grid_major_input, parse_grid_major),
+        );
+        // Left Column: Snap settings
+        let snap_on_toggle =
+            kit::labeled_checkbox(crate::t!("Snap On (F9)"), state.snap_on, |_| {
+                Message::DraftingSettingsToggleSnap
+            });
 
         let snap_spacing_group = kit::group_box(
             crate::t!("Snap spacing"),
             column![
                 row![
-                    text(crate::t!("Snap X spacing:")).size(tokens::TEXT_LABEL).width(120),
+                    text(crate::t!("Snap X spacing:"))
+                        .size(tokens::TEXT_LABEL)
+                        .width(120),
                     text_input("10", &state.snap_x_input)
                         .on_input(Message::DraftingSettingsSnapXChanged)
                         .size(tokens::TEXT_LABEL)
                         .padding(kit::PAD_FIELD)
-                        .width(100),
+                        .width(100)
+                        .style(move |theme, status| { warn_field_style(theme, status, snap_x_w) }),
                 ]
                 .spacing(tokens::GAP_ROW)
                 .align_y(iced::Center),
                 row![
-                    text(crate::t!("Snap Y spacing:")).size(tokens::TEXT_LABEL).width(120),
+                    text(crate::t!("Snap Y spacing:"))
+                        .size(tokens::TEXT_LABEL)
+                        .width(120),
                     text_input("10", &state.snap_y_input)
                         .on_input(Message::DraftingSettingsSnapYChanged)
                         .size(tokens::TEXT_LABEL)
                         .padding(kit::PAD_FIELD)
-                        .width(100),
+                        .width(100)
+                        .style(move |theme, status| { warn_field_style(theme, status, snap_y_w) }),
                 ]
                 .spacing(tokens::GAP_ROW)
                 .align_y(iced::Center),
-                kit::labeled_checkbox(
-                    crate::t!("Equal X and Y spacing"),
-                    state.snap_equal,
-                    |_| Message::DraftingSettingsToggleEqualSnap,
-                ),
+                kit::labeled_checkbox(crate::t!("Equal X and Y spacing"), state.snap_equal, |_| {
+                    Message::DraftingSettingsToggleEqualSnap
+                },),
             ]
             .spacing(tokens::GAP_CONTROL),
         );
@@ -265,42 +344,52 @@ pub fn view_window<'a>(
             .width(Fill);
 
         // Right Column: Grid settings
-        let grid_on_toggle = kit::labeled_checkbox(
-            crate::t!("Grid On (F7)"),
-            state.grid_on,
-            |_| Message::DraftingSettingsToggleGrid,
-        );
+        let grid_on_toggle =
+            kit::labeled_checkbox(crate::t!("Grid On (F7)"), state.grid_on, |_| {
+                Message::DraftingSettingsToggleGrid
+            });
 
         let grid_spacing_group = kit::group_box(
             crate::t!("Grid spacing"),
             column![
                 row![
-                    text(crate::t!("Grid X spacing:")).size(tokens::TEXT_LABEL).width(120),
+                    text(crate::t!("Grid X spacing:"))
+                        .size(tokens::TEXT_LABEL)
+                        .width(120),
                     text_input("10", &state.grid_x_input)
                         .on_input(Message::DraftingSettingsGridXChanged)
                         .size(tokens::TEXT_LABEL)
                         .padding(kit::PAD_FIELD)
-                        .width(100),
+                        .width(100)
+                        .style(move |theme, status| { warn_field_style(theme, status, grid_x_w) }),
                 ]
                 .spacing(tokens::GAP_ROW)
                 .align_y(iced::Center),
                 row![
-                    text(crate::t!("Grid Y spacing:")).size(tokens::TEXT_LABEL).width(120),
+                    text(crate::t!("Grid Y spacing:"))
+                        .size(tokens::TEXT_LABEL)
+                        .width(120),
                     text_input("10", &state.grid_y_input)
                         .on_input(Message::DraftingSettingsGridYChanged)
                         .size(tokens::TEXT_LABEL)
                         .padding(kit::PAD_FIELD)
-                        .width(100),
+                        .width(100)
+                        .style(move |theme, status| { warn_field_style(theme, status, grid_y_w) }),
                 ]
                 .spacing(tokens::GAP_ROW)
                 .align_y(iced::Center),
                 row![
-                    text(crate::t!("Major line every:")).size(tokens::TEXT_LABEL).width(120),
+                    text(crate::t!("Major line every:"))
+                        .size(tokens::TEXT_LABEL)
+                        .width(120),
                     text_input("5", &state.grid_major_input)
                         .on_input(Message::DraftingSettingsGridMajorChanged)
                         .size(tokens::TEXT_LABEL)
                         .padding(kit::PAD_FIELD)
-                        .width(100),
+                        .width(100)
+                        .style(move |theme, status| {
+                            warn_field_style(theme, status, grid_major_w)
+                        }),
                 ]
                 .spacing(tokens::GAP_ROW)
                 .align_y(iced::Center),
@@ -311,11 +400,9 @@ pub fn view_window<'a>(
         let grid_behavior_group = kit::group_box(
             crate::t!("Grid behavior"),
             column![
-                kit::labeled_checkbox(
-                    crate::t!("Adaptive grid"),
-                    state.grid_adaptive,
-                    |_| Message::DraftingSettingsToggleAdaptiveGrid,
-                ),
+                kit::labeled_checkbox(crate::t!("Adaptive grid"), state.grid_adaptive, |_| {
+                    Message::DraftingSettingsToggleAdaptiveGrid
+                },),
                 kit::labeled_checkbox(
                     crate::t!("Display grid beyond Limits"),
                     state.grid_beyond_limits,
@@ -329,22 +416,22 @@ pub fn view_window<'a>(
             .spacing(tokens::GAP_FIELD)
             .width(Fill);
 
-        row![left_col, right_col].spacing(tokens::GAP_GUTTER).width(Fill)
+        row![left_col, right_col]
+            .spacing(tokens::GAP_GUTTER)
+            .width(Fill)
     };
 
     // ── Tab 2: Polar Tracking ────────────────────────────────────────────
     let polar_tracking_view = {
-        let polar_on_toggle = kit::labeled_checkbox(
-            crate::t!("Polar Tracking On (F10)"),
-            state.polar_on,
-            |_| Message::DraftingSettingsTogglePolar,
-        );
+        let polar_on_toggle =
+            kit::labeled_checkbox(crate::t!("Polar Tracking On (F10)"), state.polar_on, |_| {
+                Message::DraftingSettingsTogglePolar
+            });
 
-        let ortho_on_toggle = kit::labeled_checkbox(
-            crate::t!("Ortho mode (F8)"),
-            state.ortho_on,
-            |_| Message::DraftingSettingsToggleOrtho,
-        );
+        let ortho_on_toggle =
+            kit::labeled_checkbox(crate::t!("Ortho mode (F8)"), state.ortho_on, |_| {
+                Message::DraftingSettingsToggleOrtho
+            });
 
         let polar_angle_group = kit::group_box(
             crate::t!("Polar Angle Settings"),
@@ -376,11 +463,10 @@ pub fn view_window<'a>(
 
     // ── Tab 3: Object Snap ───────────────────────────────────────────────
     let object_snap_view = {
-        let osnap_on_toggle = kit::labeled_checkbox(
-            crate::t!("Object Snap On (F3)"),
-            state.osnap_on,
-            |_| Message::DraftingSettingsToggleOsnap,
-        );
+        let osnap_on_toggle =
+            kit::labeled_checkbox(crate::t!("Object Snap On (F3)"), state.osnap_on, |_| {
+                Message::DraftingSettingsToggleOsnap
+            });
 
         let otrack_on_toggle = kit::labeled_checkbox(
             crate::t!("Object Snap Tracking On (F11)"),
@@ -408,31 +494,27 @@ pub fn view_window<'a>(
 
         // Two columns of snap modes:
         let total = ALL_SNAP_MODES.len();
-        let mid = (total + 1) / 2;
+        let mid = total.div_ceil(2);
         let (first_half, second_half) = ALL_SNAP_MODES.split_at(mid);
 
         let mut col1 = column![].spacing(tokens::GAP_CONTROL).width(Fill);
         for &(snap_type, _, label) in first_half {
             let is_checked = state.snap_modes.contains(&snap_type);
-            col1 = col1.push(
-                kit::labeled_checkbox(
-                    crate::t!(label),
-                    is_checked,
-                    move |_| Message::DraftingSettingsToggleSnapMode(snap_type),
-                ),
-            );
+            col1 = col1.push(kit::labeled_checkbox(
+                crate::t!(label),
+                is_checked,
+                move |_| Message::DraftingSettingsToggleSnapMode(snap_type),
+            ));
         }
 
         let mut col2 = column![].spacing(tokens::GAP_CONTROL).width(Fill);
         for &(snap_type, _, label) in second_half {
             let is_checked = state.snap_modes.contains(&snap_type);
-            col2 = col2.push(
-                kit::labeled_checkbox(
-                    crate::t!(label),
-                    is_checked,
-                    move |_| Message::DraftingSettingsToggleSnapMode(snap_type),
-                ),
-            );
+            col2 = col2.push(kit::labeled_checkbox(
+                crate::t!(label),
+                is_checked,
+                move |_| Message::DraftingSettingsToggleSnapMode(snap_type),
+            ));
         }
 
         let snap_modes_group = kit::group_box(
@@ -441,7 +523,12 @@ pub fn view_window<'a>(
         );
 
         column![
-            row![osnap_on_toggle, Space::new().width(tokens::GAP_GUTTER), otrack_on_toggle].align_y(iced::Center),
+            row![
+                osnap_on_toggle,
+                Space::new().width(tokens::GAP_GUTTER),
+                otrack_on_toggle
+            ]
+            .align_y(iced::Center),
             action_buttons,
             Space::new().height(tokens::GAP_TIGHT),
             snap_modes_group,
@@ -463,20 +550,22 @@ pub fn view_window<'a>(
         let mut modes_col = column![].spacing(tokens::GAP_CONTROL);
         for &(snap_type, _, label) in ALL_3D_SNAP_MODES {
             let is_checked = state.snap3d_modes.contains(&snap_type);
-            modes_col = modes_col.push(
-                kit::labeled_checkbox(
-                    crate::t!(label),
-                    is_checked,
-                    move |_| Message::DraftingSettingsToggleSnapMode3d(snap_type),
-                ),
-            );
+            modes_col = modes_col.push(kit::labeled_checkbox(
+                crate::t!(label),
+                is_checked,
+                move |_| Message::DraftingSettingsToggleSnapMode3d(snap_type),
+            ));
         }
 
         let modes_group = kit::group_box(crate::t!("3D Object Snap modes"), modes_col);
 
-        column![osnap3d_toggle, Space::new().height(tokens::GAP_TIGHT), modes_group]
-            .spacing(tokens::GAP_FIELD)
-            .width(Fill)
+        column![
+            osnap3d_toggle,
+            Space::new().height(tokens::GAP_TIGHT),
+            modes_group
+        ]
+        .spacing(tokens::GAP_FIELD)
+        .width(Fill)
     };
 
     // ── Tab 5: Dynamic Input ─────────────────────────────────────────────
@@ -490,14 +579,8 @@ pub fn view_window<'a>(
         let pointer_group = kit::group_box(
             crate::t!("Pointer Input"),
             column![
-                kit::static_checkbox(
-                    crate::t!("Display coordinate input near crosshairs"),
-                    true,
-                ),
-                kit::static_checkbox(
-                    crate::t!("Enable dimension input fields"),
-                    true,
-                ),
+                kit::static_checkbox(crate::t!("Display coordinate input near crosshairs"), true,),
+                kit::static_checkbox(crate::t!("Enable dimension input fields"), true,),
             ]
             .spacing(tokens::GAP_CONTROL),
         );
@@ -505,9 +588,7 @@ pub fn view_window<'a>(
         let prompt_group = kit::group_box(
             crate::t!("Dynamic Prompts"),
             column![kit::static_checkbox(
-                crate::t!(
-                    "Show command prompting and command input near crosshairs"
-                ),
+                crate::t!("Show command prompting and command input near crosshairs"),
                 true,
             )]
             .spacing(tokens::GAP_CONTROL),
@@ -534,21 +615,19 @@ pub fn view_window<'a>(
         let palette_group = kit::group_box(
             crate::t!("Palette Location"),
             column![
-                kit::static_checkbox(
-                    crate::t!("Cursor-dependent position"),
-                    true,
-                ),
-                kit::static_checkbox(
-                    crate::t!("Static quadrant location"),
-                    false,
-                ),
+                kit::static_checkbox(crate::t!("Cursor-dependent position"), true,),
+                kit::static_checkbox(crate::t!("Static quadrant location"), false,),
             ]
             .spacing(tokens::GAP_CONTROL),
         );
 
-        column![quick_props_toggle, Space::new().height(tokens::GAP_TIGHT), palette_group,]
-            .spacing(tokens::GAP_FIELD)
-            .width(Fill)
+        column![
+            quick_props_toggle,
+            Space::new().height(tokens::GAP_TIGHT),
+            palette_group,
+        ]
+        .spacing(tokens::GAP_FIELD)
+        .width(Fill)
     };
 
     // ── Tab 7: Selection Cycling ─────────────────────────────────────────
@@ -562,10 +641,7 @@ pub fn view_window<'a>(
         let cycling_group = kit::group_box(
             crate::t!("Display Selection Cycling List Box"),
             column![
-                kit::static_checkbox(
-                    crate::t!("Show cycling badge when objects overlap"),
-                    true,
-                ),
+                kit::static_checkbox(crate::t!("Show cycling badge when objects overlap"), true,),
                 kit::static_checkbox(
                     crate::t!("Display selection candidate list box on click"),
                     true,
@@ -574,9 +650,13 @@ pub fn view_window<'a>(
             .spacing(tokens::GAP_CONTROL),
         );
 
-        column![sel_cycling_toggle, Space::new().height(tokens::GAP_TIGHT), cycling_group,]
-            .spacing(tokens::GAP_FIELD)
-            .width(Fill)
+        column![
+            sel_cycling_toggle,
+            Space::new().height(tokens::GAP_TIGHT),
+            cycling_group,
+        ]
+        .spacing(tokens::GAP_FIELD)
+        .width(Fill)
     };
 
     // ── Active Tab Content ───────────────────────────────────────────────
@@ -596,7 +676,9 @@ pub fn view_window<'a>(
     let body = column![
         tab_bar,
         Space::new().height(tokens::GAP_FIELD),
-        crate::ui::kit::themed_scrollable(tab_content).spacing(tokens::GAP_CONTROL).height(Fill),
+        crate::ui::kit::themed_scrollable(tab_content)
+            .spacing(tokens::GAP_CONTROL)
+            .height(Fill),
     ]
     .width(sizing.width)
     .height(sizing.height);
@@ -616,4 +698,76 @@ pub fn view_window<'a>(
         Message::DraftingSettingsCloseDiscard,
         Message::DraftingSettingsCloseKeep,
     )
+}
+
+#[cfg(test)]
+mod p2b2_warn_tests {
+    use super::*;
+
+    /// Item 29 — a field that is legal from boot owns no warn track, so the
+    /// warning costs zero tracks and zero extra drawing; an out-of-range value
+    /// mints exactly one.
+    #[test]
+    fn legal_value_mints_no_warn_track_and_illegal_one_does() {
+        let _g = motion::test_gate_lock();
+        motion::set_enabled(true);
+        let key = motion::FIELD_WARN_SNAP_X;
+        for _ in 0..6 {
+            assert_eq!(
+                warn_weight(key, true),
+                0.0,
+                "a legal field painted a warn tint"
+            );
+        }
+        assert!(!motion::exists(key), "a legal field minted a warn track");
+        assert!(!motion::running(key));
+        warn_weight(key, false);
+        assert!(
+            motion::exists(key),
+            "an out-of-range value must own a warn track"
+        );
+
+        // Clearing a field to retype is "not typed yet", not "out of range".
+        assert!(legal_or_empty_f32("", parse_snap_spacing));
+        assert!(legal_or_empty_f32("   ", parse_snap_spacing));
+        assert!(!legal_or_empty_f32("0", parse_snap_spacing));
+        assert!(!legal_or_empty_f32("1e12", parse_snap_spacing));
+        assert!(legal_or_empty_u32("", parse_grid_major));
+        assert!(!legal_or_empty_u32("1", parse_grid_major));
+        assert!(!legal_or_empty_u32("101", parse_grid_major));
+        assert!(legal_or_empty_u32("5", parse_grid_major));
+    }
+
+    /// Item 29 — at weight 0 the style is exactly the stock field style (no
+    /// extra work), and at weight 1 the border has landed on the theme's
+    /// `warning` token, i.e. the tint is a token mix, not a hardcoded RGB.
+    #[test]
+    fn warn_style_is_free_when_legal_and_lands_on_the_token() {
+        let theme = Theme::Dark;
+        let status = iced::widget::text_input::Status::Active;
+        let stock = kit::field_style(&theme, status);
+        assert_eq!(
+            warn_field_style(&theme, status, 0.0),
+            stock,
+            "a legal field must paint the stock control unchanged"
+        );
+        let warn = theme.palette().warning.base.color;
+        assert_ne!(
+            stock.border.color, warn,
+            "the stock border already equals the warn token; the guard would be vacuous"
+        );
+        let lit = warn_field_style(&theme, status, 1.0);
+        assert_eq!(
+            lit.border.color, warn,
+            "the warn tint is not the theme token"
+        );
+        assert_eq!(lit.value, warn);
+        assert_eq!(
+            lit.border.width, stock.border.width,
+            "the warn tint must not change the border width (layout)"
+        );
+        let half = warn_field_style(&theme, status, 0.5);
+        assert_ne!(half.border.color, stock.border.color);
+        assert_ne!(half.border.color, warn, "weight 0.5 must be a real mix");
+    }
 }

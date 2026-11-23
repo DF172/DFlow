@@ -1,21 +1,23 @@
 //! Graphic Attributes palette: line attributes and the associative fill of
 //! the selected objects.
 
-use crate::ui::style::tokens;
 use crate::app::config::DockSide;
 use crate::app::{ColorPickTarget, Message};
 use crate::scene::Scene;
 use crate::ui::dock::PanelId;
+use crate::ui::kit;
+use crate::ui::kit::plain_button;
+use crate::ui::style::tokens;
 use crate::ui::window::gradient_editor::{GradientEditorState, GradientMsg};
 use codec::entities::{EntityCommon, Hatch, HatchGradientPattern};
 use codec::types::{Color as AcadColor, LineWeight, Transparency};
 use codec::{CadDocument, EntityType, Handle};
-use iced::widget::{image, column, combo_box, container, row, slider, text, text_input, tooltip, Space};
-use crate::ui::kit::plain_button;
+use iced::widget::{
+    column, combo_box, container, image, row, slider, text, text_input, tooltip, Space,
+};
 use iced::{Element, Fill, Length, Theme};
 use rustc_hash::{FxHashMap, FxHashSet};
 use std::cell::RefCell;
-use crate::ui::kit;
 
 type DrawDepth = FxHashMap<u64, [f32; 2]>;
 
@@ -171,7 +173,11 @@ impl GraphicAttributesState {
 
     /// The fills and fill kind of `selected`, from an index of associative
     /// fills that is rebuilt only when the scene's geometry changes.
-    pub(crate) fn fills(&self, scene: &Scene, selected: &[Handle]) -> (Vec<Handle>, GraphicAttribute) {
+    pub(crate) fn fills(
+        &self,
+        scene: &Scene,
+        selected: &[Handle],
+    ) -> (Vec<Handle>, GraphicAttribute) {
         // Geometry epochs are unique across all scenes, so the epoch alone
         // identifies both the tab and the state of its drawing.
         let key = scene.geometry_epoch;
@@ -213,13 +219,25 @@ impl GraphicAttributesState {
         let same = |handles: &[Handle]| {
             handles.len() == selected.len() && selected.iter().all(|h| handles.contains(h))
         };
-        if self.gradient_editor.as_ref().is_some_and(|e| !same(&e.handles)) {
+        if self
+            .gradient_editor
+            .as_ref()
+            .is_some_and(|e| !same(&e.handles))
+        {
             self.gradient_editor = None;
         }
-        if self.hatch_editor.as_ref().is_some_and(|e| !same(&e.handles)) {
+        if self
+            .hatch_editor
+            .as_ref()
+            .is_some_and(|e| !same(&e.handles))
+        {
             self.hatch_editor = None;
         }
-        if self.pending_fill_close.as_ref().is_some_and(|p| !same(&p.selection)) {
+        if self
+            .pending_fill_close
+            .as_ref()
+            .is_some_and(|p| !same(&p.selection))
+        {
             self.pending_fill_close = None;
         }
     }
@@ -227,8 +245,10 @@ impl GraphicAttributesState {
     pub fn fill_close_prompt(&self) -> Option<String> {
         let count = self.pending_fill_close.as_ref()?.open_boundaries.len();
         Some(if count == 1 {
-            crate::t!("The selected object is open. Close it before creating the fill? [Yes / No] <Yes>")
-                .into_owned()
+            crate::t!(
+                "The selected object is open. Close it before creating the fill? [Yes / No] <Yes>"
+            )
+            .into_owned()
         } else {
             crate::tf!(
                 "{count} selected objects are open. Close them before creating the fill? [Yes / No] <Yes>"
@@ -367,7 +387,9 @@ fn shared_value<'a, T: PartialEq>(
     draw_depth: &DrawDepth,
     value: impl Fn(&EntityCommon) -> T,
 ) -> Option<(&'a EntityCommon, T, bool)> {
-    let top = document.get_entity(top_handle(handles, draw_depth)?)?.common();
+    let top = document
+        .get_entity(top_handle(handles, draw_depth)?)?
+        .common();
     let shared = value(top);
     let varies = handles.iter().any(|handle| {
         document
@@ -469,10 +491,13 @@ impl TransparencyInfo {
     }
 }
 
-fn color_info(document: &CadDocument, handles: &[Handle], draw_depth: &DrawDepth) -> Option<ColorInfo> {
+fn color_info(
+    document: &CadDocument,
+    handles: &[Handle],
+    draw_depth: &DrawDepth,
+) -> Option<ColorInfo> {
     let (top, color, varies) = shared_value(document, handles, draw_depth, |c| c.color)?;
-    let rgba =
-        crate::scene::view::render::render_style_for_common_viewport(document, top, None).0;
+    let rgba = crate::scene::view::render::render_style_for_common_viewport(document, top, None).0;
     Some(ColorInfo {
         color,
         display: iced::Color::from_rgba(rgba[0], rgba[1], rgba[2], 1.0),
@@ -576,8 +601,8 @@ fn linetype_preview_art(document: &CadDocument, linetype: &str) -> String {
             .filter(|character| matches!(character, '_' | '.' | '-' | '/' | '\\' | '|' | '~'))
             .count()
             >= 2)
-        .then(|| art.find(part))
-        .flatten()
+            .then(|| art.find(part))
+            .flatten()
     });
     let pattern = pattern_start.map_or(art.as_str(), |start| &art[start..]);
     if pattern.is_empty() {
@@ -740,10 +765,17 @@ fn color_control<'a>(
         vec![
             ("ByLayer".into(), msg(changed(AcadColor::ByLayer))),
             ("ByBlock".into(), msg(changed(AcadColor::ByBlock))),
-            (crate::t!("Custom…"), Message::OpenColorWindow(target, info.color)),
-        ], theme
+            (
+                crate::t!("Custom…"),
+                Message::OpenColorWindow(target, info.color),
+            ),
+        ],
+        theme,
     );
-    row![swatch, more].spacing(tokens::GAP_TIGHT).align_y(iced::Center).into()
+    row![swatch, more]
+        .spacing(tokens::GAP_TIGHT)
+        .align_y(iced::Center)
+        .into()
 }
 
 fn transparency_control<'a>(
@@ -781,9 +813,13 @@ fn transparency_control<'a>(
             ("ByLayer".into(), msg(changed(Transparency::BY_LAYER))),
             ("ByBlock".into(), msg(changed(Transparency::BY_BLOCK))),
             (crate::t!("Custom"), msg(changed(percent(info.value)))),
-        ], theme
+        ],
+        theme,
     );
-    row![control, more].spacing(tokens::GAP_TIGHT).align_y(iced::Center).into()
+    row![control, more]
+        .spacing(tokens::GAP_TIGHT)
+        .align_y(iced::Center)
+        .into()
 }
 
 fn header_menu(
@@ -817,11 +853,24 @@ fn header_menu(
             .padding(kit::Size::Compact.padding())
     };
     let menu_rows = column![
-        item("Set all attributes ByLayer", GraphicAttributesMsg::SetAllByLayer),
-        item("Set all attributes ByBlock", GraphicAttributesMsg::SetAllByBlock),
-        item("Remove ByLayer / ByBlock", GraphicAttributesMsg::RemoveReferences),
-        item("Create Layer with active settings", GraphicAttributesMsg::CreateLayer),
-        container(iced::widget::rule::horizontal(1)).padding([tokens::GAP_HAIRLINE, tokens::GAP_TIGHT]),
+        item(
+            "Set all attributes ByLayer",
+            GraphicAttributesMsg::SetAllByLayer
+        ),
+        item(
+            "Set all attributes ByBlock",
+            GraphicAttributesMsg::SetAllByBlock
+        ),
+        item(
+            "Remove ByLayer / ByBlock",
+            GraphicAttributesMsg::RemoveReferences
+        ),
+        item(
+            "Create Layer with active settings",
+            GraphicAttributesMsg::CreateLayer
+        ),
+        container(iced::widget::rule::horizontal(1))
+            .padding([tokens::GAP_HAIRLINE, tokens::GAP_TIGHT]),
         container(
             iced::widget::checkbox(fill_on_current_layer)
                 .label(crate::t!("Create fills on the current layer"))
@@ -894,7 +943,7 @@ fn fill_picker<'a>(current: GraphicAttribute, open: bool, theme: &Theme) -> Elem
     );
     crate::ui::color_select::drop_down_below(
         picker.into(),
-        popup.into(),
+        popup,
         None,
         Length::Shrink,
         msg(GraphicAttributesMsg::CloseMenu),
@@ -957,7 +1006,10 @@ fn preview_row<'a>(
         }
         None => edit.into(),
     };
-    row![preview, edit].spacing(tokens::GAP_TIGHT).align_y(iced::Center).into()
+    row![preview, edit]
+        .spacing(tokens::GAP_TIGHT)
+        .align_y(iced::Center)
+        .into()
 }
 
 fn linetype_row<'a>(
@@ -1004,9 +1056,16 @@ fn linetype_row<'a>(
         open_menu,
         COMPACT_BUTTON_HEIGHT,
         vec![
-            ("ByLayer".into(), msg(GraphicAttributesMsg::LineLinetype("ByLayer".into()))),
-            ("ByBlock".into(), msg(GraphicAttributesMsg::LineLinetype("ByBlock".into()))),
-        ], theme
+            (
+                "ByLayer".into(),
+                msg(GraphicAttributesMsg::LineLinetype("ByLayer".into())),
+            ),
+            (
+                "ByBlock".into(),
+                msg(GraphicAttributesMsg::LineLinetype("ByBlock".into())),
+            ),
+        ],
+        theme,
     );
     row![crate::ui::wide_menu::wide_menu(combo, 220.0), more]
         .spacing(tokens::GAP_TIGHT)
@@ -1097,9 +1156,16 @@ fn lineweight_field<'a>(
         open_menu,
         COMPACT_BUTTON_HEIGHT,
         vec![
-            ("ByLayer".into(), msg(GraphicAttributesMsg::LineLineweight(LineWeight::ByLayer))),
-            ("ByBlock".into(), msg(GraphicAttributesMsg::LineLineweight(LineWeight::ByBlock))),
-        ], theme
+            (
+                "ByLayer".into(),
+                msg(GraphicAttributesMsg::LineLineweight(LineWeight::ByLayer)),
+            ),
+            (
+                "ByBlock".into(),
+                msg(GraphicAttributesMsg::LineLineweight(LineWeight::ByBlock)),
+            ),
+        ],
+        theme,
     );
     row![
         crate::ui::icons::semantic(LINEWEIGHT_ICON, PALETTE_CONTROL_ICON_SIZE),
@@ -1132,15 +1198,22 @@ fn line_section<'a>(
     }
     let layer = top_layer(document, handles, draw_depth).to_string();
     let header = &document.header;
-    let (linetype, linetype_varies) = shared_value(document, handles, draw_depth, |c| {
-        c.linetype.clone()
-    })
-    .map_or_else(
-        || (current_linetype_name(document).to_string(), false),
-        |(_, value, varies)| (if value.is_empty() { "ByLayer".into() } else { value }, varies),
-    );
-    let (scale, scale_varies) =
-        shared_value(document, handles, draw_depth, |c| c.linetype_scale).map_or(
+    let (linetype, linetype_varies) =
+        shared_value(document, handles, draw_depth, |c| c.linetype.clone()).map_or_else(
+            || (current_linetype_name(document).to_string(), false),
+            |(_, value, varies)| {
+                (
+                    if value.is_empty() {
+                        "ByLayer".into()
+                    } else {
+                        value
+                    },
+                    varies,
+                )
+            },
+        );
+    let (scale, scale_varies) = shared_value(document, handles, draw_depth, |c| c.linetype_scale)
+        .map_or(
             (header.current_entity_linetype_scale, false),
             |(_, value, varies)| (value, varies),
         );
@@ -1149,10 +1222,15 @@ fn line_section<'a>(
             (LineWeight::from_value(header.current_line_weight), false),
             |(_, value, varies)| (value, varies),
         );
-    let color = color_info(document, handles, draw_depth)
-        .unwrap_or_else(|| current_color_info(document));
+    let color =
+        color_info(document, handles, draw_depth).unwrap_or_else(|| current_color_info(document));
     let transparency = transparency_info(document, handles, draw_depth).unwrap_or_else(|| {
-        TransparencyInfo::new(document, &layer, document.current_entity_transparency(), false)
+        TransparencyInfo::new(
+            document,
+            &layer,
+            document.current_entity_transparency(),
+            false,
+        )
     });
     let continuous =
         !linetype_varies && is_continuous(effective_linetype(document, &layer, &linetype));
@@ -1164,7 +1242,8 @@ fn line_section<'a>(
         linetype_varies,
         &layer,
         side,
-        open_menu, theme
+        open_menu,
+        theme,
     ));
     rows.push(color_control(
         color,
@@ -1172,7 +1251,8 @@ fn line_section<'a>(
         Menu::LineColor,
         open_menu,
         ColorPickTarget::GraphicAttributesLine,
-        GraphicAttributesMsg::LineColor, theme
+        GraphicAttributesMsg::LineColor,
+        theme,
     ));
     let effective = effective_lineweight(document, handles, draw_depth, lineweight);
     rows.push(
@@ -1184,7 +1264,8 @@ fn line_section<'a>(
                 effective,
                 lineweight_varies,
                 side,
-                open_menu, theme
+                open_menu,
+                theme
             ),
         ]
         .spacing(tokens::GAP_SECTION)
@@ -1197,7 +1278,8 @@ fn line_section<'a>(
         side,
         Menu::LineTransparency,
         open_menu,
-        GraphicAttributesMsg::LineTransparency, theme
+        GraphicAttributesMsg::LineTransparency,
+        theme,
     ));
     rows
 }
@@ -1220,7 +1302,8 @@ pub fn view<'a>(
     let line_handles = line_handles(document, &selected);
     let (fill_handles, current) = state.fills(scene, &selected);
 
-    let mut body = column![text(crate::t!("Line")).size(tokens::TEXT_LABEL)].spacing(tokens::GAP_CONTROL);
+    let mut body =
+        column![text(crate::t!("Line")).size(tokens::TEXT_LABEL)].spacing(tokens::GAP_CONTROL);
     body = body.extend(line_section(
         document,
         properties,
@@ -1228,7 +1311,8 @@ pub fn view<'a>(
         selected.is_empty(),
         draw_depth,
         side,
-        state, theme
+        state,
+        theme,
     ));
 
     body = body
@@ -1243,7 +1327,8 @@ pub fn view<'a>(
                 Menu::FillColor,
                 open_menu,
                 ColorPickTarget::GraphicAttributesSolid,
-                GraphicAttributesMsg::FillColor, theme
+                GraphicAttributesMsg::FillColor,
+                theme,
             ));
         }
     }
@@ -1265,7 +1350,8 @@ pub fn view<'a>(
                         on_confirm: msg(GraphicAttributesMsg::HatchPatternConfirm),
                         on_focus: |index| msg(GraphicAttributesMsg::HatchPatternFocus(index)),
                         on_changed: |name| msg(GraphicAttributesMsg::HatchPattern(name)),
-                    }, theme
+                    },
+                    theme,
                 );
                 // One plate, the picker's own. The 352 x 724 box this call
                 // used reported was the picker plus a 2 px inset plate around
@@ -1287,7 +1373,8 @@ pub fn view<'a>(
                 },
                 crate::t!("Edit hatch"),
                 flyout,
-                side, theme
+                side,
+                theme,
             ));
         }
         GraphicAttribute::Gradient => {
@@ -1329,7 +1416,8 @@ pub fn view<'a>(
                     }),
                     crate::t!("Edit gradient"),
                     flyout,
-                    side, theme
+                    side,
+                    theme,
                 ));
             }
         }
@@ -1342,7 +1430,8 @@ pub fn view<'a>(
                 side,
                 Menu::FillTransparency,
                 open_menu,
-                GraphicAttributesMsg::FillTransparency, theme
+                GraphicAttributesMsg::FillTransparency,
+                theme,
             ));
         }
     }
@@ -1355,7 +1444,8 @@ pub fn view<'a>(
             Some(header_menu(
                 side,
                 open_menu == Some(Menu::Header),
-                state.fill_on_current_layer, theme
+                state.fill_on_current_layer,
+                theme
             )),
         ),
         body.padding(tokens::GAP_ROW)

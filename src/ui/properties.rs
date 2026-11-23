@@ -12,15 +12,15 @@ use rustc_hash::{FxHashMap as HashMap, FxHashSet as HashSet};
 use std::{fmt, sync::Arc};
 
 use crate::t;
+use crate::ui::kit::plain_button;
 use crate::ui::ROW_H;
 use codec::types::{Color as AcadColor, LineWeight};
 use codec::Handle;
-use iced::widget::{canvas, column, combo_box, container, mouse_area, row, text, text_input, tooltip};
-use crate::ui::kit::plain_button;
 use iced::widget::text::{Ellipsis, Wrapping};
-use iced::{
-    mouse, Color, Element, Length, Padding, Point, Rectangle, Size, Theme,
+use iced::widget::{
+    canvas, column, combo_box, container, mouse_area, row, text, text_input, tooltip,
 };
+use iced::{mouse, Color, Element, Length, Padding, Point, Rectangle, Size, Theme};
 
 // ── Row-height-derived constants ─────────────────────────────────────────
 // The row's type comes from the ladder, not from a fraction of the row: at
@@ -178,7 +178,7 @@ impl canvas::Program<Message> for HatchPatternPreview {
                             Point::new(segment[0][0] as f32, bounds.height - segment[0][1] as f32),
                             Point::new(segment[1][0] as f32, bounds.height - segment[1][1] as f32),
                         ),
-                        stroke.clone(),
+                        stroke,
                     );
                 }
             }
@@ -306,9 +306,12 @@ pub(crate) fn hatch_pattern_picker_content<'a>(
             let card = plain_button(
                 column![
                     preview,
-                    container(crate::ui::text_util::elided(&entry.name, 20, theme, |shown| {
-                        text(shown).size(FONT_SZ).into()
-                    }))
+                    container(crate::ui::text_util::elided(
+                        &entry.name,
+                        20,
+                        theme,
+                        |shown| { text(shown).size(FONT_SZ).into() }
+                    ))
                     .width(Length::Fill)
                     .align_x(iced::Center),
                 ]
@@ -712,13 +715,8 @@ impl PropertiesPanel {
 
         // The entity-type strip is the panel's head chrome: a full-width band,
         // squared because it meets the dock edge to edge.
-        let title_bar = kit::surface(
-            title_content,
-            kit::Tier::Band,
-            kit::PAD_BAND,
-            "",
-        )
-        .width(Length::Fill);
+        let title_bar =
+            kit::surface(title_content, kit::Tier::Band, kit::PAD_BAND, "").width(Length::Fill);
 
         // ── Filter ──────────────────────────────────────────────────────────
         // The sheet puts a name filter at the head of the property card: the
@@ -863,15 +861,16 @@ impl PropertiesPanel {
         // The group header is a wash *inside* the panel: the band fill carries
         // the separation, so it wears no second hairline on top of the panel's.
         let hdr = container(row![title, toggle,].align_y(iced::Center))
-            .style(move |theme: &Theme| {
-                kit::wash_style(kit::Tier::Band, theme, "")
-            })
+            .style(move |theme: &Theme| kit::wash_style(kit::Tier::Band, theme, ""))
             .width(Length::Fill);
 
         let mut col = column![rows.wrap(|| hdr.into())].spacing(tokens::GAP_NONE);
-        if collapsed && needle.is_empty() {
-            return col.into();
-        }
+
+        // The body is built whether or not the section is open: it is the thing
+        // that has the height, and the accordion eases *that height* down to
+        // zero. A filter forces it open — a matching row that stayed hidden
+        // under a collapsed header would be a dead end.
+        let mut body = column![].spacing(tokens::GAP_NONE);
 
         // Consecutive "<Base> X / <Base> Y [/ <Base> Z]" text rows collapse
         // into one clickable summary row; clicking expands the components.
@@ -895,23 +894,31 @@ impl PropertiesPanel {
                     .map(prop_text_value)
                     .collect::<Vec<_>>()
                     .join(", ");
-                col = col.push(rows.wrap(|| render_group_row(base, key, expanded, joined, theme)));
+                body =
+                    body.push(rows.wrap(|| render_group_row(base, key, expanded, joined, theme)));
                 if expanded {
                     for prop in &section.props[idx..idx + group_len] {
-                        col = col.push(
-                            rows.wrap(|| self.render_prop_row(prop, coord_component(&prop.label), theme)),
-                        );
+                        body = body.push(rows.wrap(|| {
+                            self.render_prop_row(prop, coord_component(&prop.label), theme)
+                        }));
                     }
                 }
                 idx += group_len;
             } else {
                 let prop = &section.props[idx];
                 if hit(&prop.label) {
-                    col = col.push(rows.wrap(|| self.render_prop_row(prop, &prop.label, theme)));
+                    body = body.push(rows.wrap(|| self.render_prop_row(prop, &prop.label, theme)));
                 }
                 idx += 1;
             }
         }
+
+        let eased = crate::ui::motion::value_or(
+            crate::ui::motion::section_key(&section.title),
+            if collapsed { 0.0 } else { 1.0 },
+        );
+        let progress = if needle.is_empty() { eased } else { 1.0 };
+        col = col.push(kit::collapse(progress, body.into()));
 
         col.into()
     }
@@ -937,7 +944,9 @@ impl PropertiesPanel {
             PropValue::FieldLwChoice { field, value } => {
                 self.render_field_lw_row(label, field, *value, theme)
             }
-            PropValue::FieldLwVaries { field } => self.render_field_lw_varies_row(label, field, theme),
+            PropValue::FieldLwVaries { field } => {
+                self.render_field_lw_varies_row(label, field, theme)
+            }
             PropValue::LwVaries => self.render_lw_varies_row(label, theme),
             PropValue::LinetypeChoice(lt) => self.render_linetype_row(label, lt, theme),
             PropValue::Choice { selected, options } => {
@@ -946,7 +955,7 @@ impl PropertiesPanel {
             PropValue::EditChoice { value, options } => {
                 self.render_edit_choice_row(label, prop.field, value, options, theme)
             }
-            PropValue::BoolToggle { field, value } => render_bool_row(label, *field, *value, theme),
+            PropValue::BoolToggle { field, value } => render_bool_row(label, field, *value, theme),
             PropValue::Stepper { display, .. } => render_stepper_row(label, display, theme),
             PropValue::EditText(val) | PropValue::PlainText(val) => {
                 self.render_edit_row(label, prop.field, val, theme)
@@ -955,11 +964,16 @@ impl PropertiesPanel {
             PropValue::ReadOnly(val) if prop.field == "annotative_scale" => {
                 render_annotative_scale_row(label, val, theme)
             }
+            PropValue::ReadOnly(val) if prop.field == "association_status" => {
+                render_assoc_status_row(label, val, theme)
+            }
             PropValue::ReadOnly(val) => render_ro_row(label, val, theme),
             PropValue::ReadOnlyWithTooltip { value, tooltip } => {
                 render_ro_with_tooltip_row(label, value, tooltip, theme)
             }
-            PropValue::HatchPatternChoice(current) => self.render_hatch_pattern_row(label, current, theme),
+            PropValue::HatchPatternChoice(current) => {
+                self.render_hatch_pattern_row(label, current, theme)
+            }
             PropValue::AttrText { tag, value } => self.render_attr_row(tag, value, theme),
             PropValue::EntityLink {
                 id,
@@ -979,7 +993,12 @@ impl PropertiesPanel {
 
     // ── Layer row (combo_box) ─────────────────────────────────────────────
 
-    fn render_layer_row<'a>(&'a self, label: &'a str, current: &'a str, theme: &Theme) -> Element<'a, Message> {
+    fn render_layer_row<'a>(
+        &'a self,
+        label: &'a str,
+        current: &'a str,
+        theme: &Theme,
+    ) -> Element<'a, Message> {
         let selected = if current == VARIES_LABEL {
             None
         } else {
@@ -1026,7 +1045,8 @@ impl PropertiesPanel {
                 // "More Colors…" opens the full palette window targeting the
                 // background colour — this used to just close the picker
                 // (#415).
-                Message::OpenColorWindow(crate::app::ColorPickTarget::PropertiesBg, color), theme
+                Message::OpenColorWindow(crate::app::ColorPickTarget::PropertiesBg, color),
+                theme,
             );
             return prop_row_widget(label, selector, theme);
         }
@@ -1084,7 +1104,8 @@ impl PropertiesPanel {
                 Message::OpenColorWindow(
                     crate::app::ColorPickTarget::PropertiesField(full_palette_field),
                     color,
-                ), theme
+                ),
+                theme,
             );
             return prop_row_widget(label, selector, theme);
         }
@@ -1099,7 +1120,8 @@ impl PropertiesPanel {
             },
             Message::PropColorChanged,
             Message::PropColorPickerToggle,
-            Message::OpenColorWindow(crate::app::ColorPickTarget::Properties, color), theme
+            Message::OpenColorWindow(crate::app::ColorPickTarget::Properties, color),
+            theme,
         );
         prop_row_widget(label, selector, theme)
     }
@@ -1118,14 +1140,20 @@ impl PropertiesPanel {
             },
             Message::PropColorChanged,
             Message::PropColorPickerToggle,
-            Message::OpenColorWindow(crate::app::ColorPickTarget::Properties, AcadColor::ByLayer), theme
+            Message::OpenColorWindow(crate::app::ColorPickTarget::Properties, AcadColor::ByLayer),
+            theme,
         );
         prop_row_widget(label, selector, theme)
     }
 
     // ── Lineweight row (combo_box) ────────────────────────────────────────
 
-    fn render_lw_row<'a>(&'a self, label: &'a str, lw: LineWeight, theme: &Theme) -> Element<'a, Message> {
+    fn render_lw_row<'a>(
+        &'a self,
+        label: &'a str,
+        lw: LineWeight,
+        theme: &Theme,
+    ) -> Element<'a, Message> {
         let selected = LwItem(lw);
         let combo = combo_box(
             &self.lineweight_combo,
@@ -1210,7 +1238,12 @@ impl PropertiesPanel {
 
     // ── Linetype row (combo_box) ──────────────────────────────────────────
 
-    fn render_linetype_row<'a>(&'a self, label: &'a str, current: &'a str, theme: &Theme) -> Element<'a, Message> {
+    fn render_linetype_row<'a>(
+        &'a self,
+        label: &'a str,
+        current: &'a str,
+        theme: &Theme,
+    ) -> Element<'a, Message> {
         // Normalise: empty string = "ByLayer"
         let display = if current.is_empty() {
             "ByLayer"
@@ -1290,12 +1323,20 @@ impl PropertiesPanel {
             .unwrap_or(entity_val);
 
         let active = self.active_field.as_ref() == Some(&key);
+        // Only the focused field can hold uncommitted text, so it carries the
+        // dirty edge. The value is read per frame, which is what makes the
+        // 80 ms arrival/return visible.
+        let dirty = if active {
+            crate::ui::motion::value_or(crate::ui::motion::PROP_DIRTY, 0.0)
+        } else {
+            0.0
+        };
         let ti = text_input("", display)
             .id(prop_geom_field_id(field))
             .on_input(move |v| Message::PropGeomInput { field, value: v })
             .on_submit(Message::PropGeomCommit(field))
             .size(FONT_SZ)
-            .style(kit::field_style)
+            .style(move |theme: &Theme, status| kit::field_style_dirty(theme, status, dirty))
             .padding(kit::PAD_FIELD)
             .width(Length::Fill);
 
@@ -1342,9 +1383,7 @@ impl PropertiesPanel {
             .align_y(iced::Center),
         )
         .on_press(Message::PropEditChoiceToggle)
-        .style(move |theme: &Theme, status| {
-            kit::style_for(theme, status, kit::Role::Ghost, "")
-        })
+        .style(move |theme: &Theme, status| kit::style_for(theme, status, kit::Role::Ghost, ""))
         .padding([COMBO_PAD_V, tokens::GAP_TIGHT]);
         let head = container(row![input, caret].align_y(iced::Center))
             // The composite field is a well: the recess is what says "type
@@ -1366,14 +1405,12 @@ impl PropertiesPanel {
                 }
             }
             let value = opt.clone();
-            list = list.push(
-                kit::list_row(
-                    text(opt.as_str()).size(FONT_SZ),
-                    false,
-                    kit::Press::On(Message::PropGeomChoiceChanged { field, value }),
-                    "",
-                ),
-            );
+            list = list.push(kit::list_row(
+                text(opt.as_str()).size(FONT_SZ),
+                false,
+                kit::Press::On(Message::PropGeomChoiceChanged { field, value }),
+                "",
+            ));
         }
         let popup = kit::glass_pane(
             container(crate::ui::kit::themed_scrollable(list).height(Length::Shrink))
@@ -1391,7 +1428,7 @@ impl PropertiesPanel {
             label,
             crate::ui::color_select::drop_down_below(
                 head.into(),
-                popup.into(),
+                popup,
                 None,
                 Length::Shrink,
                 Message::PropEditChoiceToggle,
@@ -1405,7 +1442,12 @@ impl PropertiesPanel {
     /// text box edits the value. Routing rides the tag (a runtime string), so
     /// this uses the dedicated `PropAttr*` messages instead of the geometry
     /// path whose field key is `&'static str`. The row label is the tag itself.
-    fn render_attr_row<'a>(&'a self, tag: &'a str, entity_val: &'a str, theme: &Theme) -> Element<'a, Message> {
+    fn render_attr_row<'a>(
+        &'a self,
+        tag: &'a str,
+        entity_val: &'a str,
+        theme: &Theme,
+    ) -> Element<'a, Message> {
         let key = attr_edit_key(tag);
         let display = self
             .edit_buf
@@ -1636,21 +1678,24 @@ fn render_stepper_row<'a>(label: &'a str, display: &'a str, theme: &Theme) -> El
     prop_row_widget(label, widget.into(), theme)
 }
 
-fn render_bool_row<'a>(label: &'a str, field: &'static str, value: bool, theme: &Theme) -> Element<'a, Message> {
+fn render_bool_row<'a>(
+    label: &'a str,
+    field: &'static str,
+    value: bool,
+    theme: &Theme,
+) -> Element<'a, Message> {
     let btn_label = if value {
         t!("Yes").into_owned()
     } else {
         t!("No").into_owned()
     };
-    let btn = plain_button(
-        text(btn_label).size(FONT_SZ).style(move |theme: &Theme| {
-            if value {
-                kit::tone_style(theme, kit::Tone::Warning)
-            } else {
-                Default::default()
-            }
-        }),
-    )
+    let btn = plain_button(text(btn_label).size(FONT_SZ).style(move |theme: &Theme| {
+        if value {
+            kit::tone_style(theme, kit::Tone::Warning)
+        } else {
+            Default::default()
+        }
+    }))
     .on_press(Message::PropBoolToggle(field))
     .style(kit::chip_button_style(value))
     .padding(kit::Size::Compact.padding())
@@ -1787,9 +1832,7 @@ fn render_group_row<'a>(
     // gutter is the only half that carries its own wash, and the recessed
     // read-only field paints its own well. So this one wears `Flush`.
     let value_col = container(value_field)
-        .style(move |theme: &Theme| {
-            kit::wash_style(kit::Tier::Flush, theme, "")
-        })
+        .style(move |theme: &Theme| kit::wash_style(kit::Tier::Flush, theme, ""))
         .width(Length::FillPortion(5))
         .height(Length::Fixed(ROW_H))
         .align_y(iced::Center)
@@ -1800,7 +1843,11 @@ fn render_group_row<'a>(
         .style(|theme: &Theme| kit::seam_style(theme, ""))
         .into()
 }
-fn render_annotative_scale_row<'a>(label: &'a str, value: &'a str, theme: &Theme) -> Element<'a, Message> {
+fn render_annotative_scale_row<'a>(
+    label: &'a str,
+    value: &'a str,
+    theme: &Theme,
+) -> Element<'a, Message> {
     let field = crate::ui::read_only::field(value, FONT_SZ, Length::Fill);
 
     let manage = kit::btn(
@@ -1811,10 +1858,14 @@ fn render_annotative_scale_row<'a>(label: &'a str, value: &'a str, theme: &Theme
         "",
     );
 
-    let controls = row![field, manage, iced::widget::space().width(tokens::GAP_FIELD)]
-        .spacing(tokens::GAP_HAIRLINE)
-        .align_y(iced::Center)
-        .width(Length::Fill);
+    let controls = row![
+        field,
+        manage,
+        iced::widget::space().width(tokens::GAP_FIELD)
+    ]
+    .spacing(tokens::GAP_HAIRLINE)
+    .align_y(iced::Center)
+    .width(Length::Fill);
 
     prop_row_widget(label, controls.into(), theme)
 }
@@ -1827,10 +1878,14 @@ fn render_hyperlink_row<'a>(label: &'a str, value: &'a str, theme: &Theme) -> El
         kit::Press::On(Message::PropHyperlinkOpen),
         "",
     );
-    let controls = row![field, manage, iced::widget::space().width(tokens::GAP_FIELD)]
-        .spacing(tokens::GAP_HAIRLINE)
-        .align_y(iced::Center)
-        .width(Length::Fill);
+    let controls = row![
+        field,
+        manage,
+        iced::widget::space().width(tokens::GAP_FIELD)
+    ]
+    .spacing(tokens::GAP_HAIRLINE)
+    .align_y(iced::Center)
+    .width(Length::Fill);
     prop_row_widget(label, controls.into(), theme)
 }
 fn render_ro_row<'a>(label: &'a str, value: &'a str, theme: &Theme) -> Element<'a, Message> {
@@ -1839,6 +1894,31 @@ fn render_ro_row<'a>(label: &'a str, value: &'a str, theme: &Theme) -> Element<'
     // (carrying the full, un-truncated value) and copied with Ctrl+C.
     let field = crate::ui::read_only::field(value, FONT_SZ, Length::Fill);
     prop_row_widget(label, field, theme)
+}
+
+/// Association status (item 18). When the status reads Broken / Unresolved
+/// the value plate carries a warning tint; the moment the association is
+/// severed, `ASSOC_BREAK` makes that tint flash once for 100 ms. The pulse is
+/// read here, in the UI overlay — no clock or motion state enters the canvas
+/// paint path.
+fn render_assoc_status_row<'a>(
+    label: &'a str,
+    value: &'a str,
+    theme: &Theme,
+) -> Element<'a, Message> {
+    let broken =
+        value == t!("Broken reference").as_ref() || value == t!("Unresolved reference").as_ref();
+    let field = crate::ui::read_only::field(value, FONT_SZ, Length::Fill);
+    if !broken {
+        return prop_row_widget(label, field, theme);
+    }
+    let pulse = crate::ui::motion::value_or(crate::ui::motion::ASSOC_BREAK, 0.0);
+    // A severed reference keeps a faint plate; the pulse brightens it and
+    // falls back to the resting tint, so the row still reports the state.
+    let plate = container(field)
+        .padding(Padding::from([1.0, tokens::GAP_CONTROL]))
+        .style(move |theme: &Theme| kit::assoc_plate_style(theme, pulse));
+    prop_row_widget(label, plate.into(), theme)
 }
 
 fn render_ro_with_tooltip_row<'a>(
@@ -1905,9 +1985,13 @@ fn render_entity_link_row<'a>(
         kit::Press::On(Message::PropConstraintDelete(id)),
         "",
     );
-    container(row![link, delete].spacing(tokens::GAP_HAIRLINE).align_y(iced::Center))
-        .width(Length::Fill)
-        .into()
+    container(
+        row![link, delete]
+            .spacing(tokens::GAP_HAIRLINE)
+            .align_y(iced::Center),
+    )
+    .width(Length::Fill)
+    .into()
 }
 
 // ── Parameters section: "+ Add parameter" row ──────────────────────────────
@@ -1966,7 +2050,11 @@ fn render_params_visibility_toggle_row<'a>(value: bool) -> Element<'a, Message> 
 }
 
 /// Build a label | widget property row.
-fn prop_row_widget<'a>(label: &'a str, widget: Element<'a, Message>, theme: &Theme) -> Element<'a, Message> {
+fn prop_row_widget<'a>(
+    label: &'a str,
+    widget: Element<'a, Message>,
+    theme: &Theme,
+) -> Element<'a, Message> {
     prop_row_with_active(label, widget, false, theme)
 }
 
@@ -1980,18 +2068,23 @@ fn prop_row_with_active<'a>(
     theme: &Theme,
 ) -> Element<'a, Message> {
     let full_label = t!(label);
-    let label_col = container(crate::ui::text_util::elided(&full_label, 18, theme, |shown| {
-        text(shown)
-            .size(FONT_SZ)
-            // One line, always. A wrapped label turns the fixed 26 px row into
-            // two lines and shoves every row below it down — the 2026-11-02
-            // lift made several 13 px labels wider than their gutter. cosmic-
-            // text ellipsizes at the exact measured width instead.
-            .wrapping(Wrapping::None)
-            .ellipsis(Ellipsis::End)
-            .style(kit::muted_style)
-            .into()
-    }))
+    let label_col = container(crate::ui::text_util::elided(
+        &full_label,
+        18,
+        theme,
+        |shown| {
+            text(shown)
+                .size(FONT_SZ)
+                // One line, always. A wrapped label turns the fixed 26 px row into
+                // two lines and shoves every row below it down — the 2026-11-02
+                // lift made several 13 px labels wider than their gutter. cosmic-
+                // text ellipsizes at the exact measured width instead.
+                .wrapping(Wrapping::None)
+                .ellipsis(Ellipsis::End)
+                .style(kit::muted_style)
+                .into()
+        },
+    ))
     .style(move |theme: &Theme| {
         if active {
             kit::tint_style(kit::Tint::Selected, theme, "")

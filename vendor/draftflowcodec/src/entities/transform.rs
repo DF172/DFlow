@@ -459,7 +459,12 @@ pub(crate) fn transform_dimension(e: &mut Dimension, transform: &Transform) {
     let horizontal_direction = if keep_text {
         e.base().horizontal_direction
     } else {
-        transform_dimension_angle(old_normal, new_normal, e.base().horizontal_direction, transform)
+        transform_dimension_angle(
+            old_normal,
+            new_normal,
+            e.base().horizontal_direction,
+            transform,
+        )
     };
     let insertion_rotation = transform_dimension_angle(
         old_normal,

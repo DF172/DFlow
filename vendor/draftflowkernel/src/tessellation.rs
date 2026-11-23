@@ -63,11 +63,7 @@ pub(crate) fn max_direction_angle<const N: usize>(directions: &[[f64; N]]) -> f6
 }
 
 /// Samples a parametric space curve by tangent rotation.
-pub fn sample_curve3_angle<P, T>(
-    point_at: P,
-    tangent_at: T,
-    max_angle: f64,
-) -> Vec<[f64; 3]>
+pub fn sample_curve3_angle<P, T>(point_at: P, tangent_at: T, max_angle: f64) -> Vec<[f64; 3]>
 where
     P: Fn(f64) -> [f64; 3],
     T: Fn(f64) -> [f64; 3],
@@ -99,15 +95,7 @@ where
                 depth + 1,
                 out,
             );
-            refine(
-                point_at,
-                tangent_at,
-                middle,
-                to,
-                max_angle,
-                depth + 1,
-                out,
-            );
+            refine(point_at, tangent_at, middle, to, max_angle, depth + 1, out);
         } else {
             out.push(point_at(to));
         }
@@ -115,14 +103,6 @@ where
 
     let max_angle = angle(max_angle);
     let mut out = vec![point_at(0.0)];
-    refine(
-        &point_at,
-        &tangent_at,
-        0.0,
-        1.0,
-        max_angle,
-        0,
-        &mut out,
-    );
+    refine(&point_at, &tangent_at, 0.0, 1.0, max_angle, 0, &mut out);
     out
 }

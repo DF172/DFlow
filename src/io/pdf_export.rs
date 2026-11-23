@@ -32,7 +32,6 @@ pub use super::plot::{
 // Rendering is portable; only persistence differs — desktop writes the bytes
 // atomically through a temp file, the web delivers them as a browser download.
 
-
 /// mm to PDF points (1 mm = 2.834645 pt).
 const MM_TO_PT: f32 = 2.834645;
 /// `wire.line_weight_px` is the on-screen pixel weight. Convert the 96-dpi
@@ -66,7 +65,6 @@ pub fn export_pdf_pages(
 fn persist_pdf(path: &Path, bytes: &[u8]) -> Result<(), String> {
     write_pdf_atomically(path, bytes)
 }
-
 
 /// Write a complete PDF beside the destination, then replace it atomically.
 fn write_pdf_atomically(path: &Path, bytes: &[u8]) -> Result<(), String> {
@@ -132,7 +130,7 @@ fn emit_image(
     if image.width == 0 || image.height == 0 || expected_byte_count != Some(image.pixels.len()) {
         return Err("Cannot plot bitmap: dimensions do not match its RGBA pixels.".into());
     }
-    if image.verts.len() < 3 || image.verts.len() % 3 != 0 {
+    if image.verts.len() < 3 || !image.verts.len().is_multiple_of(3) {
         return Err("Cannot plot bitmap: incomplete triangle geometry.".into());
     }
     if options.transparency && image.opacity <= 0.0 {
@@ -168,7 +166,8 @@ fn emit_image(
     let mut height = image.height;
     let mut pixels: std::borrow::Cow<[u8]> = std::borrow::Cow::Borrowed(image.pixels.as_slice());
     if let Some(target) = options.quality.target_dpi() {
-        let dist = |a: [f32; 2], b: [f32; 2]| ((b[0] - a[0]).powi(2) + (b[1] - a[1]).powi(2)).sqrt();
+        let dist =
+            |a: [f32; 2], b: [f32; 2]| ((b[0] - a[0]).powi(2) + (b[1] - a[1]).powi(2)).sqrt();
         let width_edge = dist(corners[0], corners[1]);
         let height_edge = dist(corners[0], corners[3]);
         // A degenerate (zero-area) placement keeps the native pixels.
@@ -191,8 +190,12 @@ fn emit_image(
                 if let Some(buffer) =
                     image::RgbaImage::from_raw(width, height, image.pixels.as_ref().clone())
                 {
-                    let resized =
-                        image::imageops::resize(&buffer, w, h, image::imageops::FilterType::Triangle);
+                    let resized = image::imageops::resize(
+                        &buffer,
+                        w,
+                        h,
+                        image::imageops::FilterType::Triangle,
+                    );
                     width = w;
                     height = h;
                     pixels = std::borrow::Cow::Owned(resized.into_raw());
@@ -225,7 +228,11 @@ fn emit_image(
                     } else {
                         // Transparency off: every pixel opaque in its colour.
                         let mut opaque = pixels.into_owned();
-                        opaque.chunks_exact_mut(4).for_each(|px| px[3] = 255);
+                        opaque
+                            .as_chunks_mut::<4>()
+                            .0
+                            .iter_mut()
+                            .for_each(|px| px[3] = 255);
                         opaque
                     }),
                     width: width as usize,
@@ -292,7 +299,9 @@ fn emit_image(
             ops,
             image
                 .verts
-                .chunks_exact(3)
+                .as_chunks::<3>()
+                .0
+                .iter()
                 .map(|tri| {
                     tri.iter()
                         .map(|vertex| to_page(vertex.pos, vertex.pos_low))
@@ -303,7 +312,7 @@ fn emit_image(
         draw(ops, [u[0], u[1], v[0], v[1], corners[0][0], corners[0][1]]);
     } else {
         // PDF transforms are affine; perspective sampling is approximate.
-        for triangle in image.verts.chunks_exact(3) {
+        for triangle in image.verts.as_chunks::<3>().0 {
             let page = std::array::from_fn(|i| to_page(triangle[i].pos, triangle[i].pos_low));
             let uv = std::array::from_fn(|i| [triangle[i].uv[0], 1.0 - triangle[i].uv[1]]);
             let matrix = image_triangle_matrix(page, uv)
@@ -734,7 +743,16 @@ fn append_pdf_page(
                     continue;
                 }
                 DrawItem::Image(image) => {
-                    emit_image(doc, image_resources, &mut ops, image, ox, oy, scale, options)?;
+                    emit_image(
+                        doc,
+                        image_resources,
+                        &mut ops,
+                        image,
+                        ox,
+                        oy,
+                        scale,
+                        options,
+                    )?;
                     continue;
                 }
                 DrawItem::Wire(wire) => wire,
@@ -1208,7 +1226,7 @@ fn emit_wire_fills(
                 })
         });
         if let Some(pattern) = styled_pattern {
-            for (triangle_index, triangle) in wire.fill_tris.chunks_exact(3).enumerate() {
+            for (triangle_index, triangle) in wire.fill_tris.as_chunks::<3>().0.iter().enumerate() {
                 let mut boundary = Vec::with_capacity(4);
                 for (point_index, point) in triangle.iter().enumerate() {
                     let index = triangle_index * 3 + point_index;
@@ -1218,7 +1236,7 @@ fn emit_wire_fills(
                 boundary.push(boundary[0]);
                 let hatch = HatchModel {
                     pattern_origin: None,
-                    render_instance: wire.render_instance.clone(),
+                    render_instance: wire.render_instance,
                     world_origin: [0.0, 0.0],
                     boundary: std::sync::Arc::new(boundary),
                     boundary_wcs: None,
@@ -1290,7 +1308,7 @@ fn emit_wire_fills(
                 icc_profile: None,
             }),
         });
-        for (triangle_index, triangle) in wire.fill_tris.chunks_exact(3).enumerate() {
+        for (triangle_index, triangle) in wire.fill_tris.as_chunks::<3>().0.iter().enumerate() {
             let mut points = Vec::with_capacity(3);
             for (point_index, &[x, y, _]) in triangle.iter().enumerate() {
                 let index = triangle_index * 3 + point_index;
@@ -2155,7 +2173,7 @@ fn emit_text(
                         }
                     }
                     // Otherwise one filled triangle per triple.
-                    for tri in ge.fill_tris.chunks_exact(3) {
+                    for tri in ge.fill_tris.as_chunks::<3>().0 {
                         ops.push(Op::DrawPolygon {
                             polygon: Polygon {
                                 rings: vec![PolygonRing {
@@ -2345,7 +2363,7 @@ impl TextFonts {
     ) -> bool {
         use crate::scene::text::sdf_atlas;
         let mut any = false;
-        for quad in verts.chunks_exact(6) {
+        for quad in verts.as_chunks::<6>().0 {
             if quad[0].color[3] < 0.01 {
                 continue;
             }
@@ -2527,7 +2545,7 @@ pub(crate) fn pdf_stream_text(bytes: &[u8]) -> String {
     for start in 0..bytes.len().saturating_sub(2) {
         // zlib streams start with a 2-byte header: deflate method, valid check.
         let (cmf, flg) = (bytes[start], bytes[start + 1]);
-        if cmf & 0x0f != 8 || ((cmf as u16) << 8 | flg as u16) % 31 != 0 {
+        if cmf & 0x0f != 8 || !((cmf as u16) << 8 | flg as u16).is_multiple_of(31) {
             continue;
         }
         let mut decoded = Vec::new();

@@ -21,7 +21,7 @@ use crate::ui::style::tokens;
 use bytemuck::{Pod, Zeroable};
 use iced::widget::shader::{self, Backdrop, Viewport};
 use iced::widget::{Shader, Stack};
-use iced::{Color, Element, Length, Rectangle, Theme, wgpu};
+use iced::{wgpu, Color, Element, Length, Rectangle, Theme};
 use rustc_hash::FxHashMap;
 use std::sync::Mutex;
 
@@ -91,11 +91,7 @@ impl GlassPipeline {
 }
 
 impl shader::Pipeline for GlassPipeline {
-    fn new(
-        device: &wgpu::Device,
-        _queue: &wgpu::Queue,
-        format: wgpu::TextureFormat,
-    ) -> Self {
+    fn new(device: &wgpu::Device, _queue: &wgpu::Queue, format: wgpu::TextureFormat) -> Self {
         let layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("draftflow.glass.layout"),
             entries: &[
@@ -267,7 +263,7 @@ impl shader::Primitive for GlassPane {
         _bounds: &Rectangle,
         viewport: &Viewport,
     ) {
-        let scale = viewport.scale_factor() as f32;
+        let scale = viewport.scale_factor();
         let frame_size = [
             viewport.physical_width().max(1) as f32,
             viewport.physical_height().max(1) as f32,
@@ -303,24 +299,26 @@ impl shader::Primitive for GlassPane {
             return false;
         };
 
-        let bind_group = pipeline.device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("draftflow.glass.bind"),
-            layout: &pipeline.layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::TextureView(backdrop.view),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: wgpu::BindingResource::Sampler(&pipeline.sampler),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 2,
-                    resource: buffer.as_entire_binding(),
-                },
-            ],
-        });
+        let bind_group = pipeline
+            .device
+            .create_bind_group(&wgpu::BindGroupDescriptor {
+                label: Some("draftflow.glass.bind"),
+                layout: &pipeline.layout,
+                entries: &[
+                    wgpu::BindGroupEntry {
+                        binding: 0,
+                        resource: wgpu::BindingResource::TextureView(backdrop.view),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 1,
+                        resource: wgpu::BindingResource::Sampler(&pipeline.sampler),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 2,
+                        resource: buffer.as_entire_binding(),
+                    },
+                ],
+            });
 
         // The pass already carries this pane's viewport and scissor, so the
         // draw is one triangle that covers the clip rect and the shader decides
@@ -349,12 +347,7 @@ impl<Message> shader::Program<Message> for GlassPlate {
     type State = ();
     type Primitive = GlassPane;
 
-    fn draw(
-        &self,
-        _state: &(),
-        _cursor: iced::mouse::Cursor,
-        bounds: Rectangle,
-    ) -> GlassPane {
+    fn draw(&self, _state: &(), _cursor: iced::mouse::Cursor, bounds: Rectangle) -> GlassPane {
         GlassPane {
             bounds,
             tint: self.tint,
@@ -398,9 +391,7 @@ where
         fade: crate::ui::motion::value_or(track, 1.0),
     };
 
-    let glass = Shader::new(plate)
-        .width(Length::Fill)
-        .height(Length::Fill);
+    let glass = Shader::new(plate).width(Length::Fill).height(Length::Fill);
 
     // `push_under` is what keeps the two in the order the channel needs. The
     // first child of a `Stack` is painted inside the overlay's own layer and
@@ -408,6 +399,43 @@ where
     // thing in the layer the split is taken at, and the menu's ink lands over
     // it. A plain `push` would put the glass on top of its own content.
     Stack::new().push_under(glass).push(content).into()
+}
+
+/// Item 35 (C, 2026-11-20 chairman ruling): the canvas scrim under the
+/// right-click menu. The menu itself stays an opaque `popup_plate`; this is
+/// the softening layer beneath it — a full-canvas glass plate whose tint is
+/// the ruled scrim peak, with no rim, no specular and no corner, so it reads
+/// as a blur wash rather than a pane. `track` drives the material's fade
+/// (the tint alpha is scaled by the track value), and the plate is a live
+/// backdrop reader: any frame that paints it opens the blur channel.
+///
+/// Click-transparent by construction: `GlassPlate` implements no
+/// `mouse_interaction`, so the vendor `Program` default
+/// (`mouse::Interaction::default()` = None) applies and every click falls
+/// through to the canvas and the menu above. The caller must stop painting
+/// it once the track settles — a fade-0 plate is invisible but still a
+/// reader, and would keep the blur pass open for nothing.
+pub fn scrim_pane<'a, Message>(track: &'static str) -> Element<'a, Message>
+where
+    Message: 'a,
+{
+    let plate = GlassPlate {
+        tint: Color {
+            r: 0.0,
+            g: 0.0,
+            b: 0.0,
+            a: crate::ui::motion::MENU_SCRIM_PEAK,
+        },
+        rim: Color::TRANSPARENT,
+        hi_top: Color::TRANSPARENT,
+        hi_bottom: Color::TRANSPARENT,
+        radius: 0.0,
+        fade: crate::ui::motion::value_or(track, 0.0),
+    };
+    Shader::new(plate)
+        .width(Length::Fill)
+        .height(Length::Fill)
+        .into()
 }
 
 #[cfg(test)]
@@ -543,6 +571,134 @@ mod tests {
         assert!(
             !body.contains("Tier::Float"),
             "the context menu should take `popup_plate`, not re-spell the rung"
+        );
+    }
+
+    /// Item 35: the glass primitive is a live backdrop reader. Any frame that
+    /// paints one opens the blur channel (the vendor renderer splits at the
+    /// first `reads_backdrop()`); a frame with none keeps the zero-pass path.
+    /// This is the runtime half of the "popups soften the background" guard —
+    /// if the primitive ever stops reading, every glass popup loses its blur.
+    #[test]
+    fn a_glass_pane_is_a_backdrop_reader() {
+        let pane = GlassPane {
+            bounds: Rectangle {
+                x: 0.0,
+                y: 0.0,
+                width: 100.0,
+                height: 40.0,
+            },
+            tint: Color::WHITE,
+            rim: Color::BLACK,
+            hi_top: Color::WHITE,
+            hi_bottom: Color::BLACK,
+            radius: 8.0,
+            fade: 1.0,
+        };
+        assert!(
+            shader::Primitive::reads_backdrop(&pane),
+            "the glass primitive stopped reading the backdrop: popups would lose their blur"
+        );
+    }
+
+    /// Item 35: the popup carriers that soften the background keep their
+    /// glass. The floating dock panel frame, the command-line card, the
+    /// workspace glass panes and the viewport overlays all read the frame
+    /// beneath them; dropping any carrier silently removes the blur there.
+    /// (The main context menu is deliberately NOT glass — see
+    /// `the_context_menu_is_an_opaque_sheet`.)
+    #[test]
+    fn the_glass_popups_keep_their_blur_carriers() {
+        let dock = include_str!("../../app/dock/view.rs");
+        let start = dock
+            .find("fn floating_panel")
+            .expect("the floating panel builder");
+        let end = dock[start..]
+            .find("\n    /// Where floating panel")
+            .map(|offset| start + offset)
+            .expect("the end of the floating panel builder");
+        assert!(
+            dock[start..end].contains("kit::glass_pane("),
+            "the floating dock panel stopped reading the drawing through its frame"
+        );
+        for (path, src) in [
+            (
+                "src/ui/command_line.rs",
+                include_str!("../../ui/command_line.rs"),
+            ),
+            ("src/app/view/mod.rs", include_str!("../../app/view/mod.rs")),
+            (
+                "src/app/view/overlay.rs",
+                include_str!("../../app/view/overlay.rs"),
+            ),
+        ] {
+            assert!(
+                src.contains("kit::glass_pane("),
+                "{path} lost its glass carrier: its popups no longer blur the background"
+            );
+        }
+    }
+
+    /// Item 35 (C, 2026-11-20 chairman ruling): the menu scrim is a real
+    /// backdrop reader — it opens the blur channel, not a flat black sheet
+    /// pretending to be one. Its peak and both durations sit inside the ruled
+    /// windows, and it cannot eat clicks: `GlassPlate` implements no
+    /// `mouse_interaction`, so the vendor `Program` default
+    /// (`mouse::Interaction::default()` = None) lets every click fall through
+    /// to the canvas beneath and the menu above.
+    #[test]
+    fn a_menu_scrim_is_a_click_transparent_backdrop_reader() {
+        let peak = crate::ui::motion::MENU_SCRIM_PEAK;
+        assert!(
+            (0.6..=0.85).contains(&peak),
+            "scrim peak {peak} is outside the ruled 0.6–0.85 window"
+        );
+        assert!(
+            (120..=160).contains(&crate::ui::motion::MENU_SCRIM_IN_MS),
+            "scrim entrance is outside the ruled 120–160 ms window"
+        );
+        assert!(
+            (120..=160).contains(&crate::ui::motion::MENU_SCRIM_OUT_MS),
+            "scrim exit is outside the ruled 120–160 ms window"
+        );
+
+        let pane = GlassPane {
+            bounds: Rectangle {
+                x: 0.0,
+                y: 0.0,
+                width: 800.0,
+                height: 600.0,
+            },
+            tint: Color {
+                r: 0.0,
+                g: 0.0,
+                b: 0.0,
+                a: peak,
+            },
+            rim: Color::TRANSPARENT,
+            hi_top: Color::TRANSPARENT,
+            hi_bottom: Color::TRANSPARENT,
+            radius: 0.0,
+            fade: 1.0,
+        };
+        assert!(
+            shader::Primitive::reads_backdrop(&pane),
+            "the scrim stopped reading the backdrop: the menu would lose its blur"
+        );
+
+        // No mouse_interaction override in the glass production half, and the
+        // vendor trait still defaults to Interaction::default() (None): the
+        // scrim is paint, never an input surface.
+        let src = include_str!("glass.rs");
+        let prod = src.split("\n#[cfg(test)]").next().unwrap_or(src);
+        assert!(
+            !prod.contains("fn mouse_interaction"),
+            "a glass plate started capturing clicks: the scrim would eat the canvas"
+        );
+        let program = include_str!("../../../vendor/iced/widget/src/shader/program.rs");
+        assert!(
+            program.contains("mouse::Interaction::default()"),
+            "the vendor Program default changed: re-verify the scrim's click transparency"
         );
     }
 

@@ -35,6 +35,12 @@ impl MatchPropCommand {
     }
 }
 
+impl Default for MatchPropCommand {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CadCommand for MatchPropCommand {
     fn name(&self) -> &'static str {
         "MATCHPROP"

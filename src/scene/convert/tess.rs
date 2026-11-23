@@ -391,13 +391,13 @@ fn section_symbol_wires(
             lines.push(nan);
             lines.push(tip);
             lines.push(base);
-            let mut it = g.dim_lines.chunks_exact(2);
-            while let Some([p0, p1]) = it.next() {
+            let (pairs, _) = g.dim_lines.as_chunks::<2>();
+            for [p0, p1] in pairs {
                 lines.push(nan);
                 lines.push([p0[0] as f64, p0[1] as f64, 0.0]);
                 lines.push([p1[0] as f64, p1[1] as f64, 0.0]);
             }
-            for t in g.arrow_fill.chunks_exact(3) {
+            for t in g.arrow_fill.as_chunks::<3>().0 {
                 for p in t {
                     fill.push([p[0] as f64, p[1] as f64, 0.0]);
                 }
@@ -1528,7 +1528,6 @@ fn tessellate_entity_inner(
 /// (from `text_support::mtext_line_count`). Without it, MText's OBB
 /// height collapses to a single line when the file omits `rectangle_height`,
 /// which makes downstream per-line LOD math degenerate.
-
 /// Build a "low-LOD stub" wire for an entity that would otherwise be culled
 /// to nothing — the entity's AABB diagonal as a 2-point segment, plus the
 /// AABB itself so window / crossing selection picks the entity up. The

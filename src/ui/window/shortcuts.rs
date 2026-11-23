@@ -1,13 +1,13 @@
 //! Editable keyboard shortcut table opened by CUI / SHORTCUTS.
 
-use crate::ui::style::tokens;
 use crate::app::Message;
 use crate::t;
-use crate::ui::kit::muted_style;
-use iced::widget::{column, container, row, text, text_input, Space};
-use crate::ui::kit::plain_button;
-use iced::{Element, Length, Theme};
 use crate::ui::kit;
+use crate::ui::kit::muted_style;
+use crate::ui::kit::plain_button;
+use crate::ui::style::tokens;
+use iced::widget::{column, container, row, text, text_input, Space};
+use iced::{Element, Length, Theme};
 
 #[derive(Clone, Copy, Debug)]
 pub enum ShortcutField {
@@ -47,8 +47,14 @@ pub fn view_window<'a>(
 
     let head = container(
         row![
-            container(text(t!("Key")).size(tokens::TEXT_LABEL).style(muted_style)).width(Length::Fixed(180.0)),
-            container(text(t!("Command")).size(tokens::TEXT_LABEL).style(muted_style)).width(sizing.width),
+            container(text(t!("Key")).size(tokens::TEXT_LABEL).style(muted_style))
+                .width(Length::Fixed(180.0)),
+            container(
+                text(t!("Command"))
+                    .size(tokens::TEXT_LABEL)
+                    .style(muted_style)
+            )
+            .width(sizing.width),
             Space::new().width(Length::Fixed(30.0)),
         ]
         .spacing(tokens::GAP_ROW),
@@ -207,10 +213,12 @@ pub fn view_window<'a>(
         )
     } else {
         (
-            row![plain_button(text(t!("Reset to default")).size(tokens::TEXT_BODY))
-                .on_press(Message::ShortcutEditorResetAsk)
-                .padding(kit::Size::Control.padding())
-                .style(kit::secondary_style)]
+            row![
+                plain_button(text(t!("Reset to default")).size(tokens::TEXT_BODY))
+                    .on_press(Message::ShortcutEditorResetAsk)
+                    .padding(kit::Size::Control.padding())
+                    .style(kit::secondary_style)
+            ]
             .spacing(tokens::GAP_ROW)
             .align_y(iced::Center),
             row![add],
@@ -228,7 +236,9 @@ pub fn view_window<'a>(
     let apply_area = if reset_confirm {
         row![Space::new().width(Length::Fixed(0.0))]
     } else {
-        row![apply, apply_exit].spacing(tokens::GAP_ROW).align_y(iced::Center)
+        row![apply, apply_exit]
+            .spacing(tokens::GAP_ROW)
+            .align_y(iced::Center)
     };
 
     // Persistent duplicate warning: shown until every conflicting key is
@@ -258,7 +268,8 @@ pub fn view_window<'a>(
             hint,
             Space::new().height(tokens::GAP_CONTROL),
             head,
-            crate::ui::kit::themed_scrollable(container(list).padding(gutter)).height(sizing.height),
+            crate::ui::kit::themed_scrollable(container(list).padding(gutter))
+                .height(sizing.height),
             Space::new().height(tokens::GAP_CONTROL),
             conflict_banner,
             Space::new().height(tokens::GAP_TIGHT),

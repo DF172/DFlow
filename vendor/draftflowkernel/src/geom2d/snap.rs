@@ -88,7 +88,11 @@ pub fn characteristic_points(curve: &Curve) -> Vec<SnapPoint> {
                     // an arc does.
                     let arc_quadrants =
                         quadrants(segment, arc.centre, Some((arc.start_angle, arc.end_angle)));
-                    out.extend(arc_quadrants.into_iter().map(|q| SnapPoint { t: span(q.t), ..q }));
+                    out.extend(
+                        arc_quadrants
+                            .into_iter()
+                            .map(|q| SnapPoint { t: span(q.t), ..q }),
+                    );
                 }
             }
             if !polyline.closed {
@@ -350,17 +354,32 @@ mod tests {
         // A straight run, then a half turn bulging below the chord.
         let chain = Curve::Polyline(Polyline {
             vertices: vec![
-                PolylineVertex { position: [-2.0, 0.0], bulge: 0.0 },
-                PolylineVertex { position: [0.0, 0.0], bulge: 1.0 },
-                PolylineVertex { position: [2.0, 0.0], bulge: 0.0 },
+                PolylineVertex {
+                    position: [-2.0, 0.0],
+                    bulge: 0.0,
+                },
+                PolylineVertex {
+                    position: [0.0, 0.0],
+                    bulge: 1.0,
+                },
+                PolylineVertex {
+                    position: [2.0, 0.0],
+                    bulge: 0.0,
+                },
             ],
             closed: false,
         });
         let points = characteristic_points(&chain);
         assert!(near(of_kind(&points, SnapKind::Centre)[0], [1.0, 0.0]));
         let quadrants = of_kind(&points, SnapKind::Quadrant);
-        assert!(quadrants.iter().any(|p| near(*p, [1.0, -1.0])), "{quadrants:?}");
-        assert!(!quadrants.iter().any(|p| near(*p, [1.0, 1.0])), "{quadrants:?}");
+        assert!(
+            quadrants.iter().any(|p| near(*p, [1.0, -1.0])),
+            "{quadrants:?}"
+        );
+        assert!(
+            !quadrants.iter().any(|p| near(*p, [1.0, 1.0])),
+            "{quadrants:?}"
+        );
     }
 
     #[test]
@@ -372,7 +391,10 @@ mod tests {
         let points = characteristic_points(&circle);
         assert!(near(of_kind(&points, SnapKind::Centre)[0], [3.0, 4.0]));
         assert_eq!(of_kind(&points, SnapKind::Quadrant).len(), 4);
-        assert!(of_kind(&points, SnapKind::Endpoint).is_empty(), "a circle has no ends");
+        assert!(
+            of_kind(&points, SnapKind::Endpoint).is_empty(),
+            "a circle has no ends"
+        );
         assert!(
             of_kind(&points, SnapKind::Midpoint).is_empty(),
             "nor a middle — every point is as much the middle as any other"

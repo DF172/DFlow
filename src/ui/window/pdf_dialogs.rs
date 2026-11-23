@@ -15,8 +15,8 @@ use crate::modules::insert::pdf_import::{ImportLayers, PdfImportSettings};
 use crate::t;
 use crate::ui::kit::muted_style;
 use crate::ui::kit::{
-    self, dialog_button, document_style, field_style, paper_style, swatch_style,
-    tone_style, wash_style, Tier, Tone, PAD_CARD,
+    self, dialog_button, document_style, field_style, paper_style, swatch_style, tone_style,
+    wash_style, Tier, Tone, PAD_CARD,
 };
 
 /// One edit in any of the PDF dialogs.
@@ -279,7 +279,10 @@ fn segmented<'a, T: Copy + PartialEq + 'a>(
 ) -> Element<'a, Message> {
     let buttons = options.into_iter().map(|(value, label)| {
         kit::btn(
-            text(label).size(tokens::TEXT_LABEL).width(Fill).align_x(iced::Center),
+            text(label)
+                .size(tokens::TEXT_LABEL)
+                .width(Fill)
+                .align_x(iced::Center),
             if value == current {
                 kit::Role::Engaged
             } else {
@@ -292,11 +295,13 @@ fn segmented<'a, T: Copy + PartialEq + 'a>(
         .width(Fill)
         .into()
     });
-    container(iced::widget::Row::with_children(buttons.collect::<Vec<_>>()).spacing(tokens::GAP_HAIRLINE))
-        .padding(tokens::GAP_HAIRLINE)
-        .width(Fill)
-        .style(|theme: &Theme| wash_style(Tier::Well, theme, ""))
-        .into()
+    container(
+        iced::widget::Row::with_children(buttons.collect::<Vec<_>>()).spacing(tokens::GAP_HAIRLINE),
+    )
+    .padding(tokens::GAP_HAIRLINE)
+    .width(Fill)
+    .style(|theme: &Theme| wash_style(Tier::Well, theme, ""))
+    .into()
 }
 
 /// A switch shown as a chip: filled with a tick while on.
@@ -311,9 +316,9 @@ fn chip<'a>(label: String, on: bool, message: Message) -> Element<'a, Message> {
             ))
             .width(11.0)
             .height(11.0)
-                .style(|theme: &Theme, _| iced::widget::svg::Style {
-                    color: Some(theme.palette().primary.base.text),
-                }),
+            .style(|theme: &Theme, _| iced::widget::svg::Style {
+                color: Some(theme.palette().primary.base.text),
+            }),
         );
     }
     kit::btn(
@@ -401,18 +406,13 @@ fn footer<'a>(
     if let Some(extra) = extra {
         left = left.push(extra);
     }
-    let mut actions = row![
-        left,
-        Space::new().width(Fill),
-    ]
-    .spacing(tokens::GAP_CONTROL)
-    .align_y(iced::Center);
+    let mut actions = row![left, Space::new().width(Fill),]
+        .spacing(tokens::GAP_CONTROL)
+        .align_y(iced::Center);
     if cancel {
         actions = actions.push(dialog_button(t!("Cancel"), Message::CloseModal, false));
     }
-    actions
-        .push(dialog_button(action, msg(ok), true))
-        .into()
+    actions.push(dialog_button(action, msg(ok), true)).into()
 }
 
 /// Page thumbnails as cards; the chosen ones framed in the accent colour
@@ -438,21 +438,19 @@ fn page_tiles<'a>(
                 .width(Length::Fixed(132.0))
                 .height(Length::Fixed(86.0))
                 .padding(tokens::GAP_TIGHT)
-                .style(move |theme: &Theme| {
-                    paper_style(theme, iced::Color::WHITE, chosen, "")
-                }),
+                .style(move |theme: &Theme| { paper_style(theme, iced::Color::WHITE, chosen, "") }),
             container(
                 row![
                     tick,
-                    text(crate::t!(&page.label))
-                        .size(tokens::TEXT_LABEL)
-                        .style(move |theme: &Theme| {
+                    text(crate::t!(&page.label)).size(tokens::TEXT_LABEL).style(
+                        move |theme: &Theme| {
                             if chosen {
                                 tone_style(theme, Tone::Accent)
                             } else {
                                 muted_style(theme)
                             }
-                        })
+                        }
+                    )
                 ]
                 .spacing(tokens::GAP_TIGHT)
                 .align_y(iced::Center),
@@ -615,9 +613,13 @@ pub fn view_attach<'a>(
         UnderlayType::Dwf => crate::tf!("{count} sheets", count = state.pages.len()),
         UnderlayType::Dgn => crate::tf!("{count} models", count = state.pages.len()),
     };
-    let count = container(text(count_text).size(tokens::TEXT_LABEL).style(|theme: &Theme| kit::tone_style(theme, kit::Tone::Accent)))
-        .padding(kit::Size::Control.padding())
-        .style(|theme: &Theme| wash_style(Tier::Well, theme, ""));
+    let count = container(
+        text(count_text)
+            .size(tokens::TEXT_LABEL)
+            .style(|theme: &Theme| kit::tone_style(theme, kit::Tone::Accent)),
+    )
+    .padding(kit::Size::Control.padding())
+    .style(|theme: &Theme| wash_style(Tier::Well, theme, ""));
     let file = row![
         name_combo,
         count,
@@ -663,7 +665,9 @@ pub fn view_attach<'a>(
             .height(Length::Fixed(226.0))
             .width(Fill)
             .style(|theme: &Theme| wash_style(Tier::Well, theme, "")),
-            text(chosen_text).size(tokens::TEXT_LABEL).style(muted_style),
+            text(chosen_text)
+                .size(tokens::TEXT_LABEL)
+                .style(muted_style),
         ]
         .spacing(tokens::GAP_CONTROL),
     );
@@ -845,9 +849,13 @@ pub fn view_point_cloud_attach<'a>(
             .padding(kit::Size::Control.padding())
             .width(Fill)
             .style(field_style),
-        container(text(state.summary.clone()).size(tokens::TEXT_LABEL).style(|theme: &Theme| kit::tone_style(theme, kit::Tone::Accent)))
-            .padding(kit::Size::Control.padding())
-            .style(|theme: &Theme| wash_style(Tier::Well, theme, "")),
+        container(
+            text(state.summary.clone())
+                .size(tokens::TEXT_LABEL)
+                .style(|theme: &Theme| kit::tone_style(theme, kit::Tone::Accent))
+        )
+        .padding(kit::Size::Control.padding())
+        .style(|theme: &Theme| wash_style(Tier::Well, theme, "")),
         kit::btn(
             text(t!("Browse...")).size(tokens::TEXT_LABEL),
             kit::Role::Standard,
@@ -985,7 +993,13 @@ pub fn view_point_cloud_attach<'a>(
     column![
         file,
         body,
-        footer("pointcloud", None, t!("Attach"), PdfDialogMsg::CloudOk, true)
+        footer(
+            "pointcloud",
+            None,
+            t!("Attach"),
+            PdfDialogMsg::CloudOk,
+            true
+        )
     ]
     .spacing(tokens::GAP_FIELD)
     .padding(PAD_CARD)
@@ -1017,13 +1031,14 @@ pub fn view_layers<'a>(
 ) -> Element<'a, Message> {
     let names: Vec<String> = state.targets.iter().map(|t| t.name.clone()).collect();
     let target = state.targets.get(state.current);
-    let underlay = crate::ui::kit::themed_pick_list(target.map(|t| t.name.clone()), names, |n: &String| {
-        n.clone()
-    })
-    .on_select(|n| msg(PdfDialogMsg::LayersUnderlay(n)))
-    .text_size(tokens::TEXT_BODY)
-    .padding(kit::Size::Control.padding())
-    .width(Fill);
+    let underlay =
+        crate::ui::kit::themed_pick_list(target.map(|t| t.name.clone()), names, |n: &String| {
+            n.clone()
+        })
+        .on_select(|n| msg(PdfDialogMsg::LayersUnderlay(n)))
+        .text_size(tokens::TEXT_BODY)
+        .padding(kit::Size::Control.padding())
+        .width(Fill);
     let search = text_input(t!("Search for layer").as_ref(), &state.search)
         .on_input(|s| msg(PdfDialogMsg::LayersSearch(s)))
         .size(tokens::TEXT_LABEL)
@@ -1066,15 +1081,22 @@ pub fn view_layers<'a>(
                     )
                     .width(Length::Fixed(64.0));
                     container(
-                        row![text(name.clone()).size(tokens::TEXT_BODY).width(Fill), switch].align_y(iced::Center),
+                        row![
+                            text(name.clone()).size(tokens::TEXT_BODY).width(Fill),
+                            switch
+                        ]
+                        .align_y(iced::Center),
                     )
                     .padding(kit::PAD_WELL)
                     .style(|theme: &Theme| wash_style(Tier::Well, theme, ""))
                     .into()
                 });
-            crate::ui::kit::themed_scrollable(iced::widget::Column::with_children(rows.collect::<Vec<_>>()).spacing(tokens::GAP_TIGHT))
-                .height(Fill)
-                .into()
+            crate::ui::kit::themed_scrollable(
+                iced::widget::Column::with_children(rows.collect::<Vec<_>>())
+                    .spacing(tokens::GAP_TIGHT),
+            )
+            .height(Fill)
+            .into()
         }
         _ => container(
             text(t!("This file does not contain any layers"))
@@ -1306,7 +1328,9 @@ pub fn view_import_file<'a>(
             .padding(kit::PAD_FIELD)
             .width(Length::Fixed(48.0))
             .style(field_style),
-        text(format!("/ {count}")).size(tokens::TEXT_LABEL).style(muted_style),
+        text(format!("/ {count}"))
+            .size(tokens::TEXT_LABEL)
+            .style(muted_style),
         Space::new().width(Fill),
         step(
             crate::ui::icons::themed_arrow_right(12.0),
@@ -1347,7 +1371,9 @@ pub fn view_import_file<'a>(
         t!("Placement").into_owned(),
         column![
             row![
-                text(t!("Insertion point")).size(tokens::TEXT_LABEL).width(Fill),
+                text(t!("Insertion point"))
+                    .size(tokens::TEXT_LABEL)
+                    .width(Fill),
                 chip(
                     t!("On screen").into_owned(),
                     state.insert_on_screen,
@@ -1378,7 +1404,10 @@ pub fn view_import_file<'a>(
         .spacing(tokens::GAP_ROW),
     );
     let (content, layers, options) = settings_cards(&state.settings);
-    let right = crate::ui::kit::themed_scrollable(column![placement, content, layers, options].spacing(tokens::GAP_ROW)).height(Fill);
+    let right = crate::ui::kit::themed_scrollable(
+        column![placement, content, layers, options].spacing(tokens::GAP_ROW),
+    )
+    .height(Fill);
     let body = row![
         container(page).width(Length::FillPortion(1)),
         container(right).width(Length::FillPortion(1)),
@@ -1622,7 +1651,10 @@ pub fn view_point_cloud_color_map<'a>(
         // The press stays On/Off, not Locked: the call sites hand a message even
         // for the open tab, so clicking it re-selects it — that behaviour is kept.
         kit::btn(
-            text(label).size(tokens::TEXT_LABEL).width(Fill).align_x(iced::Center),
+            text(label)
+                .size(tokens::TEXT_LABEL)
+                .width(Fill)
+                .align_x(iced::Center),
             if on {
                 kit::Role::Engaged
             } else {
@@ -1672,14 +1704,20 @@ pub fn view_point_cloud_color_map<'a>(
     // Listed by name, as the reference lists them.
     let mut names: Vec<String> = state.ramps.iter().map(|r| r.name.clone()).collect();
     names.sort_by_key(|n| n.to_lowercase());
-    let scheme = crate::ui::kit::themed_pick_list(ramp.map(|r| r.name.clone()), names, |n: &String| n.clone())
+    let scheme =
+        crate::ui::kit::themed_pick_list(ramp.map(|r| r.name.clone()), names, |n: &String| {
+            n.clone()
+        })
         .on_select(|n| msg(PdfDialogMsg::MapScheme(n)))
         .text_size(tokens::TEXT_BODY)
         .padding(kit::Size::Control.padding())
         .width(Fill);
     let small = |label: std::borrow::Cow<'static, str>, message: PdfDialogMsg| {
         kit::btn(
-            text(label).size(tokens::TEXT_LABEL).width(Fill).align_x(iced::Center),
+            text(label)
+                .size(tokens::TEXT_LABEL)
+                .width(Fill)
+                .align_x(iced::Center),
             kit::Role::Standard,
             kit::Size::Control,
             kit::Press::On(msg(message)),
@@ -1688,11 +1726,13 @@ pub fn view_point_cloud_color_map<'a>(
         .width(Length::Fixed(118.0))
     };
     let counts: Vec<usize> = (2..=25).collect();
-    let count = crate::ui::kit::themed_pick_list(Some(colors.len().max(2)), counts, |n: &usize| n.to_string())
-        .on_select(|n| msg(PdfDialogMsg::MapCount(n)))
-        .text_size(tokens::TEXT_BODY)
-        .padding(kit::Size::Compact.padding())
-        .width(Length::Fixed(70.0));
+    let count = crate::ui::kit::themed_pick_list(Some(colors.len().max(2)), counts, |n: &usize| {
+        n.to_string()
+    })
+    .on_select(|n| msg(PdfDialogMsg::MapCount(n)))
+    .text_size(tokens::TEXT_BODY)
+    .padding(kit::Size::Compact.padding())
+    .width(Length::Fixed(70.0));
     // Blend: a strip from the first colour to the last.
     let ends = [
         colors.first().copied().unwrap_or([255; 3]),
@@ -1877,11 +1917,17 @@ pub fn view_point_cloud_color_map<'a>(
 
     let body = row![
         container(ramp_card).width(Length::Fixed(200.0)),
-        column![scheme_card, range_card].spacing(tokens::GAP_ROW).width(Fill),
+        column![scheme_card, range_card]
+            .spacing(tokens::GAP_ROW)
+            .width(Fill),
     ]
     .spacing(tokens::GAP_FIELD);
 
-    let mut left = row![dialog_button("?", msg(PdfDialogMsg::Help("pointcloudcolormap")), false)]
+    let mut left = row![dialog_button(
+        "?",
+        msg(PdfDialogMsg::Help("pointcloudcolormap")),
+        false
+    )]
     .spacing(tokens::GAP_ROW)
     .align_y(iced::Center);
     if has_cloud {
@@ -2003,9 +2049,13 @@ pub fn view_pc_section<'a>(
             .spacing(tokens::GAP_ROW)
             .align_y(iced::Center),
             row![
-                text(t!("Faster")).size(tokens::TEXT_MICRO).style(muted_style),
+                text(t!("Faster"))
+                    .size(tokens::TEXT_MICRO)
+                    .style(muted_style),
                 Space::new().width(Fill),
-                text(t!("More accurate")).size(tokens::TEXT_MICRO).style(muted_style),
+                text(t!("More accurate"))
+                    .size(tokens::TEXT_MICRO)
+                    .style(muted_style),
                 Space::new().width(Fill),
                 text(crate::tf!(
                     "Estimated time: {count} minutes",

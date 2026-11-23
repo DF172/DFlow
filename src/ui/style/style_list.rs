@@ -83,7 +83,9 @@ pub fn item<'a>(
         let cell = container(label)
             .padding(crate::ui::kit::Size::Compact.padding())
             .width(Fill)
-            .style(move |theme: &Theme| crate::ui::kit::selected_row_wash_style(theme, is_selected));
+            .style(move |theme: &Theme| {
+                crate::ui::kit::selected_row_wash_style(theme, is_selected)
+            });
         let area = mouse_area(cell).on_press(on_select);
         if can_rename {
             area.on_double_click(Message::StyleRenameStart(kind, name.to_string()))

@@ -333,7 +333,9 @@ impl Splash {
 /// hand-off needs: warm the first frame up while nobody can see it.
 #[cfg(target_os = "windows")]
 pub fn set_window_cloaked(window: &dyn iced::window::Window, cloaked: bool) {
-    let Some(hwnd) = win32_hwnd(window) else { return };
+    let Some(hwnd) = win32_hwnd(window) else {
+        return;
+    };
     let value: i32 = i32::from(cloaked);
     unsafe {
         windows_sys::Win32::Graphics::Dwm::DwmSetWindowAttribute(
@@ -349,7 +351,9 @@ pub fn set_window_cloaked(window: &dyn iced::window::Window, cloaked: bool) {
 /// so it never appears at the 800×600 creation size and then jumps.
 #[cfg(target_os = "windows")]
 pub fn show_window_maximized(window: &dyn iced::window::Window) {
-    let Some(hwnd) = win32_hwnd(window) else { return };
+    let Some(hwnd) = win32_hwnd(window) else {
+        return;
+    };
     unsafe {
         windows_sys::Win32::UI::WindowsAndMessaging::ShowWindow(
             hwnd,
@@ -449,7 +453,6 @@ fn plate_alpha(play: &Play, elapsed: f32) -> f32 {
     }
 }
 
-
 /// `12-adapt.md` §1.1. Below 800 px of width the 0.70 floor would push the
 /// wordmark past the right edge, so the floor is dropped there and the plate
 /// scales by width alone; §1.4 hides the small pieces at the same time.
@@ -459,8 +462,7 @@ fn scale(w: f32, h: f32) -> f32 {
     } else {
         (h / 800.0)
             .min(w / tokens::splash::DESIGN_WIDTH)
-            .max(tokens::splash::SCALE_MIN)
-            .min(tokens::splash::SCALE_MAX)
+            .clamp(tokens::splash::SCALE_MIN, tokens::splash::SCALE_MAX)
     }
 }
 
@@ -626,7 +628,11 @@ fn paint_dots(frame: &mut canvas::Frame, c: &Ctx) {
     while y <= y1 {
         let mut x = x0;
         while x <= x1 {
-            frame.fill_rectangle(Point::new(x.round(), y.round()), Size::new(size, size), color);
+            frame.fill_rectangle(
+                Point::new(x.round(), y.round()),
+                Size::new(size, size),
+                color,
+            );
             x += step;
         }
         y += step;
@@ -773,8 +779,18 @@ fn paint_sheet(frame: &mut canvas::Frame, c: &Ctx, level: &Level, view: &SplashV
     let prose = c.sheet_size(9.0);
     if level.title_full {
         cell(
-            frame, tx0, ty0, pad, 7.0 * s, caption, 22.0 * s, value, "DRAWING", "DF-1.0.0",
-            label_ink, value_ink,
+            frame,
+            tx0,
+            ty0,
+            pad,
+            7.0 * s,
+            caption,
+            22.0 * s,
+            value,
+            "DRAWING",
+            "DF-1.0.0",
+            label_ink,
+            value_ink,
         );
         cell(
             frame,
@@ -860,8 +876,26 @@ fn paint_sheet(frame: &mut canvas::Frame, c: &Ctx, level: &Level, view: &SplashV
         }
         bar(frame, rx + 40.0 * s, ry, 1.0, rl * 4.0, inner_ink);
         bar(frame, rx + 140.0 * s, ry, 1.0, rl * 4.0, inner_ink);
-        label(frame, "REV", rx + pad, ry + 7.0 * s, caption, label_ink, TextAlign::Left, Vertical::Top);
-        label(frame, "DATE", rx + 48.0 * s, ry + 7.0 * s, caption, label_ink, TextAlign::Left, Vertical::Top);
+        label(
+            frame,
+            "REV",
+            rx + pad,
+            ry + 7.0 * s,
+            caption,
+            label_ink,
+            TextAlign::Left,
+            Vertical::Top,
+        );
+        label(
+            frame,
+            "DATE",
+            rx + 48.0 * s,
+            ry + 7.0 * s,
+            caption,
+            label_ink,
+            TextAlign::Left,
+            Vertical::Top,
+        );
         label(
             frame,
             "DESCRIPTION",
@@ -879,8 +913,26 @@ fn paint_sheet(frame: &mut canvas::Frame, c: &Ctx, level: &Level, view: &SplashV
         ];
         for (n, (rev, date, text)) in revisions.iter().enumerate() {
             let y = ry + rl * (n as f32 + 1.0) + 7.0 * s;
-            label(frame, rev, rx + pad, y, caption, label_ink, TextAlign::Left, Vertical::Top);
-            label(frame, date, rx + 48.0 * s, y, caption, label_ink, TextAlign::Left, Vertical::Top);
+            label(
+                frame,
+                rev,
+                rx + pad,
+                y,
+                caption,
+                label_ink,
+                TextAlign::Left,
+                Vertical::Top,
+            );
+            label(
+                frame,
+                date,
+                rx + 48.0 * s,
+                y,
+                caption,
+                label_ink,
+                TextAlign::Left,
+                Vertical::Top,
+            );
             label(
                 frame,
                 text,
@@ -905,13 +957,47 @@ fn paint_sheet(frame: &mut canvas::Frame, c: &Ctx, level: &Level, view: &SplashV
         }
         bar(frame, lx + 20.0 * s, ly, 1.0, ll * 4.0, inner_ink);
         bar(frame, lx + 120.0 * s, ly, 1.0, ll * 4.0, inner_ink);
-        label(frame, "LAYER", lx + 28.0 * s, ly + 7.0 * s, caption, label_ink, TextAlign::Left, Vertical::Top);
-        label(frame, "LTYPE", lx + 128.0 * s, ly + 7.0 * s, caption, label_ink, TextAlign::Left, Vertical::Top);
+        label(
+            frame,
+            "LAYER",
+            lx + 28.0 * s,
+            ly + 7.0 * s,
+            caption,
+            label_ink,
+            TextAlign::Left,
+            Vertical::Top,
+        );
+        label(
+            frame,
+            "LTYPE",
+            lx + 128.0 * s,
+            ly + 7.0 * s,
+            caption,
+            label_ink,
+            TextAlign::Left,
+            Vertical::Top,
+        );
         let layers = ["0", "DIM", "TEXT"];
         for (n, name) in layers.iter().enumerate() {
             let y = ly + ll * (n as f32 + 1.0) + 7.0 * s;
-            bar(frame, lx + 8.0 * s, y + 1.0 * s, 6.0 * s, 6.0 * s, table_ink);
-            label(frame, name, lx + 28.0 * s, y, caption, label_ink, TextAlign::Left, Vertical::Top);
+            bar(
+                frame,
+                lx + 8.0 * s,
+                y + 1.0 * s,
+                6.0 * s,
+                6.0 * s,
+                table_ink,
+            );
+            label(
+                frame,
+                name,
+                lx + 28.0 * s,
+                y,
+                caption,
+                label_ink,
+                TextAlign::Left,
+                Vertical::Top,
+            );
             label(
                 frame,
                 "CONTINUOUS",
@@ -1148,11 +1234,17 @@ fn draw_gear(frame: &mut canvas::Frame, g: &Gear, alpha: f32, c: &Ctx) {
     // Centre cross, extended past the tip so it reads as a construction line.
     let reach = g.tip + if g.detailed { 18.0 } else { 8.0 } * ss;
     frame.stroke(
-        &canvas::Path::line(Point::new(g.cx - reach, g.cy), Point::new(g.cx + reach, g.cy)),
+        &canvas::Path::line(
+            Point::new(g.cx - reach, g.cy),
+            Point::new(g.cx + reach, g.cy),
+        ),
         canvas::Stroke::default().with_color(guide).with_width(1.0),
     );
     frame.stroke(
-        &canvas::Path::line(Point::new(g.cx, g.cy - reach), Point::new(g.cx, g.cy + reach)),
+        &canvas::Path::line(
+            Point::new(g.cx, g.cy - reach),
+            Point::new(g.cx, g.cy + reach),
+        ),
         canvas::Stroke::default().with_color(guide).with_width(1.0),
     );
 
@@ -1218,7 +1310,9 @@ fn draw_gear(frame: &mut canvas::Frame, g: &Gear, alpha: f32, c: &Ctx) {
     // Bore, plus a keyway on the wheel so the hub is not a plain circle.
     frame.stroke(
         &canvas::Path::circle(Point::new(g.cx, g.cy), g.bore),
-        canvas::Stroke::default().with_color(outline).with_width(1.0),
+        canvas::Stroke::default()
+            .with_color(outline)
+            .with_width(1.0),
     );
     if g.detailed {
         let key = std::f32::consts::FRAC_PI_4 + rot;
@@ -1473,14 +1567,7 @@ fn progress_span(c: &Ctx, text_w: f32) -> Option<(f32, f32)> {
     (x1 - x0 >= tokens::splash::PROGRESS_MIN * s).then_some((x0, x1))
 }
 
-fn paint_progress(
-    frame: &mut canvas::Frame,
-    c: &Ctx,
-    alpha: f32,
-    x0: f32,
-    x1: f32,
-    center_y: f32,
-) {
+fn paint_progress(frame: &mut canvas::Frame, c: &Ctx, alpha: f32, x0: f32, x1: f32, center_y: f32) {
     let s = c.s;
     let h = c.line(tokens::splash::PROGRESS_HEIGHT);
     let y = center_y - h * 0.5;
@@ -1601,7 +1688,14 @@ fn paint_cap(frame: &mut canvas::Frame, c: &Ctx) {
     let slide = (1.0 - p) * 24.0 * c.s;
     let left = c.w - 96.0 * c.s - size + slide;
     let top = c.base() - size * 0.5;
-    bar(frame, left, top, size, size, tint(tokens::splash::ACCENT, p));
+    bar(
+        frame,
+        left,
+        top,
+        size,
+        size,
+        tint(tokens::splash::ACCENT, p),
+    );
     bar(
         frame,
         left + 7.0 * c.s,
@@ -1769,19 +1863,20 @@ fn label_font(
 /// dimension line starts at the glyph edge, not at a guessed 910 px) and for
 /// the CAD advance.
 fn measure(content: &str, size: f32, font: Font) -> f32 {
-    let paragraph = <iced::Renderer as iced::advanced::text::Renderer>::Paragraph::with_text(TextSpec {
-        content,
-        bounds: Size::new(8000.0, 8000.0),
-        size: Pixels(size),
-        line_height: LineHeight::Absolute(Pixels(size)),
-        font,
-        align_x: TextAlign::Left,
-        align_y: Vertical::Top,
-        shaping: Shaping::default(),
-        wrapping: Wrapping::None,
-        ellipsis: Ellipsis::None,
-        hint_factor: None,
-    });
+    let paragraph =
+        <iced::Renderer as iced::advanced::text::Renderer>::Paragraph::with_text(TextSpec {
+            content,
+            bounds: Size::new(8000.0, 8000.0),
+            size: Pixels(size),
+            line_height: LineHeight::Absolute(Pixels(size)),
+            font,
+            align_x: TextAlign::Left,
+            align_y: Vertical::Top,
+            shaping: Shaping::default(),
+            wrapping: Wrapping::None,
+            ellipsis: Ellipsis::None,
+            hint_factor: None,
+        });
     paragraph.min_width()
 }
 
@@ -1801,7 +1896,8 @@ fn wordmark_advances(view: &SplashView, s: f32) -> ([f32; 5], [f32; 4]) {
     };
     let draft = WORDMARK_DRAFT.map(|letter| advances(letter, tokens::splash::WORDMARK_BOLD));
     let flow = WORDMARK_FLOW.map(|letter| advances(letter, tokens::splash::WORDMARK_ITALIC));
-    view.metrics.set(Some(WordmarkMetrics { size, draft, flow }));
+    view.metrics
+        .set(Some(WordmarkMetrics { size, draft, flow }));
     (draft, flow)
 }
 
@@ -1858,17 +1954,15 @@ fn cubic_bezier(curve: (f32, f32, f32, f32), x: f32) -> f32 {
     if x >= 1.0 {
         return 1.0;
     }
-    let sample_x = |t: f32| {
-        3.0 * (1.0 - t) * (1.0 - t) * t * x1 + 3.0 * (1.0 - t) * t * t * x2 + t * t * t
-    };
+    let sample_x =
+        |t: f32| 3.0 * (1.0 - t) * (1.0 - t) * t * x1 + 3.0 * (1.0 - t) * t * t * x2 + t * t * t;
     let sample_dx = |t: f32| {
         3.0 * (1.0 - t) * (1.0 - t) * x1
             + 6.0 * (1.0 - t) * t * (x2 - x1)
             + 3.0 * t * t * (1.0 - x2)
     };
-    let sample_y = |t: f32| {
-        3.0 * (1.0 - t) * (1.0 - t) * t * y1 + 3.0 * (1.0 - t) * t * t * y2 + t * t * t
-    };
+    let sample_y =
+        |t: f32| 3.0 * (1.0 - t) * (1.0 - t) * t * y1 + 3.0 * (1.0 - t) * t * t * y2 + t * t * t;
 
     // Newton-Raphson on the x polynomial, falling back to bisection where the
     // derivative is flat (the vertical-ish handles in `rise`).
@@ -1938,7 +2032,7 @@ mod tests {
         assert!(last_delay + last_duration <= TIMELINE_MS);
         assert!(last_delay + last_duration >= TIMELINE_MS - 1.0);
         // The playback only stretches: a shorter figure would cut the tail off.
-        assert!(INTRO_MS >= TIMELINE_MS);
+        const { assert!(INTRO_MS >= TIMELINE_MS) };
     }
 
     /// A stretched plate must keep the same figure: the mapping from wall-clock
@@ -2206,7 +2300,10 @@ mod tests {
             );
             // Everything else still goes through the normal ready upgrade.
             if t >= INTRO_MS - READY_LEAD_MS {
-                assert_eq!(splash.status_at(SplashStatus::Starting), SplashStatus::Ready);
+                assert_eq!(
+                    splash.status_at(SplashStatus::Starting),
+                    SplashStatus::Ready
+                );
             }
         }
         let all = [
@@ -2251,10 +2348,7 @@ mod tests {
                 cut >= wordmark_right + 24.0 * s,
                 "{w}×{h}: cut {cut} lands under the wordmark ending at {wordmark_right}"
             );
-            assert!(
-                cut <= w,
-                "{w}×{h}: cut {cut} runs past the plate"
-            );
+            assert!(cut <= w, "{w}×{h}: cut {cut} runs past the plate");
             assert!(
                 cut + 21.0 * s + 9.0 * s <= w,
                 "{w}×{h}: the cross hangs off the plate"
@@ -2287,7 +2381,11 @@ mod tests {
     fn handoff_fades_as_one_plate_over_a_prewarmed_workspace() {
         for t in [0.0, 700.0, INTRO_MS - 1.0, INTRO_MS] {
             let splash = plate_at(t);
-            assert_eq!(plate_alpha(&splash.play, t), 1.0, "alpha before the fade at {t}");
+            assert_eq!(
+                plate_alpha(&splash.play, t),
+                1.0,
+                "alpha before the fade at {t}"
+            );
             if t < INTRO_MS {
                 assert!(
                     !splash.wants_workspace_below(),
@@ -2300,7 +2398,10 @@ mod tests {
             let t = INTRO_MS + FADE_MS * step as f32 / 20.0;
             let splash = plate_at(t);
             let alpha = plate_alpha(&splash.play, t);
-            assert!(alpha <= last + 1e-6, "alpha rose at {t}: {last} then {alpha}");
+            assert!(
+                alpha <= last + 1e-6,
+                "alpha rose at {t}: {last} then {alpha}"
+            );
             last = alpha;
             assert!(splash.wants_workspace_below(), "no workspace below at {t}");
             if t < INTRO_MS + FADE_MS {
@@ -2335,8 +2436,8 @@ mod tests {
     #[test]
     fn quiet_fades_within_its_unchanged_hold() {
         assert_eq!(QUIET_HOLD_MS, 420.0);
-        assert!(QUIET_FADE_MS > 0.0 && QUIET_FADE_MS <= 120.0);
-        assert!(QUIET_FADE_MS < QUIET_HOLD_MS);
+        const { assert!(QUIET_FADE_MS > 0.0 && QUIET_FADE_MS <= 120.0) };
+        const { assert!(QUIET_FADE_MS < QUIET_HOLD_MS) };
         let start = QUIET_HOLD_MS - QUIET_FADE_MS;
         assert_eq!(plate_alpha(&Play::Quiet, 0.0), 1.0);
         assert_eq!(plate_alpha(&Play::Quiet, start), 1.0);
@@ -2465,7 +2566,10 @@ mod tests {
         // the pair entirely, so the seam token has to stand in for it alone.
         const SEAM_PAIR_EM: f32 = -0.009;
         let seam = tokens::splash::WORDMARK_SEAM + SEAM_PAIR_EM;
-        assert!(seam >= WANTED_AIR_EM, "the seam would come out at {seam:.3} em");
+        assert!(
+            seam >= WANTED_AIR_EM,
+            "the seam would come out at {seam:.3} em"
+        );
         // The italic F hangs 0.076 em past its advance and L starts 0.035 em
         // before its origin: the pair collides by 0.111 em at the cap line, so
         // its own kern has to carry that plus the same air.
@@ -2485,9 +2589,15 @@ mod tests {
         assert_eq!(run_width(&advances, 100.0, 0.0, &[]), 150.0);
         assert_eq!(run_width(&advances, 100.0, 0.05, &[]), 170.0); // four gaps
         assert_eq!(run_width(&advances[..1], 100.0, 0.5, &[]), 10.0); // nothing to gap
-        // A per-pair kern lands once, in its own gap, and nowhere else.
-        assert_eq!(run_width(&advances, 100.0, 0.0, &[0.1, 0.0, 0.0, 0.0]), 160.0);
-        assert_eq!(run_width(&advances, 100.0, 0.0, &[0.0, 0.1, 0.0, 0.0]), 160.0);
+                                                                      // A per-pair kern lands once, in its own gap, and nowhere else.
+        assert_eq!(
+            run_width(&advances, 100.0, 0.0, &[0.1, 0.0, 0.0, 0.0]),
+            160.0
+        );
+        assert_eq!(
+            run_width(&advances, 100.0, 0.0, &[0.0, 0.1, 0.0, 0.0]),
+            160.0
+        );
     }
 
     /// Every status the plate can show resolves to a non-empty line, including

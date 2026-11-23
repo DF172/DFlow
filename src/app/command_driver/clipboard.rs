@@ -1238,8 +1238,10 @@ mod paste_entities_kernel_tests {
         let note = seed
             .add_entity(codec::EntityType::MText(codec::entities::MText::new()))
             .unwrap();
-        let mut leader = codec::entities::Leader::default();
-        leader.annotation_handle = note;
+        let leader = codec::entities::Leader {
+            annotation_handle: note,
+            ..Default::default()
+        };
         let leader_handle = seed.add_entity(codec::EntityType::Leader(leader)).unwrap();
         let (entities, deps) = copy_to_clipboard_kernel(&seed, &[leader_handle, note]);
 

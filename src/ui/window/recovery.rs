@@ -1,11 +1,11 @@
-use crate::ui::style::tokens;
 use crate::app::Message;
 use crate::io::recovery::{RecoveryReport, RecoveryStatus};
-use crate::ui::kit::muted_style;
-use iced::widget::{column, container, row, text, Space};
-use crate::ui::kit::plain_button;
-use iced::{Element, Fill, Length, Shrink, Theme};
 use crate::ui::kit;
+use crate::ui::kit::muted_style;
+use crate::ui::kit::plain_button;
+use crate::ui::style::tokens;
+use iced::widget::{column, container, row, text, Space};
+use iced::{Element, Fill, Length, Shrink, Theme};
 
 fn status_style(status: RecoveryStatus) -> impl Fn(&Theme) -> iced::widget::text::Style + Copy {
     move |theme: &Theme| {
@@ -151,9 +151,13 @@ pub fn view_window<'a>(
 
     container(
         column![
-            text(heading).size(tokens::TEXT_TITLE).style(status_style(status)),
+            text(heading)
+                .size(tokens::TEXT_TITLE)
+                .style(status_style(status)),
             text(&report.file_name).size(tokens::TEXT_META),
-            text(description).size(tokens::TEXT_LABEL).style(muted_style),
+            text(description)
+                .size(tokens::TEXT_LABEL)
+                .style(muted_style),
             Space::new().height(4),
             metrics,
             detail_panel,
@@ -211,10 +215,10 @@ pub fn view_prompt<'a>(
                 ))
                 .height(content_height),
             )
-                .padding(kit::PAD_CARD)
-                .width(content_width)
-                .height(content_height)
-                .style(|theme: &Theme| kit::Tier::Well.style(theme, "")),
+            .padding(kit::PAD_CARD)
+            .width(content_width)
+            .height(content_height)
+            .style(|theme: &Theme| kit::Tier::Well.style(theme, "")),
             actions,
         ]
         .spacing(tokens::GAP_FIELD)

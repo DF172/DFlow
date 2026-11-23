@@ -288,7 +288,7 @@ impl DraftFlowCAD {
         let cloned: Vec<codec::EntityType> = handles
             .iter()
             .filter_map(|handle| self.tabs[source_index].scene.document.get_entity(*handle))
-            .map(|entity| entity.clone())
+            .cloned()
             .collect();
 
         // Copy the referenced layer definitions out of the source before the
@@ -415,7 +415,6 @@ impl DraftFlowCAD {
         }));
         Ok(Task::none())
     }
-
 
     /// `new` with `"template"` — start an untitled drawing from a DWG/DXF/DWT
     /// file. Tables and styles come from the template; the document keeps no

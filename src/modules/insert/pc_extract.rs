@@ -95,11 +95,13 @@ fn eigen(m: DMat3) -> ([f64; 3], [DVec3; 3]) {
         let t =
             (if theta >= 0.0 { 1.0 } else { -1.0 }) / (theta.abs() + (theta * theta + 1.0).sqrt());
         let (c, s) = (1.0 / (t * t + 1.0).sqrt(), t / (t * t + 1.0).sqrt());
-        for k in 0..3 {
-            let (akp, akq) = (a[k][p], a[k][q]);
-            a[k][p] = c * akp - s * akq;
-            a[k][q] = s * akp + c * akq;
+        for row in a.iter_mut() {
+            let (akp, akq) = (row[p], row[q]);
+            row[p] = c * akp - s * akq;
+            row[q] = s * akp + c * akq;
         }
+        // Column rotation reads two different rows; an index loop is required.
+        #[allow(clippy::needless_range_loop)]
         for k in 0..3 {
             let (apk, aqk) = (a[p][k], a[q][k]);
             a[p][k] = c * apk - s * aqk;
@@ -940,7 +942,7 @@ impl SectionCommand {
                     constant_width: s.width,
                     ..Default::default()
                 };
-                pline.common.color = color.clone();
+                pline.common.color = color;
                 if let Some(layer) = &s.layer {
                     pline.common.layer = layer.clone();
                 }
@@ -951,7 +953,7 @@ impl SectionCommand {
                         vector(plane.to_world(w[0].extend(0.0))),
                         vector(plane.to_world(w[1].extend(0.0))),
                     );
-                    line.common.color = color.clone();
+                    line.common.color = color;
                     if let Some(layer) = &s.layer {
                         line.common.layer = layer.clone();
                     }
@@ -1025,15 +1027,25 @@ impl SectionCommand {
                 } else {
                     "Entire cross section"
                 }
-            ).into_owned(),
-            SectionStep::MinLength => crate::tf!("Minimum line length <{}>:", s.min_length).into_owned(),
-            SectionStep::Connect => crate::tf!("Connect lines tolerance <{}>:", s.connect).into_owned(),
-            SectionStep::Angle => crate::tf!("Collinear angle tolerance <{}>:", s.angle).into_owned(),
-            SectionStep::MaxPoints => crate::tf!("Maximum points to process <{}>:", s.max_points).into_owned(),
+            )
+            .into_owned(),
+            SectionStep::MinLength => {
+                crate::tf!("Minimum line length <{}>:", s.min_length).into_owned()
+            }
+            SectionStep::Connect => {
+                crate::tf!("Connect lines tolerance <{}>:", s.connect).into_owned()
+            }
+            SectionStep::Angle => {
+                crate::tf!("Collinear angle tolerance <{}>:", s.angle).into_owned()
+            }
+            SectionStep::MaxPoints => {
+                crate::tf!("Maximum points to process <{}>:", s.max_points).into_owned()
+            }
             SectionStep::Output => crate::tf!(
                 "Output geometry [Lines/2D Polylines] <{}>:",
                 if s.polylines { "2D Polylines" } else { "Lines" }
-            ).into_owned(),
+            )
+            .into_owned(),
             _ => String::new(),
         }
     }

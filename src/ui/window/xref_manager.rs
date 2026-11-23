@@ -5,13 +5,13 @@
 //! report lines. Session state (unloaded set, stat cache) lives per-tab on
 //! `DocumentTab`; this panel only caches display rows plus text inputs.
 
-use crate::ui::kit;
-use crate::ui::style::tokens;
 use crate::app::Message;
 use crate::io::xref::collect_entries_with_prev;
 use crate::io::xref_model::{
     normalize_lexical, Pathtype, RefKind, RefStatus, RefType, ReferenceEntry,
 };
+use crate::ui::kit;
+use crate::ui::style::tokens;
 use crate::ui::ROW_H;
 use codec::CadDocument;
 use iced::widget::{column, container, mouse_area, row, text, tooltip};
@@ -336,7 +336,7 @@ impl XrefManagerPanel {
     /// - Ctrl/Cmd-click toggles one row;
     /// - Shift-click extends a contiguous range from the anchor (or the
     ///   clicked row when there is no anchor yet).
-    /// Tree mode always single-selects per spec, whatever the modifiers.
+    ///   Tree mode always single-selects per spec, whatever the modifiers.
     pub fn click_select(&mut self, id: &XrefRowId, extend: SelectExtend) {
         let Some(index) = self.row_index(id) else {
             return;
@@ -628,7 +628,8 @@ impl XrefManagerPanel {
                     Some(Message::PdfAttachPick),
                     None,
                 ),
-            ], theme
+            ],
+            theme,
         );
         let refresh = split_button(
             crate::t!("Refresh").into_owned(),
@@ -639,7 +640,8 @@ impl XrefManagerPanel {
                 crate::t!("Reload All References").into_owned(),
                 Some(Message::XrefManagerReloadAll),
                 None,
-            )], theme
+            )],
+            theme,
         );
         // List / Tree view buttons with active-state coloring: the current
         // mode is the engaged plate and cannot be pressed because it already
@@ -741,7 +743,8 @@ impl XrefManagerPanel {
                             Some(Message::XrefFindReplacePrompt),
                             None,
                         ),
-                    ], theme
+                    ],
+                    theme,
                 )
             }
         };
@@ -818,7 +821,7 @@ impl XrefManagerPanel {
                 .padding(kit::Size::Compact.padding())
                 .width(Fill),
         )
-        .on_move(|p| Message::XrefColMove(p))
+        .on_move(Message::XrefColMove)
         .on_release(Message::XrefColRelease)
         .into();
 
@@ -924,14 +927,10 @@ impl XrefManagerPanel {
         // Thin external padding + the deep recess around the table, like the
         // properties panel content. `Sink` is the same rung the toolbar above
         // uses, so the two chrome holes in this panel read as one field.
-        let table_rows: Element<'_, Message> = kit::wash(
-            table_rows,
-            kit::Tier::Sink,
-            tokens::GAP_TIGHT.into(),
-            "",
-        )
-        .width(Fill)
-        .into();
+        let table_rows: Element<'_, Message> =
+            kit::wash(table_rows, kit::Tier::Sink, tokens::GAP_TIGHT.into(), "")
+                .width(Fill)
+                .into();
 
         // ── Missing-on-open notice + details pane ─────────────────────────
         let notice: Option<Element<'_, Message>> = if missing > 0 {
@@ -1052,7 +1051,7 @@ impl XrefManagerPanel {
         // Panel-wide move/release tracking for the split drag (mirrors the
         // header divider tracking for columns).
         let content: Element<'_, Message> = mouse_area(content.spacing(tokens::GAP_NONE))
-            .on_move(|p| Message::XrefSplitMove(p))
+            .on_move(Message::XrefSplitMove)
             .on_release(Message::XrefSplitRelease)
             .into();
         // Fixed to the dock width like the block palette: the panel never
@@ -1242,7 +1241,7 @@ fn format_date(modified: Option<SystemTime>) -> String {
     let y = yoe as i64 + era * 400;
     let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
     let mp = (5 * doy + 2) / 153;
-    let d = doy as i64 - (153 * mp as u64 + 2) as i64 / 5 + 1;
+    let d = doy as i64 - (153 * mp + 2) as i64 / 5 + 1;
     let m = if mp < 10 { mp + 3 } else { mp - 9 } as i64;
     format!("{:04}-{:02}-{:02}", if m <= 2 { y + 1 } else { y }, m, d)
 }
@@ -1278,7 +1277,12 @@ fn toolbar_tip(label: String, tip: String, fill: bool) -> Element<'static, Messa
         "",
     );
     let b = if fill { b.width(Fill) } else { b };
-    tooltip(b, text(tip).size(tokens::TEXT_LABEL), tooltip::Position::Bottom).into()
+    tooltip(
+        b,
+        text(tip).size(tokens::TEXT_LABEL),
+        tooltip::Position::Bottom,
+    )
+    .into()
 }
 
 /// Split button: a default action plus a triangle that opens the rest in an
@@ -1593,11 +1597,11 @@ fn row_menu_for(id: XrefRowId, change_path_open: bool, theme: &Theme) -> Element
 
     let main_plate: Element<'static, Message> = container(
         column![
-            item(&crate::t!("Open").into_owned(), XrefPaletteOp::Open),
-            item(&crate::t!("Attach...").into_owned(), XrefPaletteOp::Attach),
-            item(&crate::t!("Unload").into_owned(), XrefPaletteOp::Unload),
-            item(&crate::t!("Reload").into_owned(), XrefPaletteOp::Reload),
-            item(&crate::t!("Detach").into_owned(), XrefPaletteOp::Detach),
+            item(&crate::t!("Open"), XrefPaletteOp::Open),
+            item(&crate::t!("Attach..."), XrefPaletteOp::Attach),
+            item(&crate::t!("Unload"), XrefPaletteOp::Unload),
+            item(&crate::t!("Reload"), XrefPaletteOp::Reload),
+            item(&crate::t!("Detach"), XrefPaletteOp::Detach),
             menu_separator(),
             change_path_row,
             menu_separator(),
@@ -1637,9 +1641,9 @@ fn row_menu_for(id: XrefRowId, change_path_open: bool, theme: &Theme) -> Element
     // break click delivery inside the `ContextMenu` overlay — see `menu_row`.
     let flyout_plate: Element<'static, Message> = container(
         column![
-            pathtype_item(&crate::t!("Make Absolute").into_owned(), Pathtype::Full),
-            pathtype_item(&crate::t!("Make Relative").into_owned(), Pathtype::Relative),
-            pathtype_item(&crate::t!("Remove Path").into_owned(), Pathtype::None),
+            pathtype_item(&crate::t!("Make Absolute"), Pathtype::Full),
+            pathtype_item(&crate::t!("Make Relative"), Pathtype::Relative),
+            pathtype_item(&crate::t!("Remove Path"), Pathtype::None),
         ]
         .spacing(MENU_SPACING)
         .padding(MENU_PADDING),
@@ -1966,7 +1970,9 @@ fn details_pane<'a>(
     };
     container(
         column![
-            text(crate::t!("Details")).size(tokens::TEXT_MICRO).style(kit::muted_style),
+            text(crate::t!("Details"))
+                .size(tokens::TEXT_MICRO)
+                .style(kit::muted_style),
             inner,
         ]
         .spacing(tokens::GAP_HAIRLINE),
@@ -2091,8 +2097,10 @@ mod tests {
 
     #[test]
     fn select_toggles_anchor_and_set() {
-        let mut panel = XrefManagerPanel::default();
-        panel.entries = vec![entry(1, "A", "a.dwg"), entry(2, "B", "b.dwg")];
+        let mut panel = XrefManagerPanel {
+            entries: vec![entry(1, "A", "a.dwg"), entry(2, "B", "b.dwg")],
+            ..Default::default()
+        };
         panel.toggle_select(0);
         panel.toggle_select(1);
         assert!(panel.selected.contains(&0) && panel.selected.contains(&1));
@@ -2106,13 +2114,15 @@ mod tests {
 
     #[test]
     fn tree_skips_repeat_paths() {
-        let mut panel = XrefManagerPanel::default();
-        panel.entries = vec![
-            entry(1, "A", "a.dwg"),
-            entry(2, "B", "b.dwg"),
-            entry(3, "B2", "b.dwg"),
-        ];
-        panel.tree = true;
+        let mut panel = XrefManagerPanel {
+            entries: vec![
+                entry(1, "A", "a.dwg"),
+                entry(2, "B", "b.dwg"),
+                entry(3, "B2", "b.dwg"),
+            ],
+            tree: true,
+            ..Default::default()
+        };
         // Host row leads; same file under two names renders twice; only
         // exact (path, name) repeats collapse.
         let rows = panel.display_rows();
@@ -2139,9 +2149,11 @@ mod tests {
 
     #[test]
     fn host_row_leads_and_ignores_selection() {
-        let mut panel = XrefManagerPanel::default();
-        panel.entries = vec![entry(1, "A", "a.dwg")];
-        panel.host_name = "host".to_string();
+        let mut panel = XrefManagerPanel {
+            entries: vec![entry(1, "A", "a.dwg")],
+            host_name: "host".to_string(),
+            ..Default::default()
+        };
         for tree in [false, true] {
             panel.tree = tree;
             let rows = panel.display_rows();
@@ -2155,9 +2167,11 @@ mod tests {
 
     #[test]
     fn tree_selects_single_reference() {
-        let mut panel = XrefManagerPanel::default();
-        panel.entries = vec![entry(1, "A", "a.dwg"), entry(2, "B", "b.dwg")];
-        panel.tree = true;
+        let mut panel = XrefManagerPanel {
+            entries: vec![entry(1, "A", "a.dwg"), entry(2, "B", "b.dwg")],
+            tree: true,
+            ..Default::default()
+        };
         panel.toggle_select(0);
         panel.toggle_select(1);
         assert_eq!(panel.selected, HashSet::from([1]));
@@ -2169,8 +2183,10 @@ mod tests {
 
     #[test]
     fn actionable_selection_skips_nested() {
-        let mut panel = XrefManagerPanel::default();
-        panel.entries = vec![entry(1, "A", "a.dwg"), entry(2, "B", "b.dwg")];
+        let mut panel = XrefManagerPanel {
+            entries: vec![entry(1, "A", "a.dwg"), entry(2, "B", "b.dwg")],
+            ..Default::default()
+        };
         panel.nested.insert(1);
         panel.toggle_select(0);
         panel.toggle_select(1);
@@ -2245,12 +2261,14 @@ mod tests {
         use super::SelectExtend;
         use super::XrefRowId;
         let id = |key: u64, saved: &str| XrefRowId::of(key, saved);
-        let mut panel = XrefManagerPanel::default();
-        panel.entries = vec![
-            entry(1, "A", "a.dwg"),
-            entry(2, "B", "b.dwg"),
-            entry(3, "C", "c.dwg"),
-        ];
+        let mut panel = XrefManagerPanel {
+            entries: vec![
+                entry(1, "A", "a.dwg"),
+                entry(2, "B", "b.dwg"),
+                entry(3, "C", "c.dwg"),
+            ],
+            ..Default::default()
+        };
         // Plain click selects exactly one row.
         panel.click_select(&id(1, "a.dwg"), SelectExtend::Single);
         panel.click_select(&id(3, "c.dwg"), SelectExtend::Single);
@@ -2270,16 +2288,20 @@ mod tests {
         panel.click_select(&id(4, "d.dwg"), SelectExtend::Toggle);
         assert_eq!(panel.selected, HashSet::from([2, 4]));
         // Range with no anchor starts at the clicked row.
-        let mut fresh = XrefManagerPanel::default();
-        fresh.entries = vec![entry(1, "A", "a.dwg"), entry(2, "B", "b.dwg")];
+        let mut fresh = XrefManagerPanel {
+            entries: vec![entry(1, "A", "a.dwg"), entry(2, "B", "b.dwg")],
+            ..Default::default()
+        };
         fresh.click_select(&id(2, "b.dwg"), SelectExtend::Range);
         assert_eq!(fresh.selected, HashSet::from([1]));
     }
 
     #[test]
     fn expand_collapses_by_default() {
-        let mut panel = XrefManagerPanel::default();
-        panel.entries = vec![entry(1, "A", "a.dwg"), entry(2, "B", "b.dwg")];
+        let mut panel = XrefManagerPanel {
+            entries: vec![entry(1, "A", "a.dwg"), entry(2, "B", "b.dwg")],
+            ..Default::default()
+        };
         panel.nested.insert(1);
         panel.children.insert(1, vec![1]);
         panel.tree = true;
@@ -2571,10 +2593,9 @@ mod tests {
         // buttons again.
         use iced_core::Widget;
 
-        let mut menu =
-            iced_aw::ContextMenu::new(text("anchor"), || {
-                row_menu_for(XrefRowId::of(0, ""), false, &TEST_THEME)
-            });
+        let mut menu = iced_aw::ContextMenu::new(text("anchor"), || {
+            row_menu_for(XrefRowId::of(0, ""), false, &TEST_THEME)
+        });
         let mut tree = iced_core::widget::Tree::new(
             &menu as &dyn Widget<Message, iced::Theme, iced::Renderer>,
         );

@@ -580,9 +580,7 @@ impl CadCommand for InsertBlockCommand {
             }
             Step::ListPattern => CmdResult::Measurement(self.listing("*")),
             Step::Point => {
-                if self.repeat && self.placed > 0 {
-                    CmdResult::Cancel
-                } else if self.mode == Mode::Paste {
+                if (self.repeat && self.placed > 0) || self.mode == Mode::Paste {
                     CmdResult::Cancel
                 } else {
                     CmdResult::ReportError("Point or option keyword required.".to_string())

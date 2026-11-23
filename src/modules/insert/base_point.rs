@@ -15,6 +15,12 @@ impl BaseCommand {
     }
 }
 
+impl Default for BaseCommand {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CadCommand for BaseCommand {
     fn name(&self) -> &'static str {
         "BASE"

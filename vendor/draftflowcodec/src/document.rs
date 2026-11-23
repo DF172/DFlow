@@ -21,9 +21,9 @@ use crate::classes::DxfClassCollection;
 use crate::entities::{EntityCommon, EntityType};
 use crate::objects::{
     BlockEvaluationEdge, BlockEvaluationGraph, BlockEvaluationNode, DataObjectData,
-    DynamicBlockData, DynamicBlockObject, MaterialColor, MaterialTexture, ObjectType,
-    SolidHistory, SolidHistoryBoolean, SolidHistoryNodeBase, SolidHistoryOperation,
-    SolidHistoryTree, XRecordEntry,
+    DynamicBlockData, DynamicBlockObject, MaterialColor, MaterialTexture, ObjectType, SolidHistory,
+    SolidHistoryBoolean, SolidHistoryNodeBase, SolidHistoryOperation, SolidHistoryTree,
+    XRecordEntry,
 };
 use crate::tables::*;
 use crate::types::{Color, DxfVersion, Handle, Vector2, Vector3};
@@ -2517,7 +2517,8 @@ impl CadDocument {
         object.handle = handle;
         object.owner = root;
         object.data = DynamicBlockData::EvaluationGraph(graph);
-        self.objects.insert(handle, ObjectType::DynamicBlock(object));
+        self.objects
+            .insert(handle, ObjectType::DynamicBlock(object));
     }
 
     pub fn solid_history_operation(&self, entity: Handle) -> Option<&SolidHistoryOperation> {
@@ -2650,13 +2651,16 @@ impl CadDocument {
     /// combines them. A boolean step has both solids it joined as operands.
     pub fn solid_history_tree(&self, entity: Handle) -> Option<SolidHistoryTree> {
         let graph = self.solid_history_graph(entity)?;
-        let evaluation = graph.evaluation_graph.and_then(|handle| match self.objects.get(&handle) {
-            Some(ObjectType::DynamicBlock(value)) => match &value.data {
-                DynamicBlockData::EvaluationGraph(evaluation) => Some(evaluation),
-                _ => None,
-            },
-            _ => None,
-        });
+        let evaluation =
+            graph
+                .evaluation_graph
+                .and_then(|handle| match self.objects.get(&handle) {
+                    Some(ObjectType::DynamicBlock(value)) => match &value.data {
+                        DynamicBlockData::EvaluationGraph(evaluation) => Some(evaluation),
+                        _ => None,
+                    },
+                    _ => None,
+                });
         let Some(evaluation) = evaluation else {
             // A parent-linked history is a chain: each step over the last.
             let mut chain = self.solid_history_operations(entity)?.into_iter();
@@ -2748,7 +2752,8 @@ impl CadDocument {
         let tool_evaluation = tool_graph.evaluation_graph?;
         let target_active = self.solid_history_active_node(&target_graph)?;
         let tool_active = self.solid_history_active_node(&tool_graph)?;
-        let evaluation_data = |document: &Self, handle: Handle| match document.objects.get(&handle) {
+        let evaluation_data = |document: &Self, handle: Handle| match document.objects.get(&handle)
+        {
             Some(ObjectType::DynamicBlock(value)) => match &value.data {
                 DynamicBlockData::EvaluationGraph(evaluation) => Some(evaluation.clone()),
                 _ => None,
@@ -2780,7 +2785,12 @@ impl CadDocument {
             .flat_map(|base| [base.step_id.max(0), base.eval.node_id.max(0)])
             .max()?;
         let graph_offset = merged.nodes.iter().map(|node| node.id).max()? + 1;
-        let edge_offset = merged.edges.iter().map(|edge| edge.id).max().map_or(0, |id| id + 1);
+        let edge_offset = merged
+            .edges
+            .iter()
+            .map(|edge| edge.id)
+            .max()
+            .map_or(0, |id| id + 1);
         let shift = |value: i32, by: i32| if value >= 0 { value + by } else { value };
 
         for mut node in tool_data.nodes {
@@ -2828,7 +2838,12 @@ impl CadDocument {
             .node_id();
 
         let id = merged.nodes.iter().map(|node| node.id).max()? + 1;
-        let first_edge = merged.edges.iter().map(|edge| edge.id).max().map_or(0, |id| id + 1);
+        let first_edge = merged
+            .edges
+            .iter()
+            .map(|edge| edge.id)
+            .max()
+            .map_or(0, |id| id + 1);
         let second_edge = first_edge + 1;
         for (expression, edge) in [(target_active, first_edge), (tool_active, second_edge)] {
             let node = merged
@@ -3310,8 +3325,8 @@ impl CadDocument {
     /// The entity is stored in both the flat entity map (used by the DXF
     /// writer) and the *Model_Space block record (used by the DWG writer).
     pub fn add_entity(&mut self, mut entity: EntityType) -> Result<Handle> {
-        entity.common_mut().raw_record = None;   // (re)placed in the document: owner/handle may differ from the source bytes
-        // Allocate a handle if the entity doesn't have one
+        entity.common_mut().raw_record = None; // (re)placed in the document: owner/handle may differ from the source bytes
+                                               // Allocate a handle if the entity doesn't have one
         let handle = if entity.common().handle.is_null() {
             let h = self.allocate_handle();
             entity.as_entity_mut().set_handle(h);
@@ -3461,7 +3476,7 @@ impl CadDocument {
         let idx = *self.entity_index.get(&handle)?;
         self.record_entity_before(handle, Some(Arc::clone(&self.entities[idx])));
         let entity = Arc::make_mut(&mut self.entities[idx]);
-        entity.common_mut().raw_record = None;   // may be modified: verbatim bytes no longer trustworthy
+        entity.common_mut().raw_record = None; // may be modified: verbatim bytes no longer trustworthy
         Some(entity)
     }
 
@@ -3804,7 +3819,10 @@ impl CadDocument {
             })
             .collect();
         for record in self.block_records.iter_mut() {
-            if !matches!(self.objects.get(&record.layout), Some(ObjectType::Layout(_))) {
+            if !matches!(
+                self.objects.get(&record.layout),
+                Some(ObjectType::Layout(_))
+            ) {
                 record.layout = owners.get(&record.handle).copied().unwrap_or(Handle::NULL);
             }
         }
@@ -3816,15 +3834,18 @@ impl CadDocument {
         else {
             return;
         };
-        let has_layout = self.objects.values().any(|object| {
-            matches!(object, ObjectType::Layout(layout) if layout.block_record == model)
-        });
+        let has_layout = self.objects.values().any(
+            |object| matches!(object, ObjectType::Layout(layout) if layout.block_record == model),
+        );
         if has_layout {
             return;
         }
 
         let dict_handle = self.header.acad_layout_dict_handle;
-        let dict_handle = if matches!(self.objects.get(&dict_handle), Some(ObjectType::Dictionary(_))) {
+        let dict_handle = if matches!(
+            self.objects.get(&dict_handle),
+            Some(ObjectType::Dictionary(_))
+        ) {
             dict_handle
         } else {
             let handle = self.allocate_handle();
@@ -3894,7 +3915,11 @@ impl CadDocument {
                 recorder.record(entity.common().handle, Some(Arc::clone(entity)));
             }
         }
-        self.entities.iter_mut().map(|entity| { let e = Arc::make_mut(entity); e.common_mut().raw_record = None; e })
+        self.entities.iter_mut().map(|entity| {
+            let e = Arc::make_mut(entity);
+            e.common_mut().raw_record = None;
+            e
+        })
     }
 
     /// Like [`entities_mut`](Self::entities_mut) but keeps `raw_record`: for
@@ -4415,16 +4440,26 @@ impl CadDocument {
     /// deliberately rejected here rather than shared between block records.
     pub fn copy_evaluated_block_metadata(&mut self, source: Handle, target: Handle) -> Result<()> {
         for handle in [source, target] {
-            if !self.block_records.iter().any(|b| b.handle == handle && b.name.starts_with("*U")) {
+            if !self
+                .block_records
+                .iter()
+                .any(|b| b.handle == handle && b.name.starts_with("*U"))
+            {
                 return Err("Expected an evaluated anonymous block record".into());
             }
         }
         let dictionary = if let Some(handle) = self.extension_dictionary_handle(source) {
             match self.objects.get(&handle) {
-                Some(ObjectType::Dictionary(d)) if d.entries.is_empty() && d.xdictionary_handle.is_none() => Some(d.clone()),
+                Some(ObjectType::Dictionary(d))
+                    if d.entries.is_empty() && d.xdictionary_handle.is_none() =>
+                {
+                    Some(d.clone())
+                }
                 _ => return Err("Evaluated block has additional object relationships".into()),
             }
-        } else { None };
+        } else {
+            None
+        };
         if let Some(data) = self.eed_by_handle.get(&source).cloned() {
             self.eed_by_handle.insert(target, data);
         }
@@ -4433,7 +4468,8 @@ impl CadDocument {
             dictionary.handle = handle;
             dictionary.owner = target;
             dictionary.reactors.clear();
-            self.objects.insert(handle, ObjectType::Dictionary(dictionary));
+            self.objects
+                .insert(handle, ObjectType::Dictionary(dictionary));
             self.xdic_by_handle.insert(target, handle);
         }
         Ok(())
@@ -5759,7 +5795,8 @@ impl CadDocument {
             return;
         }
 
-        for entity in self.entities_mut_keep_raw() {   // derived colour names only; record bytes untouched
+        for entity in self.entities_mut_keep_raw() {
+            // derived colour names only; record bytes untouched
             let common = entity.common_mut();
             let resolved = common
                 .color_book_handle

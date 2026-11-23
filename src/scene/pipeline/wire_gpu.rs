@@ -508,9 +508,7 @@ pub fn block_const_bind_group_layout(
         ty: wgpu::BindingType::Buffer {
             ty: wgpu::BufferBindingType::Uniform,
             has_dynamic_offset: true,
-            min_binding_size: std::num::NonZeroU64::new(
-                std::mem::size_of::<WireConst>() as u64,
-            ),
+            min_binding_size: std::num::NonZeroU64::new(std::mem::size_of::<WireConst>() as u64),
         },
         count: None,
     }];
@@ -1077,10 +1075,7 @@ pub struct BlockWireTarget<'a> {
 /// Device bytes the arenas behind these batches hold, counting each arena once
 /// however many batches draw out of it. `seen` carries the arenas already
 /// counted, so slots that share a cached build are not counted twice.
-pub fn block_arena_bytes(
-    batches: &[BlockWireGpu],
-    seen: &mut rustc_hash::FxHashSet<usize>,
-) -> u64 {
+pub fn block_arena_bytes(batches: &[BlockWireGpu], seen: &mut rustc_hash::FxHashSet<usize>) -> u64 {
     batches
         .iter()
         .filter(|batch| seen.insert(std::sync::Arc::as_ptr(&batch.arena) as usize))
@@ -1103,6 +1098,25 @@ pub struct BlockGeometryRecords {
     pub records: Vec<BlockWireVertex>,
 }
 
+/// Batch 2 item 14: per-wire highlight tint mix for the cycling cross-fade.
+/// `strength >= 1` returns `tint` bit-exactly (the pre-fade behaviour) and
+/// `strength <= 0` returns the base colour, so the endpoints never depend on
+/// float rounding.
+pub(crate) fn mix_highlight_tint(base: [f32; 4], tint: [f32; 4], strength: f32) -> [f32; 4] {
+    if strength >= 1.0 {
+        tint
+    } else if strength <= 0.0 {
+        base
+    } else {
+        [
+            base[0] + (tint[0] - base[0]) * strength,
+            base[1] + (tint[1] - base[1]) * strength,
+            base[2] + (tint[2] - base[2]) * strength,
+            base[3] + (tint[3] - base[3]) * strength,
+        ]
+    }
+}
+
 impl BlockWireGpu {
     /// Identity of the geometry this batch draws, comparable across pipeline
     /// modes.
@@ -1123,6 +1137,7 @@ impl BlockWireGpu {
         wires: &[&WireModel],
         depth_map: &rustc_hash::FxHashMap<u64, [f32; 2]>,
         color_override: Option<[f32; 4]>,
+        tint_strength: f32,
         target: BlockWireTarget<'_>,
         mut cache: Option<&mut BlockGeometryCache>,
     ) -> Vec<Self> {
@@ -1162,7 +1177,9 @@ impl BlockWireGpu {
             let Some(base) = source.render_instance else {
                 continue;
             };
-            let color = color_override.unwrap_or(source.color);
+            let color = color_override
+                .map(|tint| mix_highlight_tint(source.color, tint, tint_strength))
+                .unwrap_or(source.color);
             let cache_key = (
                 base.source_id,
                 mesh_edge,
@@ -1195,8 +1212,7 @@ impl BlockWireGpu {
                         })
                         .collect();
                     emitted_segments += records.len();
-                    let built =
-                        std::sync::Arc::new(BlockGeometryRecords { constant, records });
+                    let built = std::sync::Arc::new(BlockGeometryRecords { constant, records });
                     // Records are device-independent, so a build the device
                     // rejected poisons nothing: the next one packs these same
                     // records into fresh buffers instead of caching a buffer
@@ -1222,7 +1238,11 @@ impl BlockWireGpu {
             crate::perf_record!(
                 "[perf] block-wire-geometry mode={} definitions={} arenas={} batches={} \
 segments={} bytes={} bytes_if_per_definition={} emitted={}",
-                if mode.uses_storage() { "storage" } else { "packed" },
+                if mode.uses_storage() {
+                    "storage"
+                } else {
+                    "packed"
+                },
                 live_keys.len(),
                 arena.arenas,
                 out.len(),
@@ -1573,6 +1593,7 @@ impl WireGpu {
         queue: &wgpu::Queue,
         wires: &[&WireModel],
         color: [f32; 4],
+        tint_strength: f32,
         depth_map: &rustc_hash::FxHashMap<u64, [f32; 2]>,
         const_bgl: Option<&wgpu::BindGroupLayout>,
     ) -> Vec<Self> {
@@ -1582,7 +1603,12 @@ impl WireGpu {
                 .par_iter()
                 .enumerate()
                 .map(|(idx, &wire)| {
-                    emit_wire_native(wire, idx as u32, color, wire_draw_depth(wire, depth_map))
+                    emit_wire_native(
+                        wire,
+                        idx as u32,
+                        mix_highlight_tint(wire.color, color, tint_strength),
+                        wire_draw_depth(wire, depth_map),
+                    )
                 })
                 .collect();
             let mut instances = Vec::with_capacity(per.iter().map(|(items, _)| items.len()).sum());
@@ -1610,7 +1636,13 @@ impl WireGpu {
         use crate::par::prelude::*;
         let per: Vec<Vec<PackedWireInstance>> = wires
             .par_iter()
-            .map(|wire| emit_wire_packed(wire, color, wire_draw_depth(wire, depth_map)))
+            .map(|wire| {
+                emit_wire_packed(
+                    wire,
+                    mix_highlight_tint(wire.color, color, tint_strength),
+                    wire_draw_depth(wire, depth_map),
+                )
+            })
             .collect();
         let mut instances = Vec::with_capacity(per.iter().map(Vec::len).sum());
         for mut items in per {

@@ -433,6 +433,12 @@ impl RectCommand {
     }
 }
 
+impl Default for RectCommand {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CadCommand for RectCommand {
     fn name(&self) -> &'static str {
         "RECT"
@@ -810,6 +816,12 @@ impl RectRotCommand {
     }
 }
 
+impl Default for RectRotCommand {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CadCommand for RectRotCommand {
     fn set_working_plane(&mut self, plane: WorkingPlane) {
         self.plane = plane;
@@ -934,6 +946,12 @@ impl RectCenCommand {
     }
 }
 
+impl Default for RectCenCommand {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CadCommand for RectCenCommand {
     fn name(&self) -> &'static str {
         "RECT_CEN"
@@ -1015,6 +1033,12 @@ impl PolyCommand {
             center: DVec3::ZERO,
             plane: WorkingPlane::default(),
         }
+    }
+}
+
+impl Default for PolyCommand {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -1168,6 +1192,12 @@ impl PolyCCommand {
     }
 }
 
+impl Default for PolyCCommand {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CadCommand for PolyCCommand {
     fn set_working_plane(&mut self, plane: WorkingPlane) {
         self.plane = plane;
@@ -1292,6 +1322,12 @@ impl PolyECommand {
             a: DVec3::ZERO,
             plane: WorkingPlane::default(),
         }
+    }
+}
+
+impl Default for PolyECommand {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

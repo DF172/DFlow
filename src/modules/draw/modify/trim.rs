@@ -1384,9 +1384,7 @@ fn trim_lwpolyline(poly: &LwPolyline, cx: f64, cy: f64, geos: &[Geo]) -> Option<
                 break;
             }
         }
-        let Some((lo, hi)) = removed else {
-            return None;
-        };
+        let (lo, hi) = removed?;
         let mut s1 = lo;
         while s1 <= hi {
             s1 += total;
@@ -1409,9 +1407,7 @@ fn trim_lwpolyline(poly: &LwPolyline, cx: f64, cy: f64, geos: &[Geo]) -> Option<
                 break;
             }
         }
-        let Some((lo, hi)) = removed else {
-            return None;
-        };
+        let (lo, hi) = removed?;
         if lo > 1e-6 {
             if let Some(piece) = extract_sub_polyline(poly, 0.0, lo) {
                 out.push(EntityType::LwPolyline(piece));
@@ -1624,7 +1620,7 @@ fn trim_xline(orig: &XLineEnt, ts: &[f64], t_click: f64) -> Vec<EntityType> {
     let curve = xline_curve(orig);
     trim_intervals(&curve, ts, t_click)
         .into_iter()
-        .filter_map(|(ta, tb)| {
+        .map(|(ta, tb)| {
             let pa = pt(ta);
             let pb = pt(tb);
             let ext_neg = ta.is_infinite();
@@ -1635,7 +1631,7 @@ fn trim_xline(orig: &XLineEnt, ts: &[f64], t_click: f64) -> Vec<EntityType> {
                     // Whole XLine survived (shouldn't happen after a real trim)
                     let mut x = orig.clone();
                     x.common.handle = Handle::NULL;
-                    Some(EntityType::XLine(x))
+                    EntityType::XLine(x)
                 }
                 (true, false) => {
                     // Extends toward -infinity: Ray at pb pointing in -dir
@@ -1646,7 +1642,7 @@ fn trim_xline(orig: &XLineEnt, ts: &[f64], t_click: f64) -> Vec<EntityType> {
                     let mut r = r;
                     r.common = orig.common.clone();
                     r.common.handle = Handle::NULL;
-                    Some(EntityType::Ray(r))
+                    EntityType::Ray(r)
                 }
                 (false, true) => {
                     // Extends toward +infinity: Ray at pa pointing in +dir
@@ -1655,7 +1651,7 @@ fn trim_xline(orig: &XLineEnt, ts: &[f64], t_click: f64) -> Vec<EntityType> {
                     let mut r = r;
                     r.common = orig.common.clone();
                     r.common.handle = Handle::NULL;
-                    Some(EntityType::Ray(r))
+                    EntityType::Ray(r)
                 }
                 (false, false) => {
                     // Finite segment
@@ -1666,7 +1662,7 @@ fn trim_xline(orig: &XLineEnt, ts: &[f64], t_click: f64) -> Vec<EntityType> {
                     l.common.handle = Handle::NULL;
                     l.start = Vector3::new(pa[0], pa[1], pa[2]);
                     l.end = Vector3::new(pb[0], pb[1], pb[2]);
-                    Some(EntityType::Line(l))
+                    EntityType::Line(l)
                 }
             }
         })
@@ -1727,8 +1723,26 @@ fn entity_pts(e: &EntityType) -> Vec<[f32; 3]> {
             let far_y = by + r.direction.y * 20.0;
             let far_z = bz + r.direction.z * 20.0;
             vec![
-                [bx as f32, bz as f32, by as f32],
-                [far_x as f32, far_z as f32, far_y as f32],
+                [bx as f32, by as f32, bz as f32],
+                [far_x as f32, far_y as f32, far_z as f32],
+            ]
+        }
+        // X-lines are semi-infinite both ways; preview a 20-unit span each side.
+        EntityType::XLine(x) => {
+            let bx = x.base_point.x;
+            let by = x.base_point.y;
+            let bz = x.base_point.z;
+            vec![
+                [
+                    (bx - x.direction.x * 20.0) as f32,
+                    (by - x.direction.y * 20.0) as f32,
+                    (bz - x.direction.z * 20.0) as f32,
+                ],
+                [
+                    (bx + x.direction.x * 20.0) as f32,
+                    (by + x.direction.y * 20.0) as f32,
+                    (bz + x.direction.z * 20.0) as f32,
+                ],
             ]
         }
         _ => vec![],
@@ -2336,12 +2350,7 @@ fn fence_result_preview(
             continue;
         }
         if let Some(pieces) = fence_pieces(e, geos, &fence_geos, window, extend) {
-            out.push(WireModel::solid(
-                "trim_rm".into(),
-                entity_pts(e),
-                DIM_RED,
-                false,
-            ));
+            push_trim_hints(&mut out, e, &pieces);
             for (i, pe) in pieces.iter().enumerate() {
                 out.push(WireModel::solid(
                     format!("trim_keep_{i}"),
@@ -2433,6 +2442,99 @@ fn extend_tail_preview(orig: &EntityType, ext: &EntityType, name: &str) -> Optio
     w.pattern = [0.5, -0.3, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0];
     w.line_weight_px = 1.6;
     Some(w)
+}
+
+/// Dense sampling of an entity for the removal hint. Straight entities arrive
+/// as two points; subdividing keeps a mid-span cut visible instead of
+/// collapsing onto the endpoints.
+fn hint_samples(e: &EntityType) -> Vec<[f32; 3]> {
+    let pts = entity_pts(e);
+    if pts.len() >= 24 {
+        return pts;
+    }
+    let mut out = Vec::with_capacity(pts.len() * 24 + 1);
+    for w in pts.windows(2) {
+        for k in 0..24 {
+            let t = k as f32 / 24.0;
+            out.push([
+                w[0][0] + (w[1][0] - w[0][0]) * t,
+                w[0][1] + (w[1][1] - w[0][1]) * t,
+                w[0][2] + (w[1][2] - w[0][2]) * t,
+            ]);
+        }
+    }
+    if let Some(last) = pts.last() {
+        out.push(*last);
+    }
+    out
+}
+
+fn seg_dist2(p: &[f32; 3], a: &[f32; 3], b: &[f32; 3]) -> f32 {
+    let (dx, dy, dz) = (b[0] - a[0], b[1] - a[1], b[2] - a[2]);
+    let len2 = dx * dx + dy * dy + dz * dz;
+    let t = if len2 > 1e-12 {
+        (((p[0] - a[0]) * dx + (p[1] - a[1]) * dy + (p[2] - a[2]) * dz) / len2).clamp(0.0, 1.0)
+    } else {
+        0.0
+    };
+    let ex = p[0] - (a[0] + dx * t);
+    let ey = p[1] - (a[1] + dy * t);
+    let ez = p[2] - (a[2] + dz * t);
+    ex * ex + ey * ey + ez * ez
+}
+
+/// The stretches of the original that no surviving piece covers — i.e. what
+/// the trim is about to cut away — as contiguous runs of sampled points.
+fn removed_spans(samples: &[[f32; 3]], survivors: &[EntityType]) -> Vec<Vec<[f32; 3]>> {
+    let kept: Vec<Vec<[f32; 3]>> = survivors.iter().map(hint_samples).collect();
+    let mut runs: Vec<Vec<[f32; 3]>> = Vec::new();
+    let mut cur: Vec<[f32; 3]> = Vec::new();
+    for p in samples {
+        let mag = p[0].abs().max(p[1].abs()).max(p[2].abs()).max(1.0);
+        let tol2 = (0.002f32.max(mag * 2e-6)).powi(2);
+        let mut kept_here = false;
+        'outer: for poly in &kept {
+            for w in poly.windows(2) {
+                if seg_dist2(p, &w[0], &w[1]) <= tol2 {
+                    kept_here = true;
+                    break 'outer;
+                }
+            }
+        }
+        if kept_here {
+            if cur.len() >= 2 {
+                runs.push(std::mem::take(&mut cur));
+            } else {
+                cur.clear();
+            }
+        } else {
+            cur.push(*p);
+        }
+    }
+    if cur.len() >= 2 {
+        runs.push(cur);
+    }
+    runs
+}
+
+/// Append the live trim hint: the cut-away stretches as translucent dashed
+/// bands, alongside the cyan survivors the caller pushes next (item 16). The
+/// old whole-object red said "something here will change"; this says which
+/// part of the curve is leaving.
+fn push_trim_hints(out: &mut Vec<WireModel>, orig: &EntityType, survivors: &[EntityType]) {
+    let samples = hint_samples(orig);
+    for (i, span) in removed_spans(&samples, survivors).into_iter().enumerate() {
+        let mut w = WireModel::solid(
+            format!("trim_hint_{i}"),
+            span,
+            [DIM_RED[0], DIM_RED[1], DIM_RED[2], 0.45],
+            false,
+        );
+        w.pattern_length = 0.8;
+        w.pattern = [0.5, -0.3, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0];
+        w.line_weight_px = 1.4;
+        out.push(w);
+    }
 }
 
 /// Distance from `q` to the drawn (sampled) body of `e`.
@@ -3008,15 +3110,13 @@ impl CadCommand for TrimCommand {
                 let dy = by - ay;
                 let len2 = dx * dx + dy * dy;
                 let t_click = if len2 > 1e-12 {
-                    ((pt.x as f64 - ax) * dx + (pt.y as f64 - ay) * dy) / len2
+                    ((pt.x - ax) * dx + (pt.y - ay) * dy) / len2
                 } else {
                     0.5
                 };
                 let survivors = trim_line(l, &ts, t_click);
-                let p1 = [l.start.x as f32, l.start.y as f32, l.start.y as f32];
-                let p2 = [l.end.x as f32, l.end.y as f32, l.end.y as f32];
-                let removed = WireModel::solid("trim_rm".into(), vec![p1, p2], DIM_RED, false);
-                let mut out = vec![removed];
+                let mut out = Vec::new();
+                push_trim_hints(&mut out, entity.unwrap(), &survivors);
                 for (i, e) in survivors.iter().enumerate() {
                     let pts = entity_pts(e);
                     out.push(WireModel::solid(
@@ -3037,12 +3137,11 @@ impl CadCommand for TrimCommand {
                 if ts.is_empty() {
                     return vec![];
                 }
-                let click_angle = (pt.y as f64 - cy).atan2(pt.x as f64 - cx);
+                let click_angle = (pt.y - cy).atan2(pt.x - cx);
                 let t_click = arc_t(click_angle, a0, a1);
                 let survivors = trim_arc(a, &ts, t_click);
-                let orig_pts = arc_pts(cx, cy, a.radius, a0, a1, a.center.z);
-                let removed = WireModel::solid("trim_rm".into(), orig_pts, DIM_RED, false);
-                let mut out = vec![removed];
+                let mut out = Vec::new();
+                push_trim_hints(&mut out, entity.unwrap(), &survivors);
                 for (i, e) in survivors.iter().enumerate() {
                     let pts = entity_pts(e);
                     out.push(WireModel::solid(
@@ -3061,15 +3160,14 @@ impl CadCommand for TrimCommand {
                 if ts.len() < 2 {
                     return vec![];
                 }
-                let click_angle = (pt.y as f64 - cy).atan2(pt.x as f64 - cx);
+                let click_angle = (pt.y - cy).atan2(pt.x - cx);
                 let t_click = arc_t(click_angle, 0.0, TAU);
                 let survivors = trim_circle(c, &ts, t_click);
                 if survivors.is_empty() {
                     return vec![];
                 }
-                let orig_pts = arc_pts(cx, cy, c.radius, 0.0, TAU, c.center.z);
-                let removed = WireModel::solid("trim_rm".into(), orig_pts, DIM_RED, false);
-                let mut out = vec![removed];
+                let mut out = Vec::new();
+                push_trim_hints(&mut out, entity.unwrap(), &survivors);
                 for (i, e) in survivors.iter().enumerate() {
                     let pts = entity_pts(e);
                     out.push(WireModel::solid(
@@ -3082,24 +3180,15 @@ impl CadCommand for TrimCommand {
                 out
             }
             Some(EntityType::Ray(r)) => {
-                let bx = r.base_point.x;
-                let by = r.base_point.y;
                 let curve = ray_curve(r);
                 let ts = cut_params(&curve, handle, geos);
                 if ts.is_empty() {
                     return vec![];
                 }
-                let t_click = curve.parameter_at([pt.x as f64, pt.y as f64]);
+                let t_click = curve.parameter_at([pt.x, pt.y]);
                 let survivors = trim_ray(r, &ts, t_click);
-                // Show a finite preview section (20 units) for the original ray
-                let far = [
-                    (bx + r.direction.x * 20.0) as f32,
-                    (by + r.direction.y * 20.0) as f32,
-                    r.base_point.z as f32,
-                ];
-                let base = [bx as f32, by as f32, r.base_point.z as f32];
-                let removed = WireModel::solid("trim_rm".into(), vec![base, far], DIM_RED, false);
-                let mut out = vec![removed];
+                let mut out = Vec::new();
+                push_trim_hints(&mut out, entity.unwrap(), &survivors);
                 for (i, e) in survivors.iter().enumerate() {
                     let pts = entity_pts(e);
                     out.push(WireModel::solid(
@@ -3112,27 +3201,15 @@ impl CadCommand for TrimCommand {
                 out
             }
             Some(EntityType::XLine(x)) => {
-                let bx = x.base_point.x;
-                let by = x.base_point.y;
                 let curve = xline_curve(x);
                 let ts = cut_params(&curve, handle, geos);
                 if ts.is_empty() {
                     return vec![];
                 }
-                let t_click = curve.parameter_at([pt.x as f64, pt.y as f64]);
+                let t_click = curve.parameter_at([pt.x, pt.y]);
                 let survivors = trim_xline(x, &ts, t_click);
-                let neg = [
-                    (bx - x.direction.x * 20.0) as f32,
-                    (by - x.direction.y * 20.0) as f32,
-                    x.base_point.z as f32,
-                ];
-                let pos_pt = [
-                    (bx + x.direction.x * 20.0) as f32,
-                    (by + x.direction.y * 20.0) as f32,
-                    x.base_point.z as f32,
-                ];
-                let removed = WireModel::solid("trim_rm".into(), vec![neg, pos_pt], DIM_RED, false);
-                let mut out = vec![removed];
+                let mut out = Vec::new();
+                push_trim_hints(&mut out, entity.unwrap(), &survivors);
                 for (i, e) in survivors.iter().enumerate() {
                     let pts = entity_pts(e);
                     out.push(WireModel::solid(
@@ -3163,17 +3240,15 @@ impl CadCommand for TrimCommand {
                 if ts.is_empty() {
                     return vec![];
                 }
-                let rx = pt.x as f64 - e.center.x;
-                let ry = pt.y as f64 - e.center.y;
+                let rx = pt.x - e.center.x;
+                let ry = pt.y - e.center.y;
                 let xl = rx * nx + ry * ny;
                 let yl = -rx * ny + ry * nx;
                 let t_ell = ellipse_closest_parameter(a, b, xl, yl);
                 let t_click = arc_t(t_ell, t0, t1);
                 let survivors = trim_ellipse(e, &ts, t_click);
-                let orig_pts =
-                    ellipse_pts(e.center.x, e.center.y, a, b, nx, ny, t0, t1, e.center.z);
-                let removed = WireModel::solid("trim_rm".into(), orig_pts, DIM_RED, false);
-                let mut out = vec![removed];
+                let mut out = Vec::new();
+                push_trim_hints(&mut out, entity.unwrap(), &survivors);
                 for (i, ent) in survivors.iter().enumerate() {
                     let pts = entity_pts(ent);
                     out.push(WireModel::solid(
@@ -3190,16 +3265,15 @@ impl CadCommand for TrimCommand {
                 if ts.is_empty() {
                     return vec![];
                 }
-                let t_click = spline_nearest_t(s, pt.x as f64, pt.y as f64)
+                let t_click = spline_nearest_t(s, pt.x, pt.y)
                     .and_then(|t_actual| {
                         let (t0, t1) = spline_range(s)?;
                         Some(t_to_rel(t_actual, t0, t1))
                     })
                     .unwrap_or(0.5);
-                let orig_pts = spline_pts_wire(s);
-                let removed = WireModel::solid("trim_rm".into(), orig_pts, DIM_RED, false);
                 let survivors = trim_spline(s, &ts, t_click);
-                let mut out = vec![removed];
+                let mut out = Vec::new();
+                push_trim_hints(&mut out, entity.unwrap(), &survivors);
                 for (i, ent) in survivors.iter().enumerate() {
                     let pts = entity_pts(ent);
                     out.push(WireModel::solid(
@@ -3212,16 +3286,11 @@ impl CadCommand for TrimCommand {
                 out
             }
             Some(EntityType::LwPolyline(p)) => {
-                let Some(survivors) = trim_lwpolyline(p, pt.x as f64, pt.y as f64, geos) else {
+                let Some(survivors) = trim_lwpolyline(p, pt.x, pt.y, geos) else {
                     return vec![];
                 };
-                let orig = WireModel::solid(
-                    "trim_rm".into(),
-                    entity_pts(entity.unwrap()),
-                    DIM_RED,
-                    false,
-                );
-                let mut out = vec![orig];
+                let mut out = Vec::new();
+                push_trim_hints(&mut out, entity.unwrap(), &survivors);
                 for (i, ent) in survivors.iter().enumerate() {
                     out.push(WireModel::solid(
                         format!("trim_keep_{i}"),
@@ -3618,7 +3687,7 @@ impl CadCommand for ExtendCommand {
                 let dy = by - ay;
                 let len2 = dx * dx + dy * dy;
                 let t_click = if len2 > 1e-12 {
-                    ((pt.x as f64 - ax) * dx + (pt.y as f64 - ay) * dy) / len2
+                    ((pt.x - ax) * dx + (pt.y - ay) * dy) / len2
                 } else {
                     0.5
                 };
@@ -3633,7 +3702,7 @@ impl CadCommand for ExtendCommand {
                 }
             }
             Some(EntityType::Arc(a)) => {
-                let ang = (pt.y as f64 - a.center.y).atan2(pt.x as f64 - a.center.x);
+                let ang = (pt.y - a.center.y).atan2(pt.x - a.center.x);
                 let t_click = arc_t(ang, a.start_angle, a.end_angle);
                 if let Some(ext) = extend_arc(a, t_click, &self.geos) {
                     return extend_hover_wires(
@@ -3656,8 +3725,8 @@ impl CadCommand for ExtendCommand {
                         if t1 <= t0 {
                             t1 += TAU;
                         }
-                        let rx = pt.x as f64 - e.center.x;
-                        let ry = pt.y as f64 - e.center.y;
+                        let rx = pt.x - e.center.x;
+                        let ry = pt.y - e.center.y;
                         let xl = rx * nx + ry * ny;
                         let yl = -rx * ny + ry * nx;
                         let t_ell = ellipse_closest_parameter(a, b, xl, yl);
@@ -3675,7 +3744,7 @@ impl CadCommand for ExtendCommand {
                 }
             }
             Some(EntityType::LwPolyline(p)) => {
-                if let Some(ext) = extend_lwpoly(p, pt.x as f64, pt.y as f64, &self.geos) {
+                if let Some(ext) = extend_lwpoly(p, pt.x, pt.y, &self.geos) {
                     return extend_hover_wires(
                         &EntityType::LwPolyline(p.clone()),
                         &ext,
@@ -3686,7 +3755,7 @@ impl CadCommand for ExtendCommand {
                 }
             }
             Some(EntityType::Spline(s)) => {
-                let t_click = spline_nearest_t(s, pt.x as f64, pt.y as f64)
+                let t_click = spline_nearest_t(s, pt.x, pt.y)
                     .and_then(|t_actual| {
                         let (t0, t1) = spline_range(s)?;
                         Some(t_to_rel(t_actual, t0, t1))
@@ -4193,6 +4262,37 @@ mod tests {
 
     /// The same skip must not swallow a leading segment that does sample, and
     /// must keep dropping the duplicated seam vertex between two of them.
+    /// Item 16: the live trim preview marks the stretch that is leaving, not the
+    /// whole object — one translucent dashed band over the cut-away middle of a
+    /// line whose two ends survive.
+    #[test]
+    fn trim_hint_marks_only_the_removed_stretch() {
+        let orig = xline_at(0.0, 0.0, 10.0, 0.0, 1);
+        let survivors = vec![
+            xline_at(0.0, 0.0, 4.0, 0.0, 1),
+            xline_at(6.0, 0.0, 10.0, 0.0, 1),
+        ];
+        let mut out = Vec::new();
+        push_trim_hints(&mut out, &orig, &survivors);
+        assert_eq!(out.len(), 1, "one band per removed stretch: {out:?}");
+        let band = &out[0];
+        assert!(
+            (band.color[3] - 0.45).abs() < 1e-6,
+            "the band is translucent, got alpha {}",
+            band.color[3]
+        );
+        assert_eq!(band.pattern_length, 0.8);
+        assert_eq!(band.pattern[0], 0.5);
+        assert_eq!(band.pattern[1], -0.3);
+        let xs: Vec<f32> = band.points.iter().map(|p| p[0]).collect();
+        let min = xs.iter().copied().fold(f32::INFINITY, f32::min);
+        let max = xs.iter().copied().fold(f32::NEG_INFINITY, f32::max);
+        assert!(
+            min > 3.9 && max < 6.1 && (max - min) > 1.5,
+            "the band spans the removed 4–6 stretch only, got {min}..{max}"
+        );
+    }
+
     #[test]
     fn sampling_still_joins_segments_at_their_seam() {
         use codec::entities::{Polyline3D, Vertex3DPolyline};
@@ -4943,7 +5043,11 @@ mod tests {
         let geos = build_geos(&all);
         let curve_line = entity_curve_xy(&EntityType::Line(l1.clone())).unwrap();
         let ts_line = cut_params(&curve_line, Handle::new(1), &geos);
-        assert!(!ts_line.is_empty(), "line must have cut point where tangent arc touches it: ts={:?}", ts_line);
+        assert!(
+            !ts_line.is_empty(),
+            "line must have cut point where tangent arc touches it: ts={:?}",
+            ts_line
+        );
 
         let curve_arc = entity_curve_xy(&EntityType::Arc(a.clone())).unwrap();
         let ts_arc = cut_params(&curve_arc, Handle::new(2), &geos);
@@ -4952,9 +5056,9 @@ mod tests {
 
     #[test]
     fn test_trim_arc_tangent_to_two_lines() {
-        use codec::entities::{Arc as CadArc, Line as LineEnt};
         use crate::command::{TangentObject, WorkingPlane};
         use crate::modules::draw::draw::arc::{solve_arc_3_inputs, ArcPick};
+        use codec::entities::{Arc as CadArc, Line as LineEnt};
 
         let mut l1 = LineEnt::new();
         l1.common.handle = Handle::new(1);
@@ -4978,9 +5082,15 @@ mod tests {
         // Middle point: (1 - sqrt(0.5), 1 - sqrt(0.5)) -> radius ~ 1
         let mid = DVec3::new(1.0 - (0.5_f64).sqrt(), 1.0 - (0.5_f64).sqrt(), 0.0);
         let sol = solve_arc_3_inputs(
-            ArcPick::Tangent { target: t1, hit: DVec3::new(2.0, 0.0, 0.0) },
+            ArcPick::Tangent {
+                target: t1,
+                hit: DVec3::new(2.0, 0.0, 0.0),
+            },
             ArcPick::Point(mid),
-            ArcPick::Tangent { target: t2, hit: DVec3::new(0.0, 2.0, 0.0) },
+            ArcPick::Tangent {
+                target: t2,
+                hit: DVec3::new(0.0, 2.0, 0.0),
+            },
             WorkingPlane::default(),
         );
 
@@ -5031,9 +5141,9 @@ mod tests {
 
     #[test]
     fn test_trim_arc_tangent_angled_lines() {
-        use codec::entities::{Arc as CadArc, Line as LineEnt};
         use crate::command::{TangentObject, WorkingPlane};
         use crate::modules::draw::draw::arc::{solve_arc_3_inputs, ArcPick};
+        use codec::entities::{Arc as CadArc, Line as LineEnt};
 
         // Two lines meeting at (0, 0): one along (cos(20 deg), sin(20 deg)), other along (cos(80 deg), sin(80 deg))
         let a1 = 20.0_f64.to_radians();
@@ -5062,12 +5172,22 @@ mod tests {
 
         // Midpoint between points at distance 20 on the bisector
         let bisector_angle = (a1 + a2) * 0.5;
-        let mid = DVec3::new(15.0 * bisector_angle.cos(), 15.0 * bisector_angle.sin(), 0.0);
+        let mid = DVec3::new(
+            15.0 * bisector_angle.cos(),
+            15.0 * bisector_angle.sin(),
+            0.0,
+        );
 
         let sol = solve_arc_3_inputs(
-            ArcPick::Tangent { target: t1, hit: DVec3::new(20.0 * dir1.x, 20.0 * dir1.y, 0.0) },
+            ArcPick::Tangent {
+                target: t1,
+                hit: DVec3::new(20.0 * dir1.x, 20.0 * dir1.y, 0.0),
+            },
             ArcPick::Point(mid),
-            ArcPick::Tangent { target: t2, hit: DVec3::new(20.0 * dir2.x, 20.0 * dir2.y, 0.0) },
+            ArcPick::Tangent {
+                target: t2,
+                hit: DVec3::new(20.0 * dir2.x, 20.0 * dir2.y, 0.0),
+            },
             WorkingPlane::default(),
         );
 
@@ -5095,8 +5215,16 @@ mod tests {
         println!("angled ts_l2: {:?}", ts_l2);
 
         // We expect l1 to have at least 2 cuts: the intersection with l2 at (0,0) and the tangent point with arc!
-        assert!(ts_l1.len() >= 2, "Line 1 must have intersection and tangent cut: got {:?}", ts_l1);
-        assert!(ts_l2.len() >= 2, "Line 2 must have intersection and tangent cut: got {:?}", ts_l2);
+        assert!(
+            ts_l1.len() >= 2,
+            "Line 1 must have intersection and tangent cut: got {:?}",
+            ts_l1
+        );
+        assert!(
+            ts_l2.len() >= 2,
+            "Line 2 must have intersection and tangent cut: got {:?}",
+            ts_l2
+        );
 
         // Trimming l1 arm past the tangent point
         let click_l1 = 40.0 * dir1;
@@ -5108,7 +5236,10 @@ mod tests {
     #[test]
     fn test_kernel_intersect_tangency() {
         use std::f64::consts::FRAC_PI_2;
-        let line = Curve::Line(KernelLine { start: [-10.0, 0.0], end: [10.0, 0.0] });
+        let line = Curve::Line(KernelLine {
+            start: [-10.0, 0.0],
+            end: [10.0, 0.0],
+        });
 
         // Case 1: Exact tangency at interior of arc
         let arc_exact = Curve::Arc(KernelArc {
@@ -5171,14 +5302,18 @@ mod tests {
         println!("hits_end (-PI/2): {:?}", hits_end);
 
         // Case 7: Large coordinates (e.g. 5000, 5005)
-        let line_large = Curve::Line(KernelLine { start: [4990.0, 5000.0], end: [5010.0, 5000.0] });
+        let line_large = Curve::Line(KernelLine {
+            start: [4990.0, 5000.0],
+            end: [5010.0, 5000.0],
+        });
         let arc_large = Curve::Arc(KernelArc {
             centre: [5000.0, 5005.0],
             radius: 5.0,
             start_angle: -FRAC_PI_2,
             end_angle: 0.0,
         });
-        let hits_large = kernel_intersect(&line_large, &arc_large, KernelTolerance::new(CUT_TOLERANCE));
+        let hits_large =
+            kernel_intersect(&line_large, &arc_large, KernelTolerance::new(CUT_TOLERANCE));
         println!("hits_large: {:?}", hits_large);
 
         // Test with cut_params:
@@ -5196,9 +5331,9 @@ mod tests {
 
     #[test]
     fn test_arc_tangent_line_precision_sweep() {
-        use codec::entities::{Arc as CadArc, Line as LineEnt};
         use crate::command::{TangentObject, WorkingPlane};
         use crate::modules::draw::draw::arc::{solve_arc_3_inputs, ArcPick};
+        use codec::entities::{Arc as CadArc, Line as LineEnt};
 
         let mut max_dist = 0.0_f64;
         let mut failed_cuts = 0;
@@ -5233,9 +5368,15 @@ mod tests {
             let mid = bisector * 30.0;
 
             let sol = solve_arc_3_inputs(
-                ArcPick::Tangent { target: t1, hit: DVec3::new(50.0, 0.0, 0.0) },
+                ArcPick::Tangent {
+                    target: t1,
+                    hit: DVec3::new(50.0, 0.0, 0.0),
+                },
                 ArcPick::Point(mid),
-                ArcPick::Tangent { target: t2, hit: dir2 * 50.0 },
+                ArcPick::Tangent {
+                    target: t2,
+                    hit: dir2 * 50.0,
+                },
                 WorkingPlane::default(),
             );
 
@@ -5262,13 +5403,18 @@ mod tests {
 
                 if ts_l1.len() < 2 || ts_l2.len() < 2 {
                     failed_cuts += 1;
-                    println!("FAILED at angle {angle_deg} deg: ts_l1={:?}, ts_l2={:?}", ts_l1, ts_l2);
+                    println!(
+                        "FAILED at angle {angle_deg} deg: ts_l1={:?}, ts_l2={:?}",
+                        ts_l1, ts_l2
+                    );
                 }
 
                 // Check distance of arc endpoints to line
                 let ep1 = [center.x + radius * sa.cos(), center.y + radius * sa.sin()];
                 let d1 = (ep1[1] - 0.0).abs(); // distance to l1 (y=0)
-                if d1 > max_dist { max_dist = d1; }
+                if d1 > max_dist {
+                    max_dist = d1;
+                }
             }
         }
         println!("Sweep results: failed_cuts={failed_cuts}, max_dist={max_dist:e}");
@@ -5730,8 +5876,11 @@ impl CadCommand for ExtrimCommand {
         };
         let q = [pt.x, pt.y];
         let geos = self.geos.clone();
-        let side =
-            |m: [f64; 2]| line_seg_ts(m[0], m[1], q[0], q[1], Handle::NULL, &geos).len() % 2 == 0;
+        let side = |m: [f64; 2]| {
+            line_seg_ts(m[0], m[1], q[0], q[1], Handle::NULL, &geos)
+                .len()
+                .is_multiple_of(2)
+        };
         let mut repl: Vec<(Handle, Vec<EntityType>)> = Vec::new();
         for (h, e) in &self.all {
             if *h == bh {
@@ -5811,8 +5960,11 @@ impl CadCommand for ExtrimCommand {
         }
         let q = [pt.x, pt.y];
         let geos = &self.geos;
-        let side =
-            |m: [f64; 2]| line_seg_ts(m[0], m[1], q[0], q[1], Handle::NULL, geos).len() % 2 == 0;
+        let side = |m: [f64; 2]| {
+            line_seg_ts(m[0], m[1], q[0], q[1], Handle::NULL, geos)
+                .len()
+                .is_multiple_of(2)
+        };
         // Removed (pick side) → red, surviving → blue; the boundary → yellow.
         let mut removed: Vec<[f32; 3]> = Vec::new();
         let mut kept: Vec<[f32; 3]> = Vec::new();

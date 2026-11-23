@@ -1,11 +1,11 @@
 //! Dimension Style Manager window — fills the entire OS window.
 
-use crate::ui::style::tokens;
 use crate::app::{ColorPickTarget, DsField, Message};
 use crate::scene::convert::tessellate::{arrow_from_block_name, ArrowKind};
 use crate::t;
-use crate::ui::kit::muted_style;
 use crate::ui::kit;
+use crate::ui::kit::muted_style;
+use crate::ui::style::tokens;
 use iced::widget::{canvas, checkbox, column, container, row, text, text_input, Space};
 use iced::{mouse, Element, Length, Point, Rectangle, Theme};
 use std::borrow::Cow;
@@ -182,13 +182,13 @@ impl canvas::Program<Message> for DimensionPreview {
         if self.ext1 {
             frame.stroke(
                 &line(Point::new(x1, object_y), Point::new(x1, 22.0)),
-                stroke.clone(),
+                stroke,
             );
         }
         if self.ext2 {
             frame.stroke(
                 &line(Point::new(x2, object_y), Point::new(x2, 22.0)),
-                stroke.clone(),
+                stroke,
             );
         }
 
@@ -199,7 +199,7 @@ impl canvas::Program<Message> for DimensionPreview {
                     Point::new(x1, y),
                     Point::new((bounds.width * 0.5 - text_half).max(x1), y),
                 ),
-                stroke.clone(),
+                stroke,
             );
         }
         if self.dim2 {
@@ -208,7 +208,7 @@ impl canvas::Program<Message> for DimensionPreview {
                     Point::new((bounds.width * 0.5 + text_half).min(x2), y),
                     Point::new(x2, y),
                 ),
-                stroke.clone(),
+                stroke,
             );
         }
 
@@ -378,7 +378,12 @@ pub fn view_window<'a>(
     // it — so the window's own theme is what the panes are tinted with.
     theme: &Theme,
 ) -> Element<'a, Message> {
-    let lbl = |s: Cow<'static, str>| text(s).size(tokens::TEXT_LABEL).style(muted_style).width(180);
+    let lbl = |s: Cow<'static, str>| {
+        text(s)
+            .size(tokens::TEXT_LABEL)
+            .style(muted_style)
+            .width(180)
+    };
 
     let mk_field = |fld: DsField, val: &'a str| -> Element<'a, Message> {
         if vals.read_only {
@@ -407,7 +412,10 @@ pub fn view_window<'a>(
     };
 
     let chk = |label: Cow<'static, str>, val: bool, fld: DsField| -> Element<'a, Message> {
-        let item = checkbox(val).label(label).size(tokens::MARK_SQUARE).text_size(tokens::TEXT_LABEL);
+        let item = checkbox(val)
+            .label(label)
+            .size(tokens::MARK_SQUARE)
+            .text_size(tokens::TEXT_LABEL);
         if vals.read_only {
             item.into()
         } else {
@@ -439,7 +447,11 @@ pub fn view_window<'a>(
                 label: val.to_string(),
             });
         let choice: Element<'a, Message> = if vals.read_only {
-            crate::ui::read_only::field(cur.to_string().as_str(), tokens::TEXT_LABEL, Length::Fixed(150.0))
+            crate::ui::read_only::field(
+                cur.to_string().as_str(),
+                tokens::TEXT_LABEL,
+                Length::Fixed(150.0),
+            )
         } else {
             crate::ui::kit::themed_pick_list(Some(cur), options, |value| value.to_string())
                 .on_select(move |chosen: DimEnumChoice| Message::DsEdit(fld.clone(), chosen.code))
@@ -550,9 +562,11 @@ pub fn view_window<'a>(
         ];
         let feet_current = feet_modes[(raw & 3) as usize].clone();
         let feet: Element<'a, Message> = if show_feet_inches {
-            let list = crate::ui::kit::themed_pick_list(Some(feet_current.clone()), feet_modes, |choice| {
-                choice.to_string()
-            })
+            let list = crate::ui::kit::themed_pick_list(
+                Some(feet_current.clone()),
+                feet_modes,
+                |choice| choice.to_string(),
+            )
             .text_size(tokens::TEXT_LABEL)
             .width(210);
             let list: Element<'a, Message> = if enabled && !vals.read_only {
@@ -603,7 +617,9 @@ pub fn view_window<'a>(
         } else {
             trailing.into()
         };
-        column![feet, leading, trailing].spacing(tokens::GAP_CONTROL).into()
+        column![feet, leading, trailing]
+            .spacing(tokens::GAP_CONTROL)
+            .into()
     };
 
     // Shared colour selector (main dropdown + "more" palette), reusing the
@@ -675,10 +691,11 @@ pub fn view_window<'a>(
                              field: &'static str,
                              enabled: bool|
           -> Element<'a, Message> {
-        let list =
-            crate::ui::kit::themed_pick_list(Some(selected.clone()), options, |value| value.to_string())
-                .text_size(tokens::TEXT_LABEL)
-                .width(150);
+        let list = crate::ui::kit::themed_pick_list(Some(selected.clone()), options, |value| {
+            value.to_string()
+        })
+        .text_size(tokens::TEXT_LABEL)
+        .width(150);
         let list: Element<'a, Message> = if enabled && !vals.read_only {
             list.on_select(move |value| Message::DsSetHandle { field, value })
                 .into()
@@ -692,7 +709,7 @@ pub fn view_window<'a>(
     };
 
     let text_style_field: Element<'a, Message> = if vals.read_only {
-        crate::ui::read_only::field(&vals.dimtxsty, tokens::TEXT_LABEL, Length::Fixed(150.0))
+        crate::ui::read_only::field(vals.dimtxsty, tokens::TEXT_LABEL, Length::Fixed(150.0))
     } else {
         crate::ui::kit::themed_pick_list(
             Some(vals.dimtxsty.to_string()),
@@ -1318,12 +1335,10 @@ pub fn view_window<'a>(
             vals.comparison_sections.join(", ")
         )
     };
-    let mk_tab = |label: Cow<'static, str>, index: u8| {
-        crate::ui::style::style_manager::EditorTab {
-            label,
-            active: tab == index,
-            on_press: Message::DimStyleDialogTab(index),
-        }
+    let mk_tab = |label: Cow<'static, str>, index: u8| crate::ui::style::style_manager::EditorTab {
+        label,
+        active: tab == index,
+        on_press: Message::DimStyleDialogTab(index),
     };
     let right_panel = crate::ui::style::style_manager::editor_shell(
         crate::ui::style::style_manager::EditorShell {
@@ -1366,7 +1381,7 @@ pub fn view_window<'a>(
         on_set_current: Message::DimStyleDialogSetCurrent,
         on_apply: Message::DimStyleDialogApply,
         read_only: vals.read_only,
-        editor: right_panel.into(),
+        editor: right_panel,
     })
 }
 

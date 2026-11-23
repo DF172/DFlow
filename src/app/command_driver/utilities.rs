@@ -126,15 +126,13 @@ impl DraftFlowCAD {
         let rebuild = self
             .grip_solve_cache
             .as_ref()
-            .map_or(true, |(cached_touched, _, _)| *cached_touched != touched);
+            .is_none_or(|(cached_touched, _, _)| *cached_touched != touched);
         if rebuild {
             let scope = self.tabs[i].current_parametric_scope();
-            let connected = self
-                .tabs[i]
+            let connected = self.tabs[i]
                 .scene
                 .parametric_connected_handles(scope, &touched, true);
-            let prepared = self
-                .tabs[i]
+            let prepared = self.tabs[i]
                 .scene
                 .prepare_parametric_constraints_preview(&touched);
             self.grip_solve_cache = Some((touched, connected, prepared));
@@ -307,6 +305,7 @@ impl DraftFlowCAD {
         }
 
         self.grip_reference_wires.clear();
+        self.grip_ghost_origin = None;
         self.grip_text_verts.clear();
         self.grip_text_slide = false;
         self.tabs[i].scene.clear_preview_wire();
@@ -945,7 +944,7 @@ impl DraftFlowCAD {
         let gathering = self.tabs[i]
             .active_cmd
             .as_ref()
-            .map_or(false, |c| c.is_selection_gathering());
+            .is_some_and(|c| c.is_selection_gathering());
         if !gathering {
             return None;
         }
@@ -1127,11 +1126,9 @@ impl DraftFlowCAD {
         self.command_line.record_recent_input(token);
         let is_mtp = token.trim_start_matches('_').eq_ignore_ascii_case("MTP")
             || token.trim_start_matches('_').eq_ignore_ascii_case("M2P");
-        if is_mtp {
-            if self.point_modifier_step(i) {
-                self.start_mtp_modifier(i);
-                return Task::none();
-            }
+        if is_mtp && self.point_modifier_step(i) {
+            self.start_mtp_modifier(i);
+            return Task::none();
         }
         if let Some(kind) = self.typed_snap_override(i, token) {
             self.apply_snap_override(kind);
@@ -1162,7 +1159,7 @@ impl DraftFlowCAD {
             }
             self.last_point = Some(wcs);
             self.push_ucs_to_cmd(i);
-            return self.feed_command(StepInput::Point(wcs));
+            self.feed_command(StepInput::Point(wcs))
         } else {
             // The step reads the token first: at a great many point prompts a
             // bare number is the step's own value, not a distance — ROTATE's
@@ -1176,7 +1173,7 @@ impl DraftFlowCAD {
             if let Some(distance) = self.try_direct_distance_entry(token) {
                 return distance;
             }
-            return task;
+            task
         }
     }
 

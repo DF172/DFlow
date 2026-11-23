@@ -91,7 +91,11 @@ impl Curve {
             count.saturating_sub(1)
         };
         if segments == 0 {
-            return polyline.vertices.iter().map(|vertex| vertex.position).collect();
+            return polyline
+                .vertices
+                .iter()
+                .map(|vertex| vertex.position)
+                .collect();
         }
         let mut out = Vec::new();
         for index in 0..segments {
@@ -103,15 +107,11 @@ impl Curve {
                     polyline.vertices[next].position,
                 ],
             };
-            if let (Some(first), Some(vertex)) =
-                (points.first_mut(), polyline.vertices.get(index))
+            if let (Some(first), Some(vertex)) = (points.first_mut(), polyline.vertices.get(index))
             {
                 *first = vertex.position;
             }
-            if let (Some(last), Some(vertex)) = (
-                points.last_mut(),
-                polyline.vertices.get(next),
-            ) {
+            if let (Some(last), Some(vertex)) = (points.last_mut(), polyline.vertices.get(next)) {
                 *last = vertex.position;
             }
             let skip = usize::from(out.last() == points.first());
@@ -156,14 +156,17 @@ impl Curve {
             return Vec::new();
         };
         if polyline.vertices.len() < 2 {
-            return polyline.vertices.iter().map(|vertex| vertex.position).collect();
+            return polyline
+                .vertices
+                .iter()
+                .map(|vertex| vertex.position)
+                .collect();
         }
         let count = polyline.vertices.len();
         let mut out: Vec<[f64; 2]> = Vec::new();
         for (index, segment) in self.segments().into_iter().enumerate() {
             let mut points = segment.tessellate_within(tolerance);
-            if let (Some(first), Some(vertex)) =
-                (points.first_mut(), polyline.vertices.get(index))
+            if let (Some(first), Some(vertex)) = (points.first_mut(), polyline.vertices.get(index))
             {
                 *first = vertex.position;
             }
@@ -221,8 +224,8 @@ fn subdivide_angle(
 ) {
     let directions = [0.0, 0.125, 0.25, 0.375, 0.5, 0.625, 0.75, 0.875, 1.0]
         .map(|unit| curve.tangent_at(from + (to - from) * unit));
-    let split = depth < minimum_depth
-        || crate::tessellation::max_direction_angle(&directions) > max_angle;
+    let split =
+        depth < minimum_depth || crate::tessellation::max_direction_angle(&directions) > max_angle;
     if split && depth < MAX_DEPTH {
         let middle = 0.5 * (from + to);
         subdivide_angle(
@@ -234,15 +237,7 @@ fn subdivide_angle(
             depth + 1,
             out,
         );
-        subdivide_angle(
-            curve,
-            middle,
-            to,
-            max_angle,
-            minimum_depth,
-            depth + 1,
-            out,
-        );
+        subdivide_angle(curve, middle, to, max_angle, minimum_depth, depth + 1, out);
     } else {
         out.push(curve.point_at(to));
     }

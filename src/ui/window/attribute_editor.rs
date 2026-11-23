@@ -4,30 +4,30 @@
 //!
 //! Three tabs, mirroring the standard enhanced attribute editor:
 //! * **Attribute**   — the tag / prompt / value list; the selected row's value
-//!                     is edited below the list.
+//!   is edited below the list.
 //! * **Text Options** — the selected attribute's text formatting (style,
-//!                     justification, height, rotation, width, oblique, flags).
+//!   justification, height, rotation, width, oblique, flags).
 //! * **Properties**  — the selected attribute's common entity properties
-//!                     (layer, linetype, colour, lineweight).
+//!   (layer, linetype, colour, lineweight).
 //!
 //! This module is pure layout over a working copy ([`AttrRow`]); applying the
 //! edits, undo and repaint live in the update handler (`Message::AttrEditorApply`).
 
-use crate::ui::style::tokens;
 use crate::app::Message;
 use crate::t;
+use crate::ui::kit::plain_button;
+use crate::ui::style::tokens;
 use codec::entities::{HorizontalAlignment, VerticalAlignment};
 use codec::types::{Color as AcadColor, LineWeight};
 use iced::widget::{checkbox, column, container, row, text, text_input, Space};
-use crate::ui::kit::plain_button;
 use iced::{Element, Length};
 use std::borrow::Cow;
 use std::fmt;
 
-use crate::ui::properties::{lw_options, LwItem};
-use crate::ui::kit::muted_style;
-use crate::ui::kit::hdivider;
 use crate::ui::kit;
+use crate::ui::kit::hdivider;
+use crate::ui::kit::muted_style;
+use crate::ui::properties::{lw_options, LwItem};
 
 const LABEL_W: f32 = 120.0;
 
@@ -412,8 +412,18 @@ fn attribute_tab<'a>(
 ) -> Element<'a, Message> {
     let head = row![
         container(text(t!("Tag")).size(tokens::TEXT_LABEL).style(muted_style)).width(130),
-        container(text(t!("Prompt")).size(tokens::TEXT_LABEL).style(muted_style)).width(width),
-        container(text(t!("Value")).size(tokens::TEXT_LABEL).style(muted_style)).width(140),
+        container(
+            text(t!("Prompt"))
+                .size(tokens::TEXT_LABEL)
+                .style(muted_style)
+        )
+        .width(width),
+        container(
+            text(t!("Value"))
+                .size(tokens::TEXT_LABEL)
+                .style(muted_style)
+        )
+        .width(140),
     ]
     .spacing(tokens::GAP_CONTROL);
 
@@ -425,7 +435,12 @@ fn attribute_tab<'a>(
         let is_sel = idx == selected;
         let line = row![
             container(text(r.tag.as_str()).size(tokens::TEXT_BODY)).width(130),
-            container(text(r.prompt.as_str()).size(tokens::TEXT_BODY).style(muted_style)).width(width),
+            container(
+                text(r.prompt.as_str())
+                    .size(tokens::TEXT_BODY)
+                    .style(muted_style)
+            )
+            .width(width),
             container(text(r.value.as_str()).size(tokens::TEXT_BODY)).width(140),
         ]
         .spacing(tokens::GAP_CONTROL);
@@ -475,7 +490,9 @@ fn attribute_tab<'a>(
 
     column![
         head,
-        crate::ui::kit::themed_scrollable(list).width(width).height(height),
+        crate::ui::kit::themed_scrollable(list)
+            .width(width)
+            .height(height),
         // `8` is `GAP_ROW` to the pixel. The ratchet does not count this row (it
         // sits inside a `column![]`, not a `.padding()` call — finding F4), so
         // naming it costs nothing and removes a number the board never saw.

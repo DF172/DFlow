@@ -54,15 +54,25 @@ pub fn combine(a: Body, b: Body, how: Operation, tolerance: f64) -> Result<Body,
     // Far from the origin — survey coordinates — every intersection loses
     // the digits the offset takes. Worked about the pair's own centre and
     // moved back, they keep them.
-    let centre = super::body_bounds(&a).zip(super::body_bounds(&b)).and_then(|(one, other)| {
-        let low = Vec3::from(std::array::from_fn(|axis| one.min[axis].min(other.min[axis])));
-        let high = Vec3::from(std::array::from_fn(|axis| one.max[axis].max(other.max[axis])));
-        let centre = (low + high) * 0.5;
-        (centre.length() > (high - low).length()).then_some(centre)
-    });
+    let centre = super::body_bounds(&a)
+        .zip(super::body_bounds(&b))
+        .and_then(|(one, other)| {
+            let low = Vec3::from(std::array::from_fn(|axis| {
+                one.min[axis].min(other.min[axis])
+            }));
+            let high = Vec3::from(std::array::from_fn(|axis| {
+                one.max[axis].max(other.max[axis])
+            }));
+            let centre = (low + high) * 0.5;
+            (centre.length() > (high - low).length()).then_some(centre)
+        });
     let moved = centre.and_then(|centre| {
         let there = Placement::at((-centre).to_array());
-        Some((super::transform(&a, &there)?, super::transform(&b, &there)?, centre))
+        Some((
+            super::transform(&a, &there)?,
+            super::transform(&b, &there)?,
+            centre,
+        ))
     });
     let Some((a, b, centre)) = moved else {
         return combine_retried(a, b, how, tolerance);
@@ -111,7 +121,10 @@ fn combine_here(
     swapped: bool,
     reach: bool,
 ) -> Result<Body, Snag> {
-    let (divided_a, divided_b) = (divided_sphere(&a, &b, tolerance), divided_sphere(&b, &a, tolerance));
+    let (divided_a, divided_b) = (
+        divided_sphere(&a, &b, tolerance),
+        divided_sphere(&b, &a, tolerance),
+    );
     if let Some(divided) = divided_a {
         a = divided;
     }
@@ -131,9 +144,7 @@ fn combine_here(
     let (keep_a, keep_b, flip_a, flip_b) = match (how, swapped) {
         (Operation::Union, _) => (Containment::Outside, Containment::Outside, false, false),
         (Operation::Intersection, _) => (Containment::Inside, Containment::Inside, false, false),
-        (Operation::Difference, false) => {
-            (Containment::Outside, Containment::Inside, false, true)
-        }
+        (Operation::Difference, false) => (Containment::Outside, Containment::Inside, false, true),
         (Operation::Difference, true) => (Containment::Inside, Containment::Outside, true, false),
     };
 
@@ -185,8 +196,7 @@ fn combine_here(
     if result.edges.iter().any(|(_, edge)| {
         let uses = edge.coedges.len();
         uses != 2 && !(shared_edges && uses > 2 && uses % 2 == 0)
-    })
-        || !result.validate().is_empty()
+    }) || !result.validate().is_empty()
     {
         return Err(Snag::CutRefused);
     }
@@ -228,7 +238,10 @@ fn merge_coplanar(body: &mut Body, tolerance: f64, curved: bool) {
         return;
     }
     loop {
-        let next = merged.vertices.keys().find(|vertex| collinear_pair(&merged, *vertex).is_some());
+        let next = merged
+            .vertices
+            .keys()
+            .find(|vertex| collinear_pair(&merged, *vertex).is_some());
         let Some(vertex) = next else { break };
         if join_edges(&mut merged, vertex).is_none() {
             return;
@@ -245,18 +258,16 @@ fn owner_face(body: &Body, coedge: CoedgeKey) -> Option<FaceKey> {
 
 /// The two faces a straight edge splits one plane into, when it is the only
 /// edge they share and neither carries parameter-space curves.
-fn coplanar_split(
-    body: &Body,
-    key: EdgeKey,
-    tolerance: f64,
-    curved: bool,
-) -> Option<[FaceKey; 2]> {
+fn coplanar_split(body: &Body, key: EdgeKey, tolerance: f64, curved: bool) -> Option<[FaceKey; 2]> {
     let edge = body.edges.get(key)?;
     let straight = matches!(body.curves.get(edge.curve)?, Curve3::Line(_));
     if edge.coedges.len() != 2 || !(straight || curved) {
         return None;
     }
-    let faces = [owner_face(body, edge.coedges[0])?, owner_face(body, edge.coedges[1])?];
+    let faces = [
+        owner_face(body, edge.coedges[0])?,
+        owner_face(body, edge.coedges[1])?,
+    ];
     if faces[0] == faces[1] {
         return None;
     }
@@ -286,7 +297,10 @@ fn coplanar_split(
         Some(edges)
     };
     let second = edges_of(faces[1])?;
-    let shared = edges_of(faces[0])?.into_iter().filter(|edge| second.contains(edge)).count();
+    let shared = edges_of(faces[0])?
+        .into_iter()
+        .filter(|edge| second.contains(edge))
+        .count();
     (shared == 1).then_some(faces)
 }
 
@@ -303,7 +317,11 @@ fn join_faces(body: &mut Body, key: EdgeKey, tolerance: f64, curved: bool) -> Op
     let gone_loop = body.coedges.remove(gone_use)?.owner;
     let gone_ring = body.loops.remove(gone_loop)?.coedges;
     let at = gone_ring.iter().position(|coedge| *coedge == gone_use)?;
-    let spliced = gone_ring[at + 1..].iter().chain(&gone_ring[..at]).copied().collect::<Vec<_>>();
+    let spliced = gone_ring[at + 1..]
+        .iter()
+        .chain(&gone_ring[..at])
+        .copied()
+        .collect::<Vec<_>>();
     for coedge in &spliced {
         body.coedges.get_mut(*coedge)?.owner = kept_loop;
     }
@@ -316,8 +334,15 @@ fn join_faces(body: &mut Body, key: EdgeKey, tolerance: f64, curved: bool) -> Op
         body.loops.get_mut(*ring)?.owner = keep;
         body.faces.get_mut(keep)?.loops.push(*ring);
     }
-    body.shells.get_mut(face.owner)?.faces.retain(|other| *other != gone);
-    if !body.faces.iter().any(|(_, other)| other.surface == face.surface) {
+    body.shells
+        .get_mut(face.owner)?
+        .faces
+        .retain(|other| *other != gone);
+    if !body
+        .faces
+        .iter()
+        .any(|(_, other)| other.surface == face.surface)
+    {
         body.surfaces.remove(face.surface);
     }
     Some(())
@@ -362,10 +387,17 @@ fn collinear_pair(body: &Body, vertex: VertexKey) -> Option<[EdgeKey; 2]> {
 fn join_edges(body: &mut Body, vertex: VertexKey) -> Option<()> {
     let [keep, gone] = collinear_pair(body, vertex)?;
     let removed = body.edges.remove(gone)?;
-    let far = if removed.start == vertex { removed.end } else { removed.start };
+    let far = if removed.start == vertex {
+        removed.end
+    } else {
+        removed.start
+    };
     for coedge in &removed.coedges {
         let owner = body.coedges.remove(*coedge)?.owner;
-        body.loops.get_mut(owner)?.coedges.retain(|other| other != coedge);
+        body.loops
+            .get_mut(owner)?
+            .coedges
+            .retain(|other| other != coedge);
     }
     body.vertices.remove(vertex);
     let edge = body.edges.get_mut(keep)?;
@@ -424,27 +456,53 @@ fn divided_sphere(body: &Body, other: &Body, tolerance: f64) -> Option<Body> {
 pub(super) fn regroup_shells(body: &mut Body, tolerance: f64) -> Result<(), Snag> {
     let faces = body.face_keys().collect::<Vec<_>>();
     let components = super::sweep::face_components(body, &faces).ok_or(Snag::CutRefused)?;
-    if components.len() <= 1 { return Ok(()); }
+    if components.len() <= 1 {
+        return Ok(());
+    }
     let mut pieces = Vec::new();
     for faces in &components {
         let mut piece = Body::new();
-        let lump = piece.lumps.insert(Lump { shells: Vec::new(), provenance: Provenance::Synthesized });
-        let shell = piece.shells.insert(Shell { faces: Vec::new(), owner: lump, provenance: Provenance::Synthesized });
-        piece.lumps.get_mut(lump).ok_or(Snag::CutRefused)?.shells.push(shell);
+        let lump = piece.lumps.insert(Lump {
+            shells: Vec::new(),
+            provenance: Provenance::Synthesized,
+        });
+        let shell = piece.shells.insert(Shell {
+            faces: Vec::new(),
+            owner: lump,
+            provenance: Provenance::Synthesized,
+        });
+        piece
+            .lumps
+            .get_mut(lump)
+            .ok_or(Snag::CutRefused)?
+            .shells
+            .push(shell);
         piece.roots.push(lump);
         for face in faces {
             copy_face_with_tolerance(&mut piece, body, *face, shell, false, tolerance)?;
         }
-        let mesh = super::mesh::tessellate(&piece, super::mesh::TessellationTolerance::new(0.3, tolerance));
-        if !mesh.missing_faces.is_empty() || mesh.mesh.is_empty() { return Err(Snag::CutRefused); }
+        let mesh = super::mesh::tessellate(
+            &piece,
+            super::mesh::TessellationTolerance::new(0.3, tolerance),
+        );
+        if !mesh.missing_faces.is_empty() || mesh.mesh.is_empty() {
+            return Err(Snag::CutRefused);
+        }
         let pivot = Vec3::from(mesh.mesh.positions[0]);
-        let volume = mesh.mesh.triangles.iter().map(|triangle| {
-            let a = Vec3::from(mesh.mesh.positions[triangle[0]]) - pivot;
-            let b = Vec3::from(mesh.mesh.positions[triangle[1]]) - pivot;
-            let c = Vec3::from(mesh.mesh.positions[triangle[2]]) - pivot;
-            a.dot(b.cross(c)) / 6.0
-        }).sum::<f64>();
-        if !volume.is_finite() || volume.abs() <= tolerance.powi(3) { return Err(Snag::CutRefused); }
+        let volume = mesh
+            .mesh
+            .triangles
+            .iter()
+            .map(|triangle| {
+                let a = Vec3::from(mesh.mesh.positions[triangle[0]]) - pivot;
+                let b = Vec3::from(mesh.mesh.positions[triangle[1]]) - pivot;
+                let c = Vec3::from(mesh.mesh.positions[triangle[2]]) - pivot;
+                a.dot(b.cross(c)) / 6.0
+            })
+            .sum::<f64>();
+        if !volume.is_finite() || volume.abs() <= tolerance.powi(3) {
+            return Err(Snag::CutRefused);
+        }
         pieces.push((piece, volume));
     }
     let mut owners = Vec::new();
@@ -453,20 +511,33 @@ pub(super) fn regroup_shells(body: &mut Body, tolerance: f64) -> Result<(), Snag
             owners.push(index);
             continue;
         }
-        let point = interior_point(body, components[index][0], tolerance).ok_or(Snag::CutRefused)?;
-        let owner = pieces.iter().enumerate().filter(|(_, (piece, volume))| {
-            *volume > 0.0 && contains_point(piece, point, tolerance) == Containment::Inside
-        }).min_by(|(_, (_, a)), (_, (_, b))| a.total_cmp(b)).map(|(index, _)| index)
+        let point =
+            interior_point(body, components[index][0], tolerance).ok_or(Snag::CutRefused)?;
+        let owner = pieces
+            .iter()
+            .enumerate()
+            .filter(|(_, (piece, volume))| {
+                *volume > 0.0 && contains_point(piece, point, tolerance) == Containment::Inside
+            })
+            .min_by(|(_, (_, a)), (_, (_, b))| a.total_cmp(b))
+            .map(|(index, _)| index)
             .ok_or(Snag::CutRefused)?;
         owners.push(owner);
     }
-    for shell in body.shells.keys().collect::<Vec<_>>() { body.shells.remove(shell); }
-    for lump in body.lumps.keys().collect::<Vec<_>>() { body.lumps.remove(lump); }
+    for shell in body.shells.keys().collect::<Vec<_>>() {
+        body.shells.remove(shell);
+    }
+    for lump in body.lumps.keys().collect::<Vec<_>>() {
+        body.lumps.remove(lump);
+    }
     body.roots.clear();
     let mut lumps = HashMap::new();
     for (index, (_, volume)) in pieces.iter().enumerate() {
         if *volume > 0.0 {
-            let lump = body.lumps.insert(Lump { shells: Vec::new(), provenance: Provenance::Synthesized });
+            let lump = body.lumps.insert(Lump {
+                shells: Vec::new(),
+                provenance: Provenance::Synthesized,
+            });
             body.roots.push(lump);
             lumps.insert(index, lump);
         }
@@ -475,14 +546,30 @@ pub(super) fn regroup_shells(body: &mut Body, tolerance: f64) -> Result<(), Snag
     // an interior component earlier in the provisional face order.
     for exterior in [true, false] {
         for (index, faces) in components.iter().enumerate() {
-            if (pieces[index].1 > 0.0) != exterior { continue; }
+            if (pieces[index].1 > 0.0) != exterior {
+                continue;
+            }
             let owner = *lumps.get(&owners[index]).ok_or(Snag::CutRefused)?;
-            let shell = body.shells.insert(Shell { faces: faces.clone(), owner, provenance: Provenance::Synthesized });
-            body.lumps.get_mut(owner).ok_or(Snag::CutRefused)?.shells.push(shell);
-            for face in faces { body.faces.get_mut(*face).ok_or(Snag::CutRefused)?.owner = shell; }
+            let shell = body.shells.insert(Shell {
+                faces: faces.clone(),
+                owner,
+                provenance: Provenance::Synthesized,
+            });
+            body.lumps
+                .get_mut(owner)
+                .ok_or(Snag::CutRefused)?
+                .shells
+                .push(shell);
+            for face in faces {
+                body.faces.get_mut(*face).ok_or(Snag::CutRefused)?.owner = shell;
+            }
         }
     }
-    if body.validate().is_empty() { Ok(()) } else { Err(Snag::CutRefused) }
+    if body.validate().is_empty() {
+        Ok(())
+    } else {
+        Err(Snag::CutRefused)
+    }
 }
 
 pub(super) fn orient_shell(body: &mut Body) -> Result<(), Snag> {
@@ -493,16 +580,8 @@ pub(super) fn orient_shell(body: &mut Body) -> Result<(), Snag> {
         };
         let first = body.coedges.get(*first).ok_or(Snag::CutRefused)?;
         let second = body.coedges.get(*second).ok_or(Snag::CutRefused)?;
-        let first_face = body
-            .loops
-            .get(first.owner)
-            .ok_or(Snag::CutRefused)?
-            .owner;
-        let second_face = body
-            .loops
-            .get(second.owner)
-            .ok_or(Snag::CutRefused)?
-            .owner;
+        let first_face = body.loops.get(first.owner).ok_or(Snag::CutRefused)?.owner;
+        let second_face = body.loops.get(second.owner).ok_or(Snag::CutRefused)?.owner;
         if first_face == second_face {
             if first.forward == second.forward {
                 return Err(Snag::CutRefused);
@@ -510,8 +589,14 @@ pub(super) fn orient_shell(body: &mut Body) -> Result<(), Snag> {
             continue;
         }
         let differ = first.forward == second.forward;
-        adjacent.entry(first_face).or_default().push((second_face, differ));
-        adjacent.entry(second_face).or_default().push((first_face, differ));
+        adjacent
+            .entry(first_face)
+            .or_default()
+            .push((second_face, differ));
+        adjacent
+            .entry(second_face)
+            .or_default()
+            .push((first_face, differ));
     }
 
     let mut flips = HashMap::new();
@@ -553,11 +638,11 @@ pub(super) fn orient_shell(body: &mut Body) -> Result<(), Snag> {
                 let coedge = body.coedges.get_mut(*key).ok_or(Snag::CutRefused)?;
                 coedge.forward = !coedge.forward;
                 if let Some(curve) = coedge.pcurve.take() {
-                    coedge.pcurve = Some(super::split::reverse_closed_pcurve(&curve).ok_or(Snag::CutRefused)?);
+                    coedge.pcurve =
+                        Some(super::split::reverse_closed_pcurve(&curve).ok_or(Snag::CutRefused)?);
                 }
             }
-            body
-                .loops
+            body.loops
                 .get_mut(ring)
                 .ok_or(Snag::CutRefused)?
                 .coedges
@@ -569,12 +654,7 @@ pub(super) fn orient_shell(body: &mut Body) -> Result<(), Snag> {
 
 /// The other body's face covering the same ground as this one, if there is
 /// one.
-fn coincident_twin(
-    body: &Body,
-    other: &Body,
-    face: FaceKey,
-    tolerance: f64,
-) -> Option<FaceKey> {
+fn coincident_twin(body: &Body, other: &Body, face: FaceKey, tolerance: f64) -> Option<FaceKey> {
     let surface = body.surfaces.get(body.faces.get(face)?.surface)?;
     other.face_keys().find(|candidate| {
         other
@@ -610,7 +690,10 @@ fn inside_each_other(
 
 /// Whether two surfaces are the same one, ignoring how each is parameterised.
 fn same_surface(one: &Surface, other: &Surface, tolerance: f64) -> bool {
-    if matches!(super::intersect_surfaces(one, other, tolerance), super::Meeting::Coincident) {
+    if matches!(
+        super::intersect_surfaces(one, other, tolerance),
+        super::Meeting::Coincident
+    ) {
         return true;
     }
     if !matches!((one, other), (Surface::Plane(_), Surface::Plane(_))) {
@@ -653,13 +736,19 @@ fn keeps_shared_wall(
     [flip_mine, flip_theirs]: [bool; 2],
     is_first: bool,
 ) -> bool {
-    let Some(point) = interior_point(body, face, 1e-9) else { return false; };
+    let Some(point) = interior_point(body, face, 1e-9) else {
+        return false;
+    };
     let outward = |body: &Body, face: FaceKey, flipped: bool| -> Option<Vec3> {
         let node = body.faces.get(face)?;
         let surface = body.surfaces.get(node.surface)?;
         let (u, v) = surface.parameters_at(point)?;
         let normal = Vec3::from(surface.normal_at(u, v)?);
-        Some(if node.forward != flipped { normal } else { -normal })
+        Some(if node.forward != flipped {
+            normal
+        } else {
+            -normal
+        })
     };
     // Each face is flipped only if the operation turns its solid around.
     let (Some(mine), Some(theirs)) = (
@@ -726,7 +815,11 @@ fn interior_point_where(
                         body.curves.get(edge.curve)
                     {
                         let normal = Vec3::from(circle.plane.normal()?);
-                        let sign = if coedge.forward == node.forward { 1.0 } else { -1.0 };
+                        let sign = if coedge.forward == node.forward {
+                            1.0
+                        } else {
+                            -1.0
+                        };
                         return Some(
                             (Vec3::from(sphere.frame.origin) + normal * sphere.radius * sign)
                                 .to_array(),
@@ -741,13 +834,12 @@ fn interior_point_where(
     }
     let boundary = pcurve::face_boundary(body, face, tolerance)?;
     // Up to a cone's apex, too: a cap's rim alone puts every sample on it.
-    let boundary = pcurve::apex_closed(surface, &boundary, crate::geom2d::Tolerance::new(tolerance))
-        .unwrap_or(boundary);
+    let boundary =
+        pcurve::apex_closed(surface, &boundary, crate::geom2d::Tolerance::new(tolerance))
+            .unwrap_or(boundary);
     let samples: Vec<[f64; 2]> = boundary
         .iter()
-        .flat_map(|curve| {
-            (0..4).map(move |step| curve.point_at(step as f64 / 4.0))
-        })
+        .flat_map(|curve| (0..4).map(move |step| curve.point_at(step as f64 / 4.0)))
         .collect();
     if samples.is_empty() {
         return None;
@@ -778,12 +870,14 @@ fn interior_point_where(
     };
     let chosen = usable(centre).or_else(|| {
         samples.iter().find_map(|point| {
-            [0.5, 0.75, 0.875, 0.9375, 0.25, 0.125].into_iter().find_map(|weight| {
-                usable([
-                    centre[0] + (point[0] - centre[0]) * weight,
-                    centre[1] + (point[1] - centre[1]) * weight,
-                ])
-            })
+            [0.5, 0.75, 0.875, 0.9375, 0.25, 0.125]
+                .into_iter()
+                .find_map(|weight| {
+                    usable([
+                        centre[0] + (point[0] - centre[0]) * weight,
+                        centre[1] + (point[1] - centre[1]) * weight,
+                    ])
+                })
         })
     });
     // A thin ring — an annulus cut just inside one rim — has its centroid in
@@ -905,7 +999,14 @@ pub(super) fn copy_face(
     copy_face_with_tolerance(result, source, face, shell, flip, tolerance)
 }
 
-pub(super) fn copy_face_with_tolerance(result: &mut Body, source: &Body, face: FaceKey, shell: super::ShellKey, flip: bool, tolerance: f64) -> Result<(), Snag> {
+pub(super) fn copy_face_with_tolerance(
+    result: &mut Body,
+    source: &Body,
+    face: FaceKey,
+    shell: super::ShellKey,
+    flip: bool,
+    tolerance: f64,
+) -> Result<(), Snag> {
     let node = source.faces.get(face).ok_or(Snag::CutRefused)?;
     let surface = source
         .surfaces
@@ -950,22 +1051,20 @@ pub(super) fn copy_face_with_tolerance(result: &mut Body, source: &Body, face: F
             // leaves an otherwise valid patch impossible to triangulate.
             // Closed circles still require their single seam vertex.
             if start == end
-                && (matches!(curve, super::Curve3::Line(_))
-                    || source_edge.start != source_edge.end)
+                && (matches!(curve, super::Curve3::Line(_)) || source_edge.start != source_edge.end)
             {
                 continue;
             }
-            let middle = curve.point_at(
-                0.5 * (source_edge.start_parameter + source_edge.end_parameter),
-            );
+            let middle =
+                curve.point_at(0.5 * (source_edge.start_parameter + source_edge.end_parameter));
             // Reuse rather than copy where the same edge is already there.
             // This is the stitching: two kept faces that met along a seam in
             // their own solid meet along it here only if their copies share
             // the edge, and without that the result is a shell of loose
             // faces that still passes every local check.
-            let here = Vec3::from(curve.tangent_at(
-                0.5 * (source_edge.start_parameter + source_edge.end_parameter),
-            ));
+            let here = Vec3::from(
+                curve.tangent_at(0.5 * (source_edge.start_parameter + source_edge.end_parameter)),
+            );
             let span = (source_edge.start_parameter, source_edge.end_parameter);
             let edge = match find_edge(result, start, end, middle, (&curve, span), tolerance) {
                 Some(existing) => existing,
@@ -996,7 +1095,9 @@ pub(super) fn copy_face_with_tolerance(result: &mut Body, source: &Body, face: F
             });
             let reverse_pcurve = flip != reversed;
             let pcurve = match (&source_coedge.pcurve, reverse_pcurve) {
-                (Some(curve), true) => Some(super::split::reverse_closed_pcurve(curve).ok_or(Snag::CutRefused)?),
+                (Some(curve), true) => {
+                    Some(super::split::reverse_closed_pcurve(curve).ok_or(Snag::CutRefused)?)
+                }
                 (Some(curve), false) => Some(curve.clone()),
                 (None, _) => None,
             };
@@ -1067,13 +1168,15 @@ fn find_edge(
             // though each solid's cut ended it a fit apart along the spline.
             // A closed spline has two stretches between the same corners;
             // the spans tell them apart.
-            let within = |value: f64, (from, to): (f64, f64)| {
-                value >= from.min(to) && value <= from.max(to)
-            };
+            let within =
+                |value: f64, (from, to): (f64, f64)| value >= from.min(to) && value <= from.max(to);
             let same_spline = start != end
                 && matches!(curve, super::Curve3::Nurbs(_))
                 && result.curves.get(edge.curve) == Some(curve)
-                && within(0.5 * (span.0 + span.1), (edge.start_parameter, edge.end_parameter))
+                && within(
+                    0.5 * (span.0 + span.1),
+                    (edge.start_parameter, edge.end_parameter),
+                )
                 && within(0.5 * (edge.start_parameter + edge.end_parameter), span);
             let same_middle = result
                 .edge_endpoints(*key)
@@ -1173,13 +1276,19 @@ mod tests {
     fn a_door_cut_retries_rays_that_graze_the_wall_bottom() {
         use crate::geom2d::{Curve, Line};
         let prism = |points: &[[f64; 2]]| {
-            let profile = (0..points.len()).map(|index| Curve::Line(Line {
-                start: points[index], end: points[(index + 1) % points.len()],
-            })).collect::<Vec<_>>();
+            let profile = (0..points.len())
+                .map(|index| {
+                    Curve::Line(Line {
+                        start: points[index],
+                        end: points[(index + 1) % points.len()],
+                    })
+                })
+                .collect::<Vec<_>>();
             crate::brep::extrude(crate::space::Plane::XY, &profile, [0.0, 0.0, 3000.0]).unwrap()
         };
         let outer = prism(&[
-            [0.0, 2350.608306267448], [0.0, 6299.998941667038],
+            [0.0, 2350.608306267448],
+            [0.0, 6299.998941667038],
             [18119.99661333453, 6299.998941667038],
             [18119.99661333453, -299.99964722234654],
             [2650.609364600408, -299.99964722234654],
@@ -1188,13 +1297,19 @@ mod tests {
             [299.99964722234614, 2474.872823655858],
             [299.99964722234614, 5999.998941667038],
             [17819.995555001562, 5999.998941667038],
-            [17819.995555001562, 0.0], [2774.8735292111646, 0.0],
+            [17819.995555001562, 0.0],
+            [2774.8735292111646, 0.0],
         ]);
         let tolerance = crate::brep::operation_tolerance(&[&outer, &inner]);
         let wall = combine(outer, inner, Operation::Difference, tolerance).unwrap();
-        assert_eq!(crate::brep::contains_point(&wall,
-            [6159.999129815122, -349.99982361117327, -50.0], tolerance),
-            Containment::Outside);
+        assert_eq!(
+            crate::brep::contains_point(
+                &wall,
+                [6159.999129815122, -349.99982361117327, -50.0],
+                tolerance
+            ),
+            Containment::Outside
+        );
         let cutter = cuboid([6159.999129815122, -400.0, -100.0], [1200.0, 500.0, 2200.0]).unwrap();
         let expected = volume(&wall) - 1200.0 * 299.99964722234654 * 2100.0;
         let result = combine(wall, cutter, Operation::Difference, tolerance).unwrap();
@@ -1323,17 +1438,11 @@ mod tests {
     /// How much a body encloses once meshed. Positive when it is the right
     /// way out; a shared wall left in twice, or taken out twice, changes it.
     fn volume(solid: &Body) -> f64 {
-        let mesh = super::super::mesh::body(
-            solid,
-            crate::tessellation::DEFAULT_ANGLE,
-            1e-9,
-        );
+        let mesh = super::super::mesh::body(solid, crate::tessellation::DEFAULT_ANGLE, 1e-9);
         mesh.triangles
             .iter()
             .map(|triangle| {
-                let at = |index: usize| {
-                    crate::space::Vec3::from(mesh.positions[triangle[index]])
-                };
+                let at = |index: usize| crate::space::Vec3::from(mesh.positions[triangle[index]]);
                 at(0).cross(at(1)).dot(at(2)) / 6.0
             })
             .sum()
@@ -1349,8 +1458,13 @@ mod tests {
             let tolerance = crate::brep::operation_tolerance(&[&sphere, &rod]);
             let both = (volume(&sphere), volume(&rod));
             let joined = combine(sphere.clone(), rod.clone(), Operation::Union, tolerance).unwrap();
-            let shared =
-                combine(sphere.clone(), rod.clone(), Operation::Intersection, tolerance).unwrap();
+            let shared = combine(
+                sphere.clone(),
+                rod.clone(),
+                Operation::Intersection,
+                tolerance,
+            )
+            .unwrap();
             let drilled = combine(sphere, rod, Operation::Difference, tolerance).unwrap();
             for result in [&joined, &shared, &drilled] {
                 assert!(result.validate().is_empty());
@@ -1393,7 +1507,11 @@ mod tests {
         let b = cuboid([0.0, 0.0, 10.0], [4.0, 4.0, 4.0]).unwrap();
         let result = combine(a, b, Operation::Difference, TOL).expect("a stacked difference");
         assert!(result.validate().is_empty());
-        assert!((volume(&result) - 1000.0).abs() < 1e-6, "{}", volume(&result));
+        assert!(
+            (volume(&result) - 1000.0).abs() < 1e-6,
+            "{}",
+            volume(&result)
+        );
     }
 
     #[test]
@@ -1426,7 +1544,10 @@ mod tests {
         .unwrap();
         let result = combine(a, b, Operation::Union, 1e-6).expect("the same union, further out");
         let bounds = body_bounds(&result).unwrap();
-        assert!((bounds.max[0] - (origin[0] + 15.0)).abs() < 1e-6, "{bounds:?}");
+        assert!(
+            (bounds.max[0] - (origin[0] + 15.0)).abs() < 1e-6,
+            "{bounds:?}"
+        );
     }
 
     #[test]
@@ -1481,7 +1602,10 @@ mod tests {
         let before: Vec<bool> = b.faces.iter().map(|(_, f)| f.forward).collect();
         let result = combine(a, b, Operation::Difference, TOL).unwrap();
         let flipped = result.faces.iter().filter(|(_, f)| !f.forward).count();
-        assert!(before.iter().all(|forward| *forward), "the input was all forward");
+        assert!(
+            before.iter().all(|forward| *forward),
+            "the input was all forward"
+        );
         assert!(flipped > 0, "nothing was turned around");
     }
 
@@ -1501,11 +1625,8 @@ mod tests {
             .map(|(key, _)| key)
             .unwrap();
         let boss = crate::brep::fillet_edges(&plain, &[rim], 0.3).unwrap();
-        let moved = crate::brep::transform(
-            &boss,
-            &crate::brep::Placement::at([0.37, 0.11, 0.23]),
-        )
-        .unwrap();
+        let moved =
+            crate::brep::transform(&boss, &crate::brep::Placement::at([0.37, 0.11, 0.23])).unwrap();
         let volume = |body: &Body| crate::brep::mass_properties(body).unwrap().volume;
         let tolerance = 2e-7;
         let union = combine(boss.clone(), moved.clone(), Operation::Union, tolerance).unwrap();
@@ -1542,6 +1663,9 @@ mod tests {
         let union = combine(rounded.clone(), moved.clone(), Operation::Union, tolerance).unwrap();
         let common = combine(rounded.clone(), moved, Operation::Intersection, tolerance).unwrap();
         let both = volume(&union) + volume(&common);
-        assert!((both - 2.0 * volume(&rounded)).abs() < 1e-4 * both, "{both}");
+        assert!(
+            (both - 2.0 * volume(&rounded)).abs() < 1e-4 * both,
+            "{both}"
+        );
     }
 }

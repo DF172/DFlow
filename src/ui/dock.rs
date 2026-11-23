@@ -9,9 +9,9 @@
 //! and hit-test it; the app owns the transient drag / hover state.
 
 use crate::app::config::DockSide;
+use crate::ui::style::tokens;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
-use crate::ui::style::tokens;
 
 /// Dock chrome interactions. These are panel-agnostic so any dockable panel
 /// (Properties, the block palette, future palettes) shares one code path.
@@ -170,7 +170,9 @@ impl PanelId {
     pub fn icon(self) -> &'static [u8] {
         match self {
             PanelId::Properties => include_bytes!("../../assets/icons/properties.svg"),
-            PanelId::GraphicAttributes => include_bytes!("../../assets/icons/graphic_attributes.svg"),
+            PanelId::GraphicAttributes => {
+                include_bytes!("../../assets/icons/graphic_attributes.svg")
+            }
             PanelId::BlockPalette => include_bytes!("../../assets/icons/blocks/insert.svg"),
             PanelId::ExternalReferences => crate::ui::icons::FOLDER_OPEN,
             PanelId::Browser => include_bytes!("../../assets/icons/content_browser.svg"),
@@ -215,15 +217,21 @@ impl PanelId {
 /// three tracks (see [`crate::ui::motion::replay_entrance`]). The array
 /// length is the slot count, so changing the panel budget breaks the build
 /// here rather than silently leaving a panel half-staggered.
-const ENTRANCE_LAYERS: [&str; crate::ui::motion::STAGGER_SLOTS] =
-    ["entrance:layers:0", "entrance:layers:1", "entrance:layers:2"];
+const ENTRANCE_LAYERS: [&str; crate::ui::motion::STAGGER_SLOTS] = [
+    "entrance:layers:0",
+    "entrance:layers:1",
+    "entrance:layers:2",
+];
 const ENTRANCE_PROPERTIES: [&str; crate::ui::motion::STAGGER_SLOTS] = [
     "entrance:properties:0",
     "entrance:properties:1",
     "entrance:properties:2",
 ];
-const ENTRANCE_BROWSER: [&str; crate::ui::motion::STAGGER_SLOTS] =
-    ["entrance:browser:0", "entrance:browser:1", "entrance:browser:2"];
+const ENTRANCE_BROWSER: [&str; crate::ui::motion::STAGGER_SLOTS] = [
+    "entrance:browser:0",
+    "entrance:browser:1",
+    "entrance:browser:2",
+];
 const ENTRANCE_XREF: [&str; crate::ui::motion::STAGGER_SLOTS] =
     ["entrance:xref:0", "entrance:xref:1", "entrance:xref:2"];
 const ENTRANCE_SHEET_SET: [&str; crate::ui::motion::STAGGER_SLOTS] = [
@@ -1162,8 +1170,8 @@ pub fn strip_hit(y: f32, layout: &[StripGroup]) -> StripHit {
 
 use crate::app::Message;
 use crate::ui::kit;
-use iced::widget::{container, mouse_area, row, text, tooltip, Space};
 use crate::ui::kit::plain_button;
+use iced::widget::{container, mouse_area, row, text, tooltip, Space};
 use iced::{Element, Length};
 
 /// How a panel is framed where it is shown, passed to its view so the shared
@@ -1205,10 +1213,13 @@ pub fn title_bar_with<'a>(
     }
     // The pin and close only show while the pointer is over the bar; the
     // fixed height keeps the bar from jumping when they appear.
-    let mut bar = row![text(title).size(tokens::TEXT_BODY), Space::new().width(Length::Fill)]
-        .spacing(tokens::GAP_TIGHT)
-        .height(Length::Fixed(TITLE_BUTTON_H))
-        .align_y(iced::Center);
+    let mut bar = row![
+        text(title).size(tokens::TEXT_BODY),
+        Space::new().width(Length::Fill)
+    ]
+    .spacing(tokens::GAP_TIGHT)
+    .height(Length::Fixed(TITLE_BUTTON_H))
+    .align_y(iced::Center);
     if let Some(extra) = extra {
         bar = bar.push(extra);
     }
@@ -1254,9 +1265,13 @@ pub fn pin_button<'a>(
         .on_press(Message::Dock(DockMsg::AutoCollapseToggle(id)))
         .style(kit::subtle_style)
         .padding([tokens::GAP_HAIRLINE, tokens::GAP_CONTROL]);
-    tooltip(pin, text(crate::t!("Auto-hide")).size(tokens::TEXT_MICRO), tip)
-        .gap(4)
-        .into()
+    tooltip(
+        pin,
+        text(crate::t!("Auto-hide")).size(tokens::TEXT_MICRO),
+        tip,
+    )
+    .gap(4)
+    .into()
 }
 
 /// The close button of a panel's title bar.
@@ -1268,9 +1283,13 @@ pub fn close_button<'a>(id: PanelId, tip: tooltip::Position) -> Element<'a, Mess
     .on_press(Message::Dock(DockMsg::Close(id)))
     .style(kit::subtle_style)
     .padding([tokens::GAP_HAIRLINE, tokens::GAP_CONTROL]);
-    tooltip(close, text(crate::t!("Close")).size(tokens::TEXT_MICRO), tip)
-        .gap(4)
-        .into()
+    tooltip(
+        close,
+        text(crate::t!("Close")).size(tokens::TEXT_MICRO),
+        tip,
+    )
+    .gap(4)
+    .into()
 }
 
 /// Side length of a panel toolbar button's icon.
@@ -1291,9 +1310,13 @@ pub fn tool_button<'a>(
         kit::Press::On(message),
         "",
     );
-    tooltip(button, text(tip).size(tokens::TEXT_MICRO), tooltip::Position::Bottom)
-        .gap(4)
-        .into()
+    tooltip(
+        button,
+        text(tip).size(tokens::TEXT_MICRO),
+        tooltip::Position::Bottom,
+    )
+    .gap(4)
+    .into()
 }
 
 /// A docked panel's body: its title bar flush along the top (as on the
@@ -1306,7 +1329,9 @@ pub fn frame<'a>(
     kit::surface(
         iced::widget::column![
             title_bar,
-            container(content).padding(tokens::GAP_CONTROL).height(Length::Fill)
+            container(content)
+                .padding(tokens::GAP_CONTROL)
+                .height(Length::Fill)
         ],
         kit::Tier::Card,
         iced::Padding::ZERO,
@@ -1473,11 +1498,13 @@ mod tests {
 
     #[test]
     fn join_group_index_counts_groups_before_the_move() {
-        let mut state = DockState::default();
-        state.left = vec![
-            DockGroup::single(PanelId::BlockPalette),
-            DockGroup::single(PanelId::Properties),
-        ];
+        let mut state = DockState {
+            left: vec![
+                DockGroup::single(PanelId::BlockPalette),
+                DockGroup::single(PanelId::Properties),
+            ],
+            ..Default::default()
+        };
         state.right.clear();
         // Group 1 (Properties) is group 0 once the palette's group is gone.
         assert!(state.join_group(PanelId::BlockPalette, DockSide::Left, 1, 1));
@@ -1532,11 +1559,13 @@ mod tests {
 
     #[test]
     fn shift_split_keeps_combined_share_and_minimum() {
-        let mut state = DockState::default();
-        state.left = vec![DockGroup::stack(vec![
-            PanelId::BlockPalette,
-            PanelId::Properties,
-        ])];
+        let mut state = DockState {
+            left: vec![DockGroup::stack(vec![
+                PanelId::BlockPalette,
+                PanelId::Properties,
+            ])],
+            ..Default::default()
+        };
         state.shift_split(DockSide::Left, 0, 0, 1, 0.5, 0.1);
         assert_eq!(state.left[0].weights, vec![1.5, 0.5]);
         state.shift_split(DockSide::Left, 0, 0, 1, 10.0, 0.1);
@@ -1688,7 +1717,11 @@ mod tests {
     /// them. A new waved panel goes here and in `entrance_keys` together; the
     /// table check below fails if the two disagree.
     const WAVED: [(PanelId, &str, &str); 5] = [
-        (PanelId::Layers, "layers.rs", include_str!("window/layers.rs")),
+        (
+            PanelId::Layers,
+            "layers.rs",
+            include_str!("window/layers.rs"),
+        ),
         (
             PanelId::Properties,
             "properties.rs",

@@ -7,7 +7,7 @@ use crate::app::helpers::{
     parse_coord, polar_constrain_near, ucs_rotate_vec, ucs_to_wcs, ucs_z_axis, CoordKind,
 };
 use crate::app::TextEntryMode;
-use crate::app::{Message, DraftFlowCAD, POLY_START_DELAY_MS};
+use crate::app::{DraftFlowCAD, Message, POLY_START_DELAY_MS};
 use crate::modules::ModuleEvent;
 use crate::scene::model::object::{GripApply, PropValue};
 use crate::scene::pick::grip::{
@@ -155,14 +155,14 @@ impl DraftFlowCAD {
 
     pub(super) fn on_tab_close(&mut self, idx: usize) -> Task<Message> {
         // Start tab is fixed — close requests on it are no-ops.
-        if self.tabs.get(idx).map_or(false, |t| t.is_start) {
+        if self.tabs.get(idx).is_some_and(|t| t.is_start) {
             return Task::none();
         }
         // Closing a tab shifts indices / the active tab. The attribute
         // editor holds a document-local handle into one tab, so drop it
         // now rather than risk it applying to a different tab's document.
         self.cancel_attr_editor();
-        if self.tabs.get(idx).map_or(false, |t| t.dirty) {
+        if self.tabs.get(idx).is_some_and(|t| t.dirty) {
             self.pending_close = Some(crate::app::PendingClose::Tab(self.tabs[idx].id));
             return self.open_unsaved_dialog_window();
         }
@@ -848,12 +848,10 @@ impl DraftFlowCAD {
             let raw = self.command_line.input.trim().to_string();
             let is_mtp = raw.trim_start_matches('_').eq_ignore_ascii_case("MTP")
                 || raw.trim_start_matches('_').eq_ignore_ascii_case("M2P");
-            if is_mtp {
-                if self.point_modifier_step(i) {
-                    self.command_line.input.clear();
-                    self.start_mtp_modifier(i);
-                    return self.focus_cmd_input();
-                }
+            if is_mtp && self.point_modifier_step(i) {
+                self.command_line.input.clear();
+                self.start_mtp_modifier(i);
+                return self.focus_cmd_input();
             }
             if let Some(kind) = self.typed_snap_override(i, &raw) {
                 self.command_line.input.clear();
@@ -1842,7 +1840,8 @@ impl DraftFlowCAD {
                     self.command_line
                         .push_info(crate::t!("Specify point or enter arc length:").as_ref());
                 } else if matches!(item.action, GripMenuAction::RectangleWidth) {
-                    self.command_line.push_info(crate::t!("Specify point or enter width:").as_ref());
+                    self.command_line
+                        .push_info(crate::t!("Specify point or enter width:").as_ref());
                 } else if matches!(item.action, GripMenuAction::RectangleHeight) {
                     self.command_line
                         .push_info(crate::t!("Specify point or enter height:").as_ref());
@@ -2080,7 +2079,6 @@ impl DraftFlowCAD {
     }
 
     pub(in crate::app) fn read_system_clipboard_for_paste(&self) -> Task<Message> {
-
         {
             iced::clipboard::read_text().map(|result| {
                 use crate::app::SystemClipboardText as Text;
@@ -2099,7 +2097,6 @@ impl DraftFlowCAD {
             })
         }
     }
-
 
     pub(super) fn on_qselect_open(&mut self) -> Task<Message> {
         let i = self.active_tab;
@@ -2431,7 +2428,7 @@ impl DraftFlowCAD {
                         model.name = name.clone();
                     }
                 }
-                self.invalidate_property_targets(i, &handles);
+                self.invalidate_property_targets(i, handles);
                 self.tabs[i].dirty = true;
                 self.refresh_properties();
             }
@@ -2740,9 +2737,9 @@ impl DraftFlowCAD {
                             app.tabs[i].scene.document.get_entity_mut(handle)
                         {
                             vp.ucs_handle = ucs.handle;
-                            vp.ucs_origin = ucs.origin.clone();
-                            vp.ucs_x_axis = ucs.x_axis.clone();
-                            vp.ucs_y_axis = ucs.y_axis.clone();
+                            vp.ucs_origin = ucs.origin;
+                            vp.ucs_x_axis = ucs.x_axis;
+                            vp.ucs_y_axis = ucs.y_axis;
                             vp.ucs_per_viewport = true;
                         }
                     });
@@ -2767,8 +2764,8 @@ impl DraftFlowCAD {
                         if let Some(codec::EntityType::Viewport(vp)) =
                             app.tabs[i].scene.document.get_entity_mut(handle)
                         {
-                            vp.view_target = view.target.clone();
-                            vp.view_direction = view.direction.clone();
+                            vp.view_target = view.target;
+                            vp.view_direction = view.direction;
                             if view.height > 0.0 {
                                 vp.view_height = view.height;
                             }
@@ -3335,7 +3332,10 @@ impl DraftFlowCAD {
                         } else {
                             self.discard_last_undo_entry(i);
                             self.command_line.push_error(
-                                crate::t!("CETRANSPARENCY: drawing variable dictionary is invalid.").as_ref(),
+                                crate::t!(
+                                    "CETRANSPARENCY: drawing variable dictionary is invalid."
+                                )
+                                .as_ref(),
                             );
                         }
                     }
@@ -3624,6 +3624,12 @@ impl DraftFlowCAD {
 
     pub(super) fn on_prop_geom_commit(&mut self, field: &'static str) -> Task<Message> {
         use crate::ui::window::named_parameters::ParamField;
+        // Whatever happens below, this field is no longer uncommitted.
+        crate::ui::motion::set(
+            crate::ui::motion::PROP_DIRTY,
+            0.0,
+            crate::ui::motion::PROP_DIRTY_TIME,
+        );
         // A dynamic dimension's Name/Expression rows edit its parameter.
         let dynamic_field = match field {
             "dyn_constraint_name" => Some(ParamField::Name),
@@ -4631,7 +4637,7 @@ mod layer_name_target_tests {
     // RED: `Message::LayerToggleVisible` currently carries a panel-row `usize`;
     // these tests pass a layer `String` name and fail to compile until the
     // #22 migration lands.
-    use crate::app::{Message, DraftFlowCAD};
+    use crate::app::{DraftFlowCAD, Message};
     use crate::ui::window::layers::LayerSortCol;
 
     fn rename_layer(app: &mut DraftFlowCAD, old_name: &str, new_name: &str) {
@@ -5167,7 +5173,10 @@ mod grip_numeric_finite_guard_tests {
 
         let out = submit_radius_value(&mut app, handle, "3*4");
 
-        assert!(app.grip_pending.is_none(), "a finite value must be accepted; edit output: {out:?}");
+        assert!(
+            app.grip_pending.is_none(),
+            "a finite value must be accepted; edit output: {out:?}"
+        );
         assert_eq!(
             radius_of(&app, handle),
             12.0,
@@ -5182,7 +5191,7 @@ mod grip_numeric_finite_guard_tests {
 /// open) can carry an index the first removal already invalidated.
 #[cfg(test)]
 mod tab_close_tests {
-    use crate::app::{Message, DraftFlowCAD};
+    use crate::app::{DraftFlowCAD, Message};
 
     /// `[Start, Drawing A, Drawing B]` — three clean tabs.
     fn three_tabs() -> DraftFlowCAD {

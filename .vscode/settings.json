@@ -3,6 +3,19 @@
   // (D:\cargo-target). Sharing one target dir makes RA and `cargo build`
   // fight over the same file locks every time you save.
   "rust-analyzer.cargo.targetDir": "D:/cargo-target-ra",
+  // Integrated terminals get the D:-only paths even when the IDE itself was
+  // launched from an older environment block.
+  "terminal.integrated.env.windows": {
+    "TEMP": "D:\\Temp",
+    "TMP": "D:\\Temp",
+    "CARGO_HOME": "D:\\.cargo",
+    "RUSTUP_HOME": "D:\\.rustup",
+    "CARGO_TARGET_DIR": "D:\\cargo-target",
+    "SCCACHE_DIR": "D:\\sccache",
+    "GH_CONFIG_DIR": "D:\\gh",
+    "PIP_CACHE_DIR": "D:\\pip-cache",
+    "NPM_CONFIG_CACHE": "D:\\npm-cache"
+  },
   "rust-analyzer.check.command": "clippy",
   "rust-analyzer.check.extraArgs": ["--profile", "dev"],
   "rust-analyzer.cargo.buildScripts.enable": true,

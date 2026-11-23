@@ -150,7 +150,7 @@ impl super::DraftFlowCAD {
                 PresspullTargetKind::Profile { entity, .. } => {
                     let (plane, loops, closed) = presspull_model::profile_geometry(entity)
                         .ok_or("PRESSPULL: the profile could not be recovered exactly.")?;
-                    if owner.is_some() {
+                    if let Some(owner_handle) = owner {
                         let current = current
                             .ok_or("PRESSPULL: the original solid could not be restored.")?;
                         if !closed {
@@ -170,7 +170,7 @@ impl super::DraftFlowCAD {
                             history,
                             scene
                                 .document
-                                .get_entity(owner.unwrap())
+                                .get_entity(owner_handle)
                                 .cloned()
                                 .ok_or("PRESSPULL: the original solid no longer exists.")?,
                         )

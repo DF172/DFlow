@@ -84,7 +84,8 @@ impl Transform {
     /// In that order because it is the order an insertion means — the scale is
     /// about the block's own origin, not about where it ends up.
     pub fn insertion(at: [f64; 2], scale: [f64; 2], angle: f64) -> Self {
-        Self::translation(at).then_of(Self::rotation(angle).then_of(Self::scale(scale[0], scale[1])))
+        Self::translation(at)
+            .then_of(Self::rotation(angle).then_of(Self::scale(scale[0], scale[1])))
     }
 
     /// This map applied after `first`.
@@ -121,8 +122,7 @@ impl Transform {
         if x < 1e-12 || y < 1e-12 {
             return false;
         }
-        (x - y).abs() <= 1e-9 * x.max(y)
-            && self.x_axis.dot(self.y_axis).abs() <= 1e-9 * x * y
+        (x - y).abs() <= 1e-9 * x.max(y) && self.x_axis.dot(self.y_axis).abs() <= 1e-9 * x * y
     }
 
     /// How much lengths are multiplied by, for a map that keeps circles round.
@@ -252,12 +252,10 @@ impl Curve {
 /// angle below is the rotation that turns them into the pair that is.
 fn transformed_ellipse(ellipse: &Ellipse, by: &Transform) -> Ellipse {
     let minor_axis = ellipse.minor_axis();
-    let p = Vec2::from(by.apply_vector(
-        (Vec2::from(ellipse.major_axis) * ellipse.major_radius).to_array(),
-    ));
-    let q = Vec2::from(by.apply_vector(
-        (Vec2::from(minor_axis) * ellipse.minor_radius).to_array(),
-    ));
+    let p = Vec2::from(
+        by.apply_vector((Vec2::from(ellipse.major_axis) * ellipse.major_radius).to_array()),
+    );
+    let q = Vec2::from(by.apply_vector((Vec2::from(minor_axis) * ellipse.minor_radius).to_array()));
 
     let shift = principal_shift(p, q);
     let (first, second) = principal_axes(p, q, shift);
@@ -296,12 +294,7 @@ fn principal_axes(p: Vec2, q: Vec2, shift: f64) -> (Vec2, Vec2) {
 }
 
 /// A transformed elliptical arc, with its parameter range carried across.
-fn elliptical_arc_from(
-    ellipse: &Ellipse,
-    start: f64,
-    end: f64,
-    by: &Transform,
-) -> Curve {
+fn elliptical_arc_from(ellipse: &Ellipse, start: f64, end: f64, by: &Transform) -> Curve {
     let result = transformed_ellipse(ellipse, by);
 
     // Find where the old endpoints land, then read their parameters off the
@@ -368,14 +361,20 @@ mod tests {
 
     #[test]
     fn the_identity_leaves_points_where_they_are() {
-        assert!(near(Transform::IDENTITY.apply_point([3.0, -4.0]), [3.0, -4.0]));
+        assert!(near(
+            Transform::IDENTITY.apply_point([3.0, -4.0]),
+            [3.0, -4.0]
+        ));
     }
 
     #[test]
     fn a_translation_moves_points_but_not_directions() {
         let by = Transform::translation([10.0, 5.0]);
         assert!(near(by.apply_point([1.0, 1.0]), [11.0, 6.0]));
-        assert!(near(by.apply_vector([1.0, 1.0]), [1.0, 1.0]), "a direction has no place");
+        assert!(
+            near(by.apply_vector([1.0, 1.0]), [1.0, 1.0]),
+            "a direction has no place"
+        );
     }
 
     #[test]
@@ -398,9 +397,15 @@ mod tests {
         let scale = Transform::scale(2.0, 2.0);
         let move_it = Transform::translation([10.0, 0.0]);
         // Scale, then move: (1,0) doubles to (2,0), then shifts to (12,0).
-        assert!(near(move_it.then_of(scale).apply_point([1.0, 0.0]), [12.0, 0.0]));
+        assert!(near(
+            move_it.then_of(scale).apply_point([1.0, 0.0]),
+            [12.0, 0.0]
+        ));
         // Move, then scale: (1,0) shifts to (11,0), then doubles to (22,0).
-        assert!(near(scale.then_of(move_it).apply_point([1.0, 0.0]), [22.0, 0.0]));
+        assert!(near(
+            scale.then_of(move_it).apply_point([1.0, 0.0]),
+            [22.0, 0.0]
+        ));
     }
 
     #[test]
@@ -408,7 +413,10 @@ mod tests {
         assert!(Transform::IDENTITY.is_similarity());
         assert!(Transform::rotation(0.7).is_similarity());
         assert!(Transform::scale(3.0, 3.0).is_similarity());
-        assert!(Transform::scale(-2.0, 2.0).is_similarity(), "a mirror still is");
+        assert!(
+            Transform::scale(-2.0, 2.0).is_similarity(),
+            "a mirror still is"
+        );
         assert!(!Transform::scale(2.0, 1.0).is_similarity());
     }
 
@@ -566,9 +574,6 @@ mod tests {
         let by = Transform::translation([1000.0, 0.0]);
         let moved = line.transformed(&by).unwrap();
         assert!(near(moved.point_at(0.0), [origin[0] + 1000.0, origin[1]]));
-        assert!(near(
-            moved.point_at(1.0),
-            [origin[0] + 1010.0, origin[1]]
-        ));
+        assert!(near(moved.point_at(1.0), [origin[0] + 1010.0, origin[1]]));
     }
 }

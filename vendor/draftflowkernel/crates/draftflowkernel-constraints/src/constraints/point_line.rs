@@ -877,8 +877,7 @@ impl Constraint for Perpendicular {
         let cross = dx1 * dy2 - dy1 * dx2;
         let dot = dx1 * dx2 + dy1 * dy2;
         let target = self.orientation * std::f64::consts::FRAC_PI_2;
-        (cross.atan2(dot) - target + std::f64::consts::PI)
-            .rem_euclid(std::f64::consts::TAU)
+        (cross.atan2(dot) - target + std::f64::consts::PI).rem_euclid(std::f64::consts::TAU)
             - std::f64::consts::PI
     }
 

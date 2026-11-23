@@ -47,7 +47,10 @@ pub fn offset_curve(curve: &Curve, distance: f64, tolerance: f64) -> Option<Curv
         // Travelling counter-clockwise, the left is the centre.
         Curve::Circle(circle) => {
             let radius = circle.radius - distance;
-            (radius > 0.0).then_some(Curve::Circle(Circle { centre: circle.centre, radius }))
+            (radius > 0.0).then_some(Curve::Circle(Circle {
+                centre: circle.centre,
+                radius,
+            }))
         }
         Curve::Arc(arc) => {
             let radius = arc.radius - distance;
@@ -161,7 +164,11 @@ mod tests {
         for i in 0..=200 {
             let p = result.point_at(i as f64 / 200.0);
             let d = closest_point(source, p).distance;
-            assert!((d - distance.abs()).abs() <= tolerance * 2.0, "off by {}", d - distance.abs());
+            assert!(
+                (d - distance.abs()).abs() <= tolerance * 2.0,
+                "off by {}",
+                d - distance.abs()
+            );
         }
     }
 
@@ -181,9 +188,15 @@ mod tests {
         let spline = Curve::Nurbs(
             NurbsCurve::new(
                 3,
-                [[-9.0, -5.0], [-4.0, 7.0], [0.0, -7.0], [4.0, 8.0], [9.0, -4.0]]
-                    .map(|[x, y]| [origin[0] + x, origin[1] + y])
-                    .to_vec(),
+                [
+                    [-9.0, -5.0],
+                    [-4.0, 7.0],
+                    [0.0, -7.0],
+                    [4.0, 8.0],
+                    [9.0, -4.0],
+                ]
+                .map(|[x, y]| [origin[0] + x, origin[1] + y])
+                .to_vec(),
                 vec![0.0, 0.0, 0.0, 0.0, 0.5, 1.0, 1.0, 1.0, 1.0],
                 None,
             )
@@ -195,8 +208,12 @@ mod tests {
 
     #[test]
     fn arcs_and_circles_keep_their_kind() {
-        let arc =
-            Curve::Arc(Arc { centre: [0.0, 0.0], radius: 5.0, start_angle: 0.0, end_angle: 1.0 });
+        let arc = Curve::Arc(Arc {
+            centre: [0.0, 0.0],
+            radius: 5.0,
+            start_angle: 0.0,
+            end_angle: 1.0,
+        });
         let inner = offset_curve(&arc, 1.0, 1e-6);
         assert!(matches!(inner, Some(Curve::Arc(a)) if (a.radius - 4.0).abs() < 1e-12));
         assert!(offset_curve(&arc, 6.0, 1e-6).is_none());

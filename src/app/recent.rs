@@ -89,5 +89,4 @@ impl DraftFlowCAD {
 
 fn remove_cached_copies(paths: impl IntoIterator<Item = PathBuf>) {
     let _ = paths;
-
 }

@@ -43,13 +43,12 @@ fn directory(ico: &[u8]) -> Option<Vec<(u32, u32, u32, u32)>> {
         let at = 6 + 16 * i;
         // 0 in the width byte means 256, not 0.
         let w = if ico[at] == 0 { 256 } else { ico[at] as u32 };
-        let h = if ico[at + 1] == 0 { 256 } else { ico[at + 1] as u32 };
-        let offset = u32::from_le_bytes([
-            ico[at + 12],
-            ico[at + 13],
-            ico[at + 14],
-            ico[at + 15],
-        ]);
+        let h = if ico[at + 1] == 0 {
+            256
+        } else {
+            ico[at + 1] as u32
+        };
+        let offset = u32::from_le_bytes([ico[at + 12], ico[at + 13], ico[at + 14], ico[at + 15]]);
         let len = u32::from_le_bytes([ico[at + 8], ico[at + 9], ico[at + 10], ico[at + 11]]);
         if (offset as usize) + (len as usize) > ico.len() {
             return None;
@@ -60,8 +59,8 @@ fn directory(ico: &[u8]) -> Option<Vec<(u32, u32, u32, u32)>> {
 }
 
 fn size_set(ico: &[u8], label: &str) -> BTreeSet<u32> {
-    let entries = directory(ico)
-        .unwrap_or_else(|| panic!("{label} is not a well-formed ICONDIR container"));
+    let entries =
+        directory(ico).unwrap_or_else(|| panic!("{label} is not a well-formed ICONDIR container"));
     entries
         .iter()
         .map(|(w, h, _, _)| {
@@ -84,7 +83,10 @@ fn both_icons_carry_exactly_the_signed_size_set() {
     for (label, ico) in [("dwg.ico", DWG_ICO), ("dxf.ico", DXF_ICO)] {
         let want: BTreeSet<u32> = SIZES.iter().copied().collect();
         let got = size_set(ico, label);
-        assert_eq!(got, want, "{label} frame set drifted from the signed {SIZES:?}");
+        assert_eq!(
+            got, want,
+            "{label} frame set drifted from the signed {SIZES:?}"
+        );
     }
 }
 
@@ -171,7 +173,11 @@ fn no_drawing_progid_advertises_the_executable_as_its_icon() {
     let at = FILE_ASSOC
         .find(header)
         .expect("register_progid is gone; nothing writes the drawing ProgIDs");
-    let body = &FILE_ASSOC[at..at + FILE_ASSOC[at..].find("Ok(())").map(|i| i + 6).unwrap_or(1200)];
+    let body = &FILE_ASSOC[at..at
+        + FILE_ASSOC[at..]
+            .find("Ok(())")
+            .map(|i| i + 6)
+            .unwrap_or(1200)];
     assert!(
         !body.contains(EXE_ICON),
         "register_progid writes the exe as the drawing's icon again — that is \

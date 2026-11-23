@@ -747,7 +747,9 @@ pub fn read_point_cloud_ex(reader: &mut DwgMergedReader) -> ExtendedEntityData {
         });
     }
     let scan_count = safe_count(reader.read_bit_long()) as usize;
-    let hidden_scans = (0..scan_count).map(|_| reader.read_variable_text()).collect();
+    let hidden_scans = (0..scan_count)
+        .map(|_| reader.read_variable_text())
+        .collect();
     let region_count = safe_count(reader.read_bit_long()) as usize;
     let hidden_regions = (0..region_count).map(|_| reader.read_bit_long()).collect();
     let stylization_type = reader.read_bit_short();

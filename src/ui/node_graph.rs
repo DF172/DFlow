@@ -6,17 +6,19 @@
 //! Properties panel's own rows for that entity (built and written back in
 //! `app::node_graph`); operation rows come from the node's spec.
 
+use crate::ui::kit::plain_button;
 use crate::ui::style::tokens;
 use codec::{EntityType, Handle};
 use graph::{Kind, NodeId, Port, Spec};
 use iced::advanced::layout::{self, Layout};
 use iced::advanced::widget::{self, Widget};
 use iced::advanced::{renderer, Renderer as _, Shell};
-use iced::widget::{canvas, checkbox, column, container, mouse_area, opaque, pin, row, slider, stack, text, text_input, Space};
-use crate::ui::kit::plain_button;
+use iced::widget::{
+    canvas, checkbox, column, container, mouse_area, opaque, pin, row, slider, stack, text,
+    text_input, Space,
+};
 use iced::{
-    mouse, Background, Element, Length, Point, Rectangle, Size, Theme, Transformation,
-    Vector,
+    mouse, Background, Element, Length, Point, Rectangle, Size, Theme, Transformation, Vector,
 };
 use rustc_hash::{FxHashMap as HashMap, FxHashSet as HashSet};
 use serde_json::{json, Value};
@@ -610,7 +612,15 @@ impl Graph {
             canvas(Wires {
                 wires,
                 pending,
-                width: 2.0 * zoom.max(0.5)
+                width: 2.0 * zoom.max(0.5),
+                // Item 47: the travelling head reads the evaluation track. It
+                // is zero the moment the beat settles, so an idle graph draws
+                // no head at all.
+                flow_t: if crate::ui::motion::running(crate::ui::motion::GRAPH_FLOW) {
+                    crate::ui::motion::value_or(crate::ui::motion::GRAPH_FLOW, 0.0)
+                } else {
+                    0.0
+                },
             })
             .width(Length::Fill)
             .height(Length::Fill),
@@ -853,11 +863,14 @@ impl Graph {
                     if step > 0.0 {
                         bar = bar.step(step);
                     }
-                    row![bar.width(Length::Fill), text(shown).size(tokens::TEXT_LABEL)]
-                        .spacing(tokens::GAP_TIGHT)
-                        .align_y(iced::Center)
-                        .width(Length::Fill)
-                        .into()
+                    row![
+                        bar.width(Length::Fill),
+                        text(shown).size(tokens::TEXT_LABEL)
+                    ]
+                    .spacing(tokens::GAP_TIGHT)
+                    .align_y(iced::Center)
+                    .width(Length::Fill)
+                    .into()
                 }
                 RowWidget::Toggle => {
                     let set = port.clone();
@@ -880,11 +893,16 @@ impl Graph {
                 }
             }
         } else {
-            text(shown).size(tokens::TEXT_LABEL).width(Length::Fill).into()
+            text(shown)
+                .size(tokens::TEXT_LABEL)
+                .width(Length::Fill)
+                .into()
         };
         row![
             in_port,
-            text(crate::t!(&node_row.label)).size(tokens::TEXT_LABEL).width(LABEL_W),
+            text(crate::t!(&node_row.label))
+                .size(tokens::TEXT_LABEL)
+                .width(LABEL_W),
             value,
             out_port
         ]
@@ -986,7 +1004,12 @@ struct Wires {
     wires: Vec<(Point, Point)>,
     pending: Option<(Point, Point)>,
     width: f32,
+    /// Item 47: evaluation flow progress (0 = idle, no head drawn).
+    flow_t: f32,
 }
+
+/// Item 47: radius of the travelling head on each wire (px).
+pub const GRAPH_FLOW_HEAD_PX: f32 = 2.5;
 
 fn wire_path(a: Point, b: Point) -> canvas::Path {
     let dx = ((b.x - a.x).abs() * 0.5).max(40.0);
@@ -994,6 +1017,18 @@ fn wire_path(a: Point, b: Point) -> canvas::Path {
         path.move_to(a);
         path.bezier_curve_to(Point::new(a.x + dx, a.y), Point::new(b.x - dx, b.y), b);
     })
+}
+
+/// The point at `t` along [`wire_path`]'s cubic Bézier. Pure, so the flow head
+/// can be asserted without a renderer.
+fn wire_point(a: Point, b: Point, t: f32) -> Point {
+    let dx = ((b.x - a.x).abs() * 0.5).max(40.0);
+    let (c1, c2) = (Point::new(a.x + dx, a.y), Point::new(b.x - dx, b.y));
+    let t = t.clamp(0.0, 1.0);
+    let u = 1.0 - t;
+    let bx = u * u * u * a.x + 3.0 * u * u * t * c1.x + 3.0 * u * t * t * c2.x + t * t * t * b.x;
+    let by = u * u * u * a.y + 3.0 * u * u * t * c1.y + 3.0 * u * t * t * c2.y + t * t * t * b.y;
+    Point::new(bx, by)
 }
 
 impl canvas::Program<Message> for Wires {
@@ -1025,6 +1060,16 @@ impl canvas::Program<Message> for Wires {
                 &wire_path(a, b),
                 stroke.with_color(palette.primary.weak.color),
             );
+        }
+        // Item 47: one head per wire at the same progress — the ruled
+        // all-edges-at-once reading, because the engine reports no per-edge set.
+        if self.flow_t > 0.0 {
+            for (a, b) in &self.wires {
+                frame.fill(
+                    &canvas::Path::circle(wire_point(*a, *b, self.flow_t), GRAPH_FLOW_HEAD_PX),
+                    palette.primary.strong.color,
+                );
+            }
         }
         vec![frame.into_geometry()]
     }
@@ -1170,5 +1215,41 @@ impl Widget<Message, Theme, iced::Renderer> for Zoomed<'_> {
 impl<'a> From<Zoomed<'a>> for Element<'a, Message> {
     fn from(zoomed: Zoomed<'a>) -> Self {
         Element::new(zoomed)
+    }
+}
+
+#[cfg(test)]
+mod wire_tests {
+    use super::*;
+
+    /// Item 47: the head must ride the same cubic Bézier the wire is stroked
+    /// with, so a pulse never floats beside its edge. Exact at both plates
+    /// (the port anchors) and monotone along the run.
+    #[test]
+    fn the_flow_head_rides_the_wire_it_belongs_to() {
+        let a = Point::new(10.0, 20.0);
+        let b = Point::new(210.0, 120.0);
+        assert_eq!(
+            wire_point(a, b, 0.0),
+            a,
+            "the head starts on the source port"
+        );
+        assert_eq!(
+            wire_point(a, b, 1.0),
+            b,
+            "the head lands on the target port"
+        );
+        let mid = wire_point(a, b, 0.5);
+        assert!(
+            mid.x > a.x && mid.x < b.x && mid.y > a.y && mid.y < b.y,
+            "the head leaves the wire: {mid:?}"
+        );
+        assert!(
+            wire_point(a, b, 0.25).y < wire_point(a, b, 0.75).y,
+            "the head must advance, never run backwards"
+        );
+        // Out-of-range progress clamps to the plates instead of overshooting.
+        assert_eq!(wire_point(a, b, -1.0), a);
+        assert_eq!(wire_point(a, b, 4.0), b);
     }
 }

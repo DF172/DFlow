@@ -308,7 +308,7 @@ pub const UI_FONT_BOLD: iced::Font = UI_FONT.weight(iced::font::Weight::Bold);
 /// than roles read from the active theme. The design record with the
 /// contrast measurements lives in `D:\tmp\splash-b284\06-tokens.md`.
 pub mod splash {
-    use iced::{Color, font, Font};
+    use iced::{font, Color, Font};
 
     /// The dark sheet's shell — the same value the start page sits on.
     pub const GROUND: Color = Color::from_rgb8(0x14, 0x16, 0x19);
@@ -696,7 +696,6 @@ impl Control {
 /// and cluelessly derived"), and owning a formula I cannot justify is worse than
 /// naming one. Measured consequence: bit-exact with the palette pair on 26/26
 /// themes, 0.00 L* moved.
-#[must_use]
 pub fn control_plate(theme: &Theme, step: Control) -> Color {
     // Read the built slot rather than re-deriving it: iced stored exactly
     // `deviate(base, k)` in every built-in palette, while a hand-written
@@ -719,26 +718,31 @@ pub fn control_plate(theme: &Theme, step: Control) -> Color {
 /// The sheet selects with a neutral plate (`sel-row`), not with a tinted
 /// brand wash: vermilion is reserved for the drawing selection and focus.
 /// Vendor themes keep the accent wash the app has always used.
-#[must_use]
 pub fn selection_fill(theme: &Theme) -> Color {
     if let Some(colors) = super::draftflow_theme::draftflow_colors(theme) {
         return colors.selected_row;
     }
-    palette_of(theme).primary.weak.color.scale_alpha(TINT_SELECTED)
+    palette_of(theme)
+        .primary
+        .weak
+        .color
+        .scale_alpha(TINT_SELECTED)
 }
 
 /// The fill of a selected row while the pointer is down on it.
-#[must_use]
 pub fn selection_press_fill(theme: &Theme) -> Color {
     if let Some(colors) = super::draftflow_theme::draftflow_colors(theme) {
         return colors.active;
     }
-    palette_of(theme).primary.weak.color.scale_alpha(TINT_ENGAGED)
+    palette_of(theme)
+        .primary
+        .weak
+        .color
+        .scale_alpha(TINT_ENGAGED)
 }
 
 /// The edge of an editable field. The sheet gives fields `line-strong`, one
 /// step above the hairline that separates two chrome planes.
-#[must_use]
 pub fn field_edge(theme: &Theme) -> Color {
     if let Some(colors) = super::draftflow_theme::draftflow_colors(theme) {
         return colors.line_strong;
@@ -752,7 +756,6 @@ pub fn field_edge(theme: &Theme) -> Color {
 /// drawing, keyboard focus, and the current value of a slider. Every other
 /// engagement is carried by the ink or the neutral plate. Vendor themes keep
 /// the aurora edge they have always used.
-#[must_use]
 pub fn focus_ring(theme: &Theme) -> Color {
     if let Some(colors) = super::draftflow_theme::draftflow_colors(theme) {
         return colors.accent;
@@ -772,7 +775,6 @@ pub fn focus_ring(theme: &Theme) -> Color {
 /// ladder owns the surface and reads the ink, and the ink stays iced's until L0
 /// has its own contrast solver in front of every control (which is decision #73's
 /// territory, not this one).
-#[must_use]
 pub fn control_ink(theme: &Theme, step: Control) -> Color {
     let bg = &palette_of(theme).background;
     match step {
@@ -976,7 +978,11 @@ pub fn surface(theme: &Theme, rank: Rank) -> Color {
 /// place that turns a perceptual distance into a mix ratio.
 fn plane(theme: &Theme, l: f32) -> Color {
     let base = theme.palette().background.base.color;
-    let dir = if l >= 0.0 { Direction::Up } else { Direction::Down };
+    let dir = if l >= 0.0 {
+        Direction::Up
+    } else {
+        Direction::Down
+    };
     let target = (common::lstar(base) + l).clamp(0.0, 100.0);
     let y_base = common::wcag_luminance(base);
     let y_target = common::lstar_to_luminance(target);
@@ -1023,7 +1029,9 @@ pub fn aurora_gradient(theme: &Theme, alpha: f32) -> Background {
     let linear = iced::gradient::Linear::new(iced::Radians(std::f32::consts::FRAC_PI_4))
         .add_stop(0.0, aurora_hi(theme))
         .add_stop(1.0, aurora_lo(theme));
-    Background::Gradient(iced::Gradient::Linear(linear.scale_alpha(alpha.clamp(0.0, 1.0))))
+    Background::Gradient(iced::Gradient::Linear(
+        linear.scale_alpha(alpha.clamp(0.0, 1.0)),
+    ))
 }
 
 /// The single-colour stand-in for the aurora on 1px accents (borders, ticks,
@@ -1186,7 +1194,6 @@ const PLATE_LADDER_DEEPEST_DIP: f32 = HERO_DIP_PRESS;
 /// searched rather than assumed — `the_pull_keeps_the_colour_it_was_given`
 /// recomputes the same ceiling independently and fails if this function gives up
 /// more than [`CHROMA_SLACK`] under it.
-#[must_use]
 pub fn pull_to_luminance(c: Color, y: f32) -> Color {
     let yc = common::wcag_luminance(c);
     if (yc - y).abs() < 1e-5 {
@@ -1270,7 +1277,6 @@ pub(crate) const CHROMA_SLACK: f32 = 0.006;
 /// (`theme_accessibility_tests::composite_over`). L0 states it once so that a
 /// guarantee written here and a guard written there cannot disagree about where
 /// a translucent ink actually lands.
-#[must_use]
 pub fn over(ink: Color, plate: Color) -> Color {
     let a = ink.a.clamp(0.0, 1.0);
     Color {
@@ -1304,7 +1310,6 @@ pub fn over(ink: Color, plate: Color) -> Color {
 /// met before (see [`hero`]: `Y ≈ 0.19`, where no ink reaches 4.5:1); the
 /// stronger extreme is returned so the caller's guard fails loudly instead of
 /// shipping a colour that quietly cannot work.
-#[must_use]
 pub fn legible_on(ink: Color, plate: Color, min: f32) -> Color {
     let painted = over(ink, plate);
     if common::wcag_contrast(painted, plate) >= min {
@@ -1336,8 +1341,7 @@ pub fn legible_on(ink: Color, plate: Color, min: f32) -> Color {
     // this file has already met (see [`hero`]). Hand back the stronger extreme so
     // the caller's guard names the plate instead of shipping a colour that
     // quietly cannot work.
-    if common::wcag_contrast(PLATE_INK_LIGHT, plate)
-        >= common::wcag_contrast(PLATE_INK_DARK, plate)
+    if common::wcag_contrast(PLATE_INK_LIGHT, plate) >= common::wcag_contrast(PLATE_INK_DARK, plate)
     {
         PLATE_INK_LIGHT
     } else {
@@ -1391,7 +1395,6 @@ fn legible_bound(y_ink: f32, y_plate: f32, target: f32) -> Option<f32> {
 /// [`legible_bound`] supplies the luminance, and the result is opaque: a
 /// translucent backdrop would leave the plate in the arithmetic and the ink's
 /// margin would then depend on which tint the theme happened to pick.
-#[must_use]
 pub fn backdrop_for(ink: Color, hue: Color, min: f32) -> Color {
     let y_ink = common::wcag_luminance(ink);
     let y_hue = common::wcag_luminance(hue);
@@ -1457,7 +1460,6 @@ fn pull_stops(stops: &mut [Color]) -> Color {
 
 /// The plate and ink for a single-colour painted control, given where in its
 /// own ladder it stands (`0.0` is the full-strength rung).
-#[must_use]
 pub fn painted(plate: Color, rung: f32) -> (Color, Color) {
     let mut stops = [plate];
     let ink = pull_stops(&mut stops);
@@ -1474,7 +1476,6 @@ pub fn painted(plate: Color, rung: f32) -> (Color, Color) {
 /// probe found the 0.82-alpha press over a dark ground landing in the dead band
 /// (`Y ≈ 0.19`) where neither ink reaches 4.5:1. The ladder is carried by
 /// `rung`, which moves luminance and leaves hue alone.
-#[must_use]
 pub fn hero(theme: &Theme, rung: f32) -> (Background, Color) {
     let mut stops = [aurora_hi(theme), aurora_lo(theme)];
     let ink = pull_stops(&mut stops);
@@ -1648,26 +1649,28 @@ mod tests {
     fn the_scale_is_monotonic_and_the_shadow_grows_with_lift() {
         // The sheet draws one corner for the control family, so field and
         // control are deliberately equal; only the panel step is larger.
-        assert!(RADIUS_MARK < RADIUS_FIELD && RADIUS_FIELD <= RADIUS_CONTROL);
-        assert!(RADIUS_CONTROL < RADIUS_PANEL);
+        const { assert!(RADIUS_MARK < RADIUS_FIELD && RADIUS_FIELD <= RADIUS_CONTROL) };
+        const { assert!(RADIUS_CONTROL < RADIUS_PANEL) };
         // A square plate has to stay wider than twice the corner drawn on it, or
         // the four corners meet in the middle and the mark becomes a circle. The
         // corner a mark plate uses is [`RADIUS_MARK`], so that is the pairing
         // held: 14 px against a 2 px corner, with the field/control/panel corners
         // all too round for it (which is why `swatch` spells `RADIUS_MARK`).
-        assert!(MARK_SQUARE > RADIUS_MARK * 2.0);
+        const { assert!(MARK_SQUARE > RADIUS_MARK * 2.0) };
         // The gap ladder is a total order and every step is a real one: no two
         // rungs may be one pixel apart, or a screen choosing between them is
         // choosing nothing.
-        assert!(
-            GAP_NONE < GAP_HAIRLINE
-                && GAP_HAIRLINE < GAP_TIGHT
-                && GAP_TIGHT < GAP_CONTROL
-                && GAP_CONTROL < GAP_ROW
-                && GAP_ROW < GAP_FIELD
-                && GAP_FIELD < GAP_SECTION
-                && GAP_SECTION < PAD_PAGE
-        );
+        const {
+            assert!(
+                GAP_NONE < GAP_HAIRLINE
+                    && GAP_HAIRLINE < GAP_TIGHT
+                    && GAP_TIGHT < GAP_CONTROL
+                    && GAP_CONTROL < GAP_ROW
+                    && GAP_ROW < GAP_FIELD
+                    && GAP_FIELD < GAP_SECTION
+                    && GAP_SECTION < PAD_PAGE
+            )
+        };
         // Every law below is a closure, so the ladder's own numbers and a
         // deliberately wrong number go through the *same expression*. An inline
         // assert can only be shown to bite by breaking a constant and paying a
@@ -1797,41 +1800,45 @@ mod tests {
         // TEXT_HEADING (17) -> TEXT_SECTION (18) is a 1.06 step and sits between
         // the two tiers: it is exempt from the 1.25 floor because a panel title
         // is bold and a section heading is not, so the roles differ by weight.
-        assert!(TEXT_BODY < TEXT_HEADING && TEXT_HEADING < TEXT_SECTION);
+        const { assert!(TEXT_BODY < TEXT_HEADING && TEXT_HEADING < TEXT_SECTION) };
         // The ink ladder has to stay a ladder: if the placeholder ends up
         // quieter than faint hint text, a field reads as empty twice over.
-        assert!(INK_FAINT < INK_PLACEHOLDER && INK_PLACEHOLDER < INK_MUTED);
+        const { assert!(INK_FAINT < INK_PLACEHOLDER && INK_PLACEHOLDER < INK_MUTED) };
         // `SCRIM_INK` is not part of the ink ladder — it is a lid's opacity, and
         // it only has to stay clear of the two washes it could be confused with.
-        assert!(
-            INK_DISABLED < SCRIM_INK && SCRIM_INK < INK_PLACEHOLDER,
-            "the scrim has to read as neither disabled ink nor a placeholder"
-        );
+        const {
+            assert!(
+                INK_DISABLED < SCRIM_INK && SCRIM_INK < INK_PLACEHOLDER,
+                "the scrim has to read as neither disabled ink nor a placeholder"
+            )
+        };
         // Border weights, thin to thick. `RULE_BRAND` is not on this ladder (it
         // is a height), but it must not be so thin that it disappears at 100%
         // scale on a 1080p panel.
-        assert!(EDGE_HAIRLINE < EDGE_RING && EDGE_RING < EDGE_FRAME);
-        assert!(RULE_BRAND >= EDGE_HAIRLINE);
+        const { assert!(EDGE_HAIRLINE < EDGE_RING && EDGE_RING < EDGE_FRAME) };
+        const { assert!(RULE_BRAND >= EDGE_HAIRLINE) };
         // `WASH_POINTER` is documented as the faintest paint in the app.
-        assert!(WASH_POINTER < TINT_HERO && TINT_HERO < TINT_SELECTED);
+        const { assert!(WASH_POINTER < TINT_HERO && TINT_HERO < TINT_SELECTED) };
         // The row wash has to stay between the hover it beats and the plate above
         // it, or `WASH_ROW` is just a second name for one of them.
-        assert!(
-            WASH_POINTER < WASH_ROW && WASH_ROW < TINT_SELECTED,
-            "WASH_ROW left the wash/plate band"
-        );
-        assert!(TINT_SELECTED < TINT_ENGAGED && TINT_ENGAGED < TINT_ENGAGED_ACTIVE);
-        assert!(TINT_GHOST < TINT_DROPPED && TINT_ENGAGED_ACTIVE < TINT_DROPPED);
+        const {
+            assert!(
+                WASH_POINTER < WASH_ROW && WASH_ROW < TINT_SELECTED,
+                "WASH_ROW left the wash/plate band"
+            )
+        };
+        const { assert!(TINT_SELECTED < TINT_ENGAGED && TINT_ENGAGED < TINT_ENGAGED_ACTIVE) };
+        const { assert!(TINT_GHOST < TINT_DROPPED && TINT_ENGAGED_ACTIVE < TINT_DROPPED) };
         // A verdict band is louder than an engaged control at rest — it has to be
         // noticed — and quieter than a drag ghost, which is the thing the eye is
         // actually following.
-        assert!(TINT_ENGAGED < TONE_WASH && TONE_WASH < TINT_GHOST);
+        const { assert!(TINT_ENGAGED < TONE_WASH && TONE_WASH < TINT_GHOST) };
         // A signal chip's rung has to stay inside the dip [`painted`] compensates
         // its ink for; past [`PLATE_LADDER_DEEPEST_DIP`] the solve is calibrated to
         // a shallower plate than the one that ships, and the rest state goes back
         // to being unreadable — which is the defect `SIGNAL_DIP_REST` replaced.
-        assert!(SIGNAL_DIP_LIT < SIGNAL_DIP_REST);
-        assert!(SIGNAL_DIP_REST <= PLATE_LADDER_DEEPEST_DIP);
+        const { assert!(SIGNAL_DIP_LIT < SIGNAL_DIP_REST) };
+        const { assert!(SIGNAL_DIP_REST <= PLATE_LADDER_DEEPEST_DIP) };
         // Deliberately *not* asserted: one total order over all six rungs. A drag
         // ghost (0.22) sits between the two engaged strengths — an engaged pill
         // under the pointer is the loudest thing on screen except an open drop
@@ -1861,14 +1868,20 @@ mod tests {
         assert!(hover.blur_radius > rest.blur_radius);
         assert!(hover.color.a > rest.color.a);
         // An out-of-range step saturates rather than inverting the ladder.
-        assert_eq!(elevation(&theme, 9.0).blur_radius, elevation(&theme, 3.0).blur_radius);
+        assert_eq!(
+            elevation(&theme, 9.0).blur_radius,
+            elevation(&theme, 3.0).blur_radius
+        );
         assert_eq!(elevation(&theme, -2.0).color.a, 0.0);
         // Every reachable step has to stay inside `a <= 1.0`. `scale_alpha`
         // does not clamp, so an out-of-range alpha would draw a solid slab
         // behind the panel rather than a soft shadow.
         for lift in [0.0f32, 1.0, 2.0, 3.0, 9.0] {
             let a = elevation(&theme, lift).color.a;
-            assert!(a >= 0.0 && a <= 1.0, "{theme} at lift {lift}: alpha {a} escapes gamut");
+            assert!(
+                (0.0..=1.0).contains(&a),
+                "{theme} at lift {lift}: alpha {a} escapes gamut"
+            );
         }
     }
 
@@ -1889,7 +1902,12 @@ mod tests {
             for step in 0..20 {
                 let y = 0.02 + step as f32 * 0.05;
                 let plate = pull_to_luminance(hue, y);
-                for rung in [0.0f32, HERO_DIP_REST, SIGNAL_DIP_REST, PLATE_LADDER_DEEPEST_DIP] {
+                for rung in [
+                    0.0f32,
+                    HERO_DIP_REST,
+                    SIGNAL_DIP_REST,
+                    PLATE_LADDER_DEEPEST_DIP,
+                ] {
                     let (p, ink) = painted(plate, rung);
                     let c = common::wcag_contrast(p, ink);
                     assert!(
@@ -1927,12 +1945,12 @@ mod tests {
         use crate::ui::style::common;
         let plates = [
             Color::from_rgb(0.98, 0.98, 0.99), // near-white recess
-            Color::from_rgb(0.75, 0.55, 0.55),  // a light danger tint
-            Color::from_rgb(0.30, 0.16, 0.17),  // a dark one
-            Color::from_rgb(0.06, 0.06, 0.08),  // near-black page
-            Color::from_rgb(0.47, 0.47, 0.47),  // Y 0.187: inside the headroom
-            // aim's dead band, the shape Moonfly's danger recess has — the plate
-            // that made the fallback land exactly on the bar.
+            Color::from_rgb(0.75, 0.55, 0.55), // a light danger tint
+            Color::from_rgb(0.30, 0.16, 0.17), // a dark one
+            Color::from_rgb(0.06, 0.06, 0.08), // near-black page
+            Color::from_rgb(0.47, 0.47, 0.47), // Y 0.187: inside the headroom
+                                               // aim's dead band, the shape Moonfly's danger recess has — the plate
+                                               // that made the fallback land exactly on the bar.
         ];
         for plate in plates {
             for hue in [
@@ -1980,7 +1998,8 @@ mod tests {
                     // unless the candidate was already the answer.
                     if out != ink {
                         let was = (0..3).max_by_key(|i| (before_lin(ink)[*i] * 1e6) as i32);
-                        let now = (0..3).max_by_key(|i| (before_lin(Color { a: 1.0, ..out })[*i] * 1e6) as i32);
+                        let now = (0..3)
+                            .max_by_key(|i| (before_lin(Color { a: 1.0, ..out })[*i] * 1e6) as i32);
                         assert_eq!(
                             was, now,
                             "pulling {ink:?} to clear 3.0 on {plate:?} moved its leading \
@@ -2005,7 +2024,8 @@ mod tests {
             AA_INK_CONTRAST,
         );
         assert_eq!(
-            kept.a, INK_PLACEHOLDER,
+            kept.a,
+            INK_PLACEHOLDER,
             "a rung painting at {:.2}:1 on a near-white recess got pulled anyway",
             common::wcag_contrast(over(kept, light), light)
         );
@@ -2016,7 +2036,10 @@ mod tests {
             mid_tint,
             AA_INK_CONTRAST,
         );
-        assert_eq!(failed.a, 1.0, "an ink that cannot reach AA stayed translucent");
+        assert_eq!(
+            failed.a, 1.0,
+            "an ink that cannot reach AA stayed translucent"
+        );
         assert!(
             common::wcag_contrast(failed, mid_tint) >= AA_INK_CONTRAST,
             "the pull on a mid pink tint landed at {:.2}:1",

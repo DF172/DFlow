@@ -81,6 +81,12 @@ impl ReverseCommand {
     }
 }
 
+impl Default for ReverseCommand {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// Reverse an LwPolyline, reconciling per-segment bulges.
 ///
 /// Bulge semantics: `vertices[k].bulge` is the bulge of the segment that
@@ -117,21 +123,21 @@ fn reverse_lwpolyline(pl: &codec::LwPolyline) -> codec::LwPolyline {
     // Recompute bulges from the original segment bulges.
     if pl.is_closed {
         // n segments; closing segment included.
-        for i in 0..n {
+        for (i, vertex) in out.vertices.iter_mut().enumerate().take(n) {
             let src_seg_start = (n - 1 - i + n - 1) % n; // = (2n - 2 - i) % n
-            out.vertices[i].bulge = -pl.vertices[src_seg_start].bulge;
-            out.vertices[i].start_width = pl.vertices[src_seg_start].end_width;
-            out.vertices[i].end_width = pl.vertices[src_seg_start].start_width;
+            vertex.bulge = -pl.vertices[src_seg_start].bulge;
+            vertex.start_width = pl.vertices[src_seg_start].end_width;
+            vertex.end_width = pl.vertices[src_seg_start].start_width;
         }
     } else {
         // n - 1 segments. New segment i (for i in 0..n-1) maps to original
         // segment starting at vertex n-2-i. The trailing vertex's bulge is
         // unused for an open polyline; clear it for cleanliness.
-        for i in 0..n - 1 {
+        for (i, vertex) in out.vertices.iter_mut().enumerate().take(n - 1) {
             let src_seg_start = n - 2 - i;
-            out.vertices[i].bulge = -pl.vertices[src_seg_start].bulge;
-            out.vertices[i].start_width = pl.vertices[src_seg_start].end_width;
-            out.vertices[i].end_width = pl.vertices[src_seg_start].start_width;
+            vertex.bulge = -pl.vertices[src_seg_start].bulge;
+            vertex.start_width = pl.vertices[src_seg_start].end_width;
+            vertex.end_width = pl.vertices[src_seg_start].start_width;
         }
         out.vertices[n - 1].bulge = 0.0;
     }
@@ -158,18 +164,18 @@ fn reverse_polyline2d(pl: &codec::entities::Polyline2D) -> codec::entities::Poly
         }
     }
     if pl.is_closed() {
-        for i in 0..n {
+        for (i, vertex) in out.vertices.iter_mut().enumerate().take(n) {
             let src_seg_start = (n - 1 - i + n - 1) % n;
-            out.vertices[i].bulge = -pl.vertices[src_seg_start].bulge;
-            out.vertices[i].start_width = pl.vertices[src_seg_start].end_width;
-            out.vertices[i].end_width = pl.vertices[src_seg_start].start_width;
+            vertex.bulge = -pl.vertices[src_seg_start].bulge;
+            vertex.start_width = pl.vertices[src_seg_start].end_width;
+            vertex.end_width = pl.vertices[src_seg_start].start_width;
         }
     } else {
-        for i in 0..n - 1 {
+        for (i, vertex) in out.vertices.iter_mut().enumerate().take(n - 1) {
             let src_seg_start = n - 2 - i;
-            out.vertices[i].bulge = -pl.vertices[src_seg_start].bulge;
-            out.vertices[i].start_width = pl.vertices[src_seg_start].end_width;
-            out.vertices[i].end_width = pl.vertices[src_seg_start].start_width;
+            vertex.bulge = -pl.vertices[src_seg_start].bulge;
+            vertex.start_width = pl.vertices[src_seg_start].end_width;
+            vertex.end_width = pl.vertices[src_seg_start].start_width;
         }
         out.vertices[n - 1].bulge = 0.0;
     }

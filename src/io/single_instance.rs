@@ -157,7 +157,9 @@ pub fn claim() -> Claim {
         // No trustworthy identity: claim nothing and connect to nothing, so
         // this launch boots its own window instead of handing the user's
         // drawings to an editor we cannot verify.
-        eprintln!("Single-instance handoff is off: this process could not name its user or executable.");
+        eprintln!(
+            "Single-instance handoff is off: this process could not name its user or executable."
+        );
         return Claim::Primary;
     };
     match TcpListener::bind(address) {
@@ -526,7 +528,10 @@ mod tests {
             .map(|i| {
                 std::thread::spawn(move || {
                     let s = TcpStream::connect((Ipv4Addr::LOCALHOST, port)).unwrap();
-                    handoff(s, &[PathBuf::from(format!("/tmp/draftflow_concurrent_{i}.dwg"))])
+                    handoff(
+                        s,
+                        &[PathBuf::from(format!("/tmp/draftflow_concurrent_{i}.dwg"))],
+                    )
                 })
             })
             .collect();

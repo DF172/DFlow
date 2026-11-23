@@ -1099,14 +1099,13 @@ impl Pipeline {
         );
         if std::env::var_os("RUST_LOG").is_some() {
             eprintln!(
-                "renderer pipelines: wire={} hatch={} mesh={} (storage buffers/stage: {})",
+                "renderer pipelines: wire={} hatch={} mesh=vertex (storage buffers/stage: {})",
                 if wire_mode.uses_storage() {
                     "storage"
                 } else {
                     "packed"
                 },
                 hatch_gpu.backend_name(),
-                "vertex",
                 device.limits().max_storage_buffers_per_shader_stage
             );
         }
@@ -2468,6 +2467,7 @@ impl Pipeline {
             wires,
             depth_map,
             None,
+            1.0,
             wire_gpu::BlockWireTarget {
                 const_bgl: &self.block_wire_const_bgl,
                 mode: self.block_wire_mode,
@@ -2569,6 +2569,7 @@ impl Pipeline {
     }
 
     /// Build resident batches and a handle index shared across viewport slots.
+    #[allow(clippy::type_complexity)]
     pub fn build_wire_buffers(
         &mut self,
         device: &wgpu::Device,
@@ -2634,6 +2635,7 @@ impl Pipeline {
             &block_wires,
             depth_map,
             None,
+            1.0,
             wire_gpu::BlockWireTarget {
                 const_bgl: &self.block_wire_const_bgl,
                 mode: self.block_wire_mode,
@@ -2688,6 +2690,7 @@ impl Pipeline {
     fn classify_highlight_wires<'a>(
         wires: &[&'a WireModel],
         color: Option<[f32; 4]>,
+        tint_strength: f32,
         depth_map: &rustc_hash::FxHashMap<u64, [f32; 2]>,
     ) -> (
         Vec<CircleInstance>,
@@ -2719,12 +2722,14 @@ impl Pipeline {
                 if let Some(color) = color {
                     if let Some(instances) = circles.as_mut() {
                         for instance in instances {
-                            instance.color = color;
+                            instance.color =
+                                wire_gpu::mix_highlight_tint(instance.color, color, tint_strength);
                         }
                     }
                     if let Some(instances) = ellipses.as_mut() {
                         for instance in instances {
-                            instance.color = color;
+                            instance.color =
+                                wire_gpu::mix_highlight_tint(instance.color, color, tint_strength);
                         }
                     }
                 }
@@ -2765,6 +2770,11 @@ impl Pipeline {
         annotation_context_wires: &[WireModel],
         depth_map: &rustc_hash::FxHashMap<u64, [f32; 2]>,
         selected_tint: Option<[f32; 4]>,
+        cycle_fade: Option<&(
+            rustc_hash::FxHashSet<codec::Handle>,
+            rustc_hash::FxHashSet<codec::Handle>,
+            f32,
+        )>,
     ) {
         let perf_started = crate::perf::enabled().then(iced::time::Instant::now);
         if selected.is_empty() && hovered.is_empty() && annotation_context_wires.is_empty() {
@@ -2774,10 +2784,23 @@ impl Pipeline {
             self.gpu_selected_ellipses = vec![];
             return;
         }
+        // Batch 2 item 14: while the cycling cross-fade runs, the hovered set
+        // splits into the fading-out old candidate (tint strength 1 - t), the
+        // fading-in new one (strength t) and everything else (strength 1).
+        // The sets arrive already expanded to selectable groups and minus the
+        // real selection, matching the hover gather below.
+        let empty_handles = rustc_hash::FxHashSet::default();
+        let (fade_old, fade_new, fade_t) = match cycle_fade {
+            Some((old, new, t)) if !old.is_empty() || !new.is_empty() => (old, new, *t),
+            _ => (&empty_handles, &empty_handles, 1.0),
+        };
+        let fading = !fade_old.is_empty() || !fade_new.is_empty();
         // Gather borrowed highlighted wires via the prebuilt index —
         // O(highlighted), no per-wire string parse or deep geometry clone.
         let mut selected_wires: Vec<&WireModel> = Vec::new();
         let mut hover_wires: Vec<&WireModel> = Vec::new();
+        let mut hover_wires_old: Vec<&WireModel> = Vec::new();
+        let mut hover_wires_new: Vec<&WireModel> = Vec::new();
         for h in selected {
             if let Some(idxs) = self.wire_handle_index.get(&h.value()) {
                 debug_assert!(
@@ -2805,7 +2828,13 @@ impl Pipeline {
                         if !w.display_visible && (w.pick_tris.is_empty() || w.snap_only) {
                             continue;
                         }
-                        hover_wires.push(w);
+                        if fading && fade_old.contains(h) {
+                            hover_wires_old.push(w);
+                        } else if fading && fade_new.contains(h) {
+                            hover_wires_new.push(w);
+                        } else {
+                            hover_wires.push(w);
+                        }
                     }
                 }
             }
@@ -2825,12 +2854,39 @@ impl Pipeline {
             Self::classify_highlight_wires(
                 &selected_wires,
                 Some(selected_tint.unwrap_or(WireModel::SELECTED)),
+                1.0,
                 depth_map,
             );
         let (hover_circles, hover_ellipses, hover_regular, hover_blocks) =
-            Self::classify_highlight_wires(&hover_wires, Some(WireModel::HOVER), depth_map);
+            Self::classify_highlight_wires(&hover_wires, Some(WireModel::HOVER), 1.0, depth_map);
         selected_circles.extend(hover_circles);
         selected_ellipses.extend(hover_ellipses);
+        let (old_regular, old_blocks) = if fading {
+            let (c, e, r, b) = Self::classify_highlight_wires(
+                &hover_wires_old,
+                Some(WireModel::HOVER),
+                1.0 - fade_t,
+                depth_map,
+            );
+            selected_circles.extend(c);
+            selected_ellipses.extend(e);
+            (r, b)
+        } else {
+            (Vec::new(), Vec::new())
+        };
+        let (new_regular, new_blocks) = if fading {
+            let (c, e, r, b) = Self::classify_highlight_wires(
+                &hover_wires_new,
+                Some(WireModel::HOVER),
+                fade_t,
+                depth_map,
+            );
+            selected_circles.extend(c);
+            selected_ellipses.extend(e);
+            (r, b)
+        } else {
+            (Vec::new(), Vec::new())
+        };
 
         let t_shapes = perf_started.map(|t| t.elapsed().as_secs_f64() * 1000.0);
         self.gpu_selected_circles = if selected_circles.is_empty() {
@@ -2860,6 +2916,7 @@ impl Pipeline {
                 queue,
                 &selected_regular,
                 tint,
+                1.0,
                 depth_map,
                 self.wire_const_bgl.as_ref(),
             )
@@ -2871,9 +2928,30 @@ impl Pipeline {
             queue,
             &hover_regular,
             WireModel::HOVER,
+            1.0,
             depth_map,
             self.wire_const_bgl.as_ref(),
         ));
+        if fading {
+            gpu.extend(WireGpu::from_highlight_refs(
+                device,
+                queue,
+                &old_regular,
+                WireModel::HOVER,
+                1.0 - fade_t,
+                depth_map,
+                self.wire_const_bgl.as_ref(),
+            ));
+            gpu.extend(WireGpu::from_highlight_refs(
+                device,
+                queue,
+                &new_regular,
+                WireModel::HOVER,
+                fade_t,
+                depth_map,
+                self.wire_const_bgl.as_ref(),
+            ));
+        }
         let t_regular = perf_started.map(|t| t.elapsed().as_secs_f64() * 1000.0);
         self.gpu_selected_wires = gpu;
         let mut block_gpu = if let Some(tint) = selected_tint {
@@ -2883,6 +2961,7 @@ impl Pipeline {
                 &selected_blocks,
                 depth_map,
                 Some(tint),
+                1.0,
                 wire_gpu::BlockWireTarget {
                     const_bgl: &self.block_wire_const_bgl,
                     mode: self.block_wire_mode,
@@ -2898,12 +2977,41 @@ impl Pipeline {
             &hover_blocks,
             depth_map,
             Some(WireModel::HOVER),
+            1.0,
             wire_gpu::BlockWireTarget {
                 const_bgl: &self.block_wire_const_bgl,
                 mode: self.block_wire_mode,
             },
             None,
         ));
+        if fading {
+            block_gpu.extend(BlockWireGpu::from_wires(
+                device,
+                queue,
+                &old_blocks,
+                depth_map,
+                Some(WireModel::HOVER),
+                1.0 - fade_t,
+                wire_gpu::BlockWireTarget {
+                    const_bgl: &self.block_wire_const_bgl,
+                    mode: self.block_wire_mode,
+                },
+                None,
+            ));
+            block_gpu.extend(BlockWireGpu::from_wires(
+                device,
+                queue,
+                &new_blocks,
+                depth_map,
+                Some(WireModel::HOVER),
+                fade_t,
+                wire_gpu::BlockWireTarget {
+                    const_bgl: &self.block_wire_const_bgl,
+                    mode: self.block_wire_mode,
+                },
+                None,
+            ));
+        }
         self.gpu_selected_block_wires = block_gpu;
         if let Some(started) = perf_started {
             let elapsed_ms = started.elapsed().as_secs_f64() * 1000.0;
@@ -2928,7 +3036,10 @@ analytic={:.1} regular={:.1} blocks={:.1}",
                             .iter()
                             .filter(|handle| !selected.contains(handle))
                             .count(),
-                    selected_wires.len() + hover_wires.len(),
+                    selected_wires.len()
+                        + hover_wires.len()
+                        + hover_wires_old.len()
+                        + hover_wires_new.len(),
                 );
             }
         }
@@ -2948,6 +3059,11 @@ analytic={:.1} regular={:.1} blocks={:.1}",
         annotation_context_wires: &[WireModel],
         depth_map: &rustc_hash::FxHashMap<u64, [f32; 2]>,
         selected_tint: Option<[f32; 4]>,
+        cycle_fade: Option<&(
+            rustc_hash::FxHashSet<codec::Handle>,
+            rustc_hash::FxHashSet<codec::Handle>,
+            f32,
+        )>,
     ) {
         let perf_started = crate::perf::enabled().then(iced::time::Instant::now);
         if selected.is_empty() && hovered.is_empty() && annotation_context_wires.is_empty() {
@@ -2955,13 +3071,24 @@ analytic={:.1} regular={:.1} blocks={:.1}",
             self.block_text_highlight_gpu.clear();
             return;
         }
+        // Batch 2 item 14: same three-way split as the wire overlay, so glyph
+        // quads migrate with their entity instead of snapping to the new tint.
+        let empty_handles = rustc_hash::FxHashSet::default();
+        let (fade_old, fade_new, fade_t) = match cycle_fade {
+            Some((old, new, t)) if !old.is_empty() || !new.is_empty() => (old, new, *t),
+            _ => (&empty_handles, &empty_handles, 1.0),
+        };
+        let fading = !fade_old.is_empty() || !fade_new.is_empty();
         let mut out: Vec<text_gpu::TextVertex> = Vec::new();
         let mut selected_blocks: Vec<&WireModel> = Vec::new();
         let mut hover_blocks: Vec<&WireModel> = Vec::new();
+        let mut hover_blocks_old: Vec<&WireModel> = Vec::new();
+        let mut hover_blocks_new: Vec<&WireModel> = Vec::new();
         fn push<'a>(
             index: &rustc_hash::FxHashMap<u64, Vec<u32>>,
             handle_val: u64,
             tint: [f32; 4],
+            tint_strength: f32,
             wires: &'a [WireModel],
             out: &mut Vec<text_gpu::TextVertex>,
             blocks: &mut Vec<&'a WireModel>,
@@ -2974,8 +3101,9 @@ analytic={:.1} regular={:.1} blocks={:.1}",
                             continue;
                         }
                         for v in &w.text_verts {
+                            let mixed = wire_gpu::mix_highlight_tint(v.color, tint, tint_strength);
                             out.push(text_gpu::TextVertex {
-                                color: [tint[0], tint[1], tint[2], v.color[3]],
+                                color: [mixed[0], mixed[1], mixed[2], v.color[3]],
                                 ..*v
                             });
                         }
@@ -2989,6 +3117,7 @@ analytic={:.1} regular={:.1} blocks={:.1}",
                     &self.wire_handle_index,
                     h.value(),
                     tint,
+                    1.0,
                     wires,
                     &mut out,
                     &mut selected_blocks,
@@ -2996,13 +3125,21 @@ analytic={:.1} regular={:.1} blocks={:.1}",
             }
         }
         for h in hovered.iter().filter(|handle| !selected.contains(handle)) {
+            let (strength, blocks) = if fading && fade_old.contains(h) {
+                (1.0 - fade_t, &mut hover_blocks_old)
+            } else if fading && fade_new.contains(h) {
+                (fade_t, &mut hover_blocks_new)
+            } else {
+                (1.0, &mut hover_blocks)
+            };
             push(
                 &self.wire_handle_index,
                 h.value(),
                 WireModel::HOVER,
+                strength,
                 wires,
                 &mut out,
-                &mut hover_blocks,
+                blocks,
             );
         }
         for wire in annotation_context_wires {
@@ -3028,6 +3165,7 @@ analytic={:.1} regular={:.1} blocks={:.1}",
                 &selected_blocks,
                 depth_map,
                 Some(tint),
+                1.0,
             )
         } else {
             Vec::new()
@@ -3038,7 +3176,26 @@ analytic={:.1} regular={:.1} blocks={:.1}",
             &hover_blocks,
             depth_map,
             Some(WireModel::HOVER),
+            1.0,
         ));
+        if fading {
+            block_gpu.extend(text_gpu::upload_block_vertex_refs(
+                device,
+                queue,
+                &hover_blocks_old,
+                depth_map,
+                Some(WireModel::HOVER),
+                1.0 - fade_t,
+            ));
+            block_gpu.extend(text_gpu::upload_block_vertex_refs(
+                device,
+                queue,
+                &hover_blocks_new,
+                depth_map,
+                Some(WireModel::HOVER),
+                fade_t,
+            ));
+        }
         self.block_text_highlight_gpu = block_gpu;
         if let Some(started) = perf_started {
             let elapsed_ms = started.elapsed().as_secs_f64() * 1000.0;
@@ -3726,7 +3883,7 @@ analytic={:.1} regular={:.1} blocks={:.1}",
             .iter()
             .filter(|handle| !selected.contains(handle) && !edge_handles.contains(handle))
         {
-            if let Some(ranges) = self.mesh_ranges_by_handle.get(&handle) {
+            if let Some(ranges) = self.mesh_ranges_by_handle.get(handle) {
                 out.extend(ranges.iter().copied().map(|range| MeshHighlightDraw {
                     range,
                     kind: MeshHighlightKind::Hover,
@@ -5366,7 +5523,7 @@ analytic={:.1} regular={:.1} blocks={:.1}",
 /// `alloc_size` — this is the mitigation for the Windows-Firefox freeze (#191).
 fn round_up_tex(n: u32) -> u32 {
     const GRID: u32 = 128;
-    ((n.max(1) + GRID - 1) / GRID) * GRID
+    n.max(1).div_ceil(GRID) * GRID
 }
 
 /// `true` when the world-XY AABB projects entirely outside the
@@ -5595,10 +5752,7 @@ impl MultiPipeline {
             total.wire_arena += slot.wire_arena;
             total.block_geometry +=
                 wire_gpu::block_arena_bytes(&inner.gpu_block_wires, &mut counted)
-                    + wire_gpu::block_arena_bytes(
-                        &inner.gpu_selected_block_wires,
-                        &mut counted,
-                    );
+                    + wire_gpu::block_arena_bytes(&inner.gpu_selected_block_wires, &mut counted);
         }
         for entry in self.wire_buffer_cache.values() {
             total.block_geometry += wire_gpu::block_arena_bytes(&entry.1, &mut counted);
@@ -5732,6 +5886,7 @@ pub struct MultiPipeline {
     /// Definition geometry shared across viewport slots.
     pub(crate) block_geometry: wire_gpu::BlockGeometryCache,
     /// Shared resident batches, keyed by wire content identity.
+    #[allow(clippy::type_complexity)]
     pub(crate) wire_buffer_cache: rustc_hash::FxHashMap<
         u64,
         (
@@ -6167,7 +6322,7 @@ mod highlight_classification_tests {
         let depth_map = rustc_hash::FxHashMap::default();
 
         let (circles, ellipses, regular, blocks) =
-            Pipeline::classify_highlight_wires(&refs, None, &depth_map);
+            Pipeline::classify_highlight_wires(&refs, None, 1.0, &depth_map);
 
         for wire in &refs {
             let was_regular = wire.render_instance.is_none()
@@ -6197,11 +6352,12 @@ mod highlight_classification_tests {
         let depth_map = rustc_hash::FxHashMap::default();
 
         let (tinted_circles, tinted_ellipses, _, _) =
-            Pipeline::classify_highlight_wires(&refs, Some(WireModel::HOVER), &depth_map);
+            Pipeline::classify_highlight_wires(&refs, Some(WireModel::HOVER), 1.0, &depth_map);
         assert_eq!(tinted_circles[0].color, WireModel::HOVER);
         assert_eq!(tinted_ellipses[0].color, WireModel::HOVER);
 
-        let (plain_circles, _, _, _) = Pipeline::classify_highlight_wires(&refs, None, &depth_map);
+        let (plain_circles, _, _, _) =
+            Pipeline::classify_highlight_wires(&refs, None, 1.0, &depth_map);
         assert_ne!(
             plain_circles[0].color,
             WireModel::HOVER,

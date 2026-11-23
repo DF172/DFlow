@@ -136,7 +136,8 @@ impl CadCommand for NcopyCommand {
                 } else {
                     "Insert"
                 }
-            ).into_owned(),
+            )
+            .into_owned(),
             Step::Settings => crate::tf!(
                 "Enter setting [Insert/Bind] <{}>:",
                 if self.mode == NestedCopyMode::Bind {
@@ -144,7 +145,8 @@ impl CadCommand for NcopyCommand {
                 } else {
                     "Insert"
                 }
-            ).into_owned(),
+            )
+            .into_owned(),
             Step::Base => "Specify base point or [Displacement/Multiple] <Displacement>:".into(),
             Step::Target(_) => {
                 "Specify second point or [Array] <use first point as displacement>:".into()

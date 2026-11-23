@@ -1,7 +1,7 @@
 //! Additional drawing tools, reached from the Draw panel's title.
 
-use iced::widget::{column, container, row, text, tooltip};
 use crate::ui::kit::plain_button;
+use iced::widget::{column, container, row, text, tooltip};
 use iced::{Element, Fill, Theme};
 
 use super::widgets::{
@@ -13,8 +13,8 @@ use crate::app::Message;
 use crate::modules::IconKind;
 use crate::t;
 use crate::ui::kit;
-use crate::ui::{icons, wrap_bar::PosReport};
 use crate::ui::style::tokens;
+use crate::ui::{icons, wrap_bar::PosReport};
 
 pub(super) const PANEL_ID: &str = "draw_extension";
 const TITLE_ID: &str = "draw_extension_title";
@@ -384,7 +384,8 @@ pub(super) fn group_title<'a>(
             "{}\n{} EXTERNALREFERENCES",
             t!("External References"),
             t!("Command:")
-        ).into_owned(),
+        )
+        .into_owned(),
         tooltip::Position::Bottom,
         tokens::GAP_NONE,
         theme,
@@ -479,10 +480,7 @@ fn reference_overlay<'a>(
 ) -> Element<'a, Message> {
     let width: f32 = 260.0_f32.min((win.0 - 8.0).max(120.0));
     let (x, anchor_top) = ribbon.dd_anchor(panel.id, width, win.0);
-    let left = x.clamp(
-        0.0,
-        (win.0 - (width + 2.0 * tokens::GAP_CONTROL)).max(0.0),
-    );
+    let left = x.clamp(0.0, (win.0 - (width + 2.0 * tokens::GAP_CONTROL)).max(0.0));
     let top = anchor_top.min((win.1 - 80.0).max(0.0));
     let tool = &panel.tools[0];
     let edit = plain_button(
@@ -526,11 +524,7 @@ fn reference_overlay<'a>(
     let fading = row![
         ribbon_tip(
             switch,
-            crate::tf!(
-                "{}\n{} XDWGFADECTL",
-                t!("Xref fading"),
-                t!("Command:")
-            ).into_owned(),
+            crate::tf!("{}\n{} XDWGFADECTL", t!("Xref fading"), t!("Command:")).into_owned(),
             tooltip::Position::Bottom,
             tokens::GAP_NONE,
             theme,
@@ -547,10 +541,14 @@ fn reference_overlay<'a>(
     // `Float` rung with the field's edge, so the menu carries a contour over
     // the drawing instead of dissolving into it.
     let body = kit::popup_plate(
-        container(column![edit, fading].spacing(tokens::GAP_TIGHT).padding(tokens::GAP_CONTROL))
-            .width(width)
-            .style(|theme: &Theme| kit::Tier::Flush.style(theme, ""))
-            .into(),
+        container(
+            column![edit, fading]
+                .spacing(tokens::GAP_TIGHT)
+                .padding(tokens::GAP_CONTROL),
+        )
+        .width(width)
+        .style(|theme: &Theme| kit::Tier::Flush.style(theme, ""))
+        .into(),
         "",
     );
     dropdown_backdrop(position_ribbon_dropdown(body, left, top))
@@ -577,8 +575,8 @@ pub(super) fn overlay<'a>(
         .clamp(0.0, (win.0 - outer_w).max(0.0));
     let top = anchor_top.min((win.1 - 80.0).max(0.0));
     let available_height = (win.1 - top - 4.0).max(1.0);
-    let cols = (((width - 12.0 + CELL_GAP) / (CELL_W + CELL_GAP)).floor() as usize)
-        .clamp(1, MAX_COLS);
+    let cols =
+        (((width - 12.0 + CELL_GAP) / (CELL_W + CELL_GAP)).floor() as usize).clamp(1, MAX_COLS);
     let option_tool = tools
         .iter()
         .find(|tool| tool.command == id && !tool.options.is_empty());
@@ -633,12 +631,10 @@ pub(super) fn overlay<'a>(
     // Same paper as the slide-out above: the host keeps the inset and width,
     // `popup_plate` paints the plate and its contour.
     let panel = kit::popup_plate(
-        container(
-            kit::themed_scrollable(contents).height(content_height.min(available_height)),
-        )
-        .width(width)
-        .style(|theme: &Theme| kit::Tier::Flush.style(theme, ""))
-        .into(),
+        container(kit::themed_scrollable(contents).height(content_height.min(available_height)))
+            .width(width)
+            .style(|theme: &Theme| kit::Tier::Flush.style(theme, ""))
+            .into(),
         "",
     );
     dropdown_backdrop(position_ribbon_dropdown(panel, left, top))

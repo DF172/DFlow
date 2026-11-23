@@ -72,10 +72,19 @@ impl DraftFlowCAD {
             return None;
         }
         let typed = token.trim().trim_start_matches('_').to_uppercase();
-        let offered = self.tabs[i].active_cmd.as_ref()?.options().iter().any(|option| {
-            option.keyword.eq_ignore_ascii_case(&typed)
-                || option.label.to_uppercase().replace(' ', "").starts_with(&typed)
-        });
+        let offered = self.tabs[i]
+            .active_cmd
+            .as_ref()?
+            .options()
+            .iter()
+            .any(|option| {
+                option.keyword.eq_ignore_ascii_case(&typed)
+                    || option
+                        .label
+                        .to_uppercase()
+                        .replace(' ', "")
+                        .starts_with(&typed)
+            });
         (!offered).then_some(kind)
     }
 
@@ -140,6 +149,42 @@ impl DraftFlowCAD {
             }
         }
         self.resolve_source_block_path(tab, &mut accepted);
+        // First-point anchor pulse (item 13): only the FIRST accepted point of
+        // a command run pulses. Dimension placement returns above before
+        // reaching here, so a placement click never fires it. The list is
+        // cleared on every command start and on cancel/restart
+        // (`reset_command_start_state`), so the next first point replays
+        // naturally while later points see a non-empty list and stay silent.
+        if self.accepted_snaps.is_empty() && tab == self.active_tab {
+            // Camera-only projection: the pulse needs one screen point, not
+            // the hit-test wire set `pick_view` would also collect.
+            let canvas = self.tabs[tab].scene.selection.borrow().view.vp_size;
+            let bounds = iced::Rectangle {
+                x: 0.0,
+                y: 0.0,
+                width: canvas.0,
+                height: canvas.1,
+            };
+            let edit_cam = self.tabs[tab]
+                .scene
+                .viewport_edit_frame(canvas)
+                .map(|(cam, _)| cam);
+            let (view_rot, eye) = match &edit_cam {
+                Some(cam) => (cam.view_proj_rte(bounds), cam.eye()),
+                None => {
+                    let c = self.tabs[tab].scene.camera.borrow();
+                    (c.view_proj_rte(bounds), c.eye())
+                }
+            };
+            self.first_point_pulse = Some(crate::scene::pick::hit_test::world_to_screen(
+                committed, view_rot, eye, bounds,
+            ));
+            crate::ui::motion::replay(
+                crate::ui::motion::FIRST_POINT_PULSE,
+                1.0,
+                crate::ui::motion::FIRST_POINT_PULSE_TIME,
+            );
+        }
         self.push_accepted_snap(accepted);
         true
     }

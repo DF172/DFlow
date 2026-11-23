@@ -37,9 +37,14 @@ pub fn intersect_line_plane(
     plane_normal: [f64; 3],
     angular_tolerance: f64,
 ) -> Option<[f64; 3]> {
-    if !line_origin.iter().chain(&line_direction).chain(&plane_origin).chain(&plane_normal)
+    if !line_origin
+        .iter()
+        .chain(&line_direction)
+        .chain(&plane_origin)
+        .chain(&plane_normal)
         .all(|value| value.is_finite())
-        || !angular_tolerance.is_finite() || angular_tolerance < 0.0
+        || !angular_tolerance.is_finite()
+        || angular_tolerance < 0.0
     {
         return None;
     }
@@ -52,7 +57,8 @@ pub fn intersect_line_plane(
     // Evaluate near the plane origin, not at a potentially distant line origin.
     let offset = Vec3::from(line_origin) - Vec3::from(plane_origin);
     let nearest = offset - direction * offset.dot(direction);
-    let hit = Vec3::from(plane_origin) + (nearest - direction * (nearest.dot(normal) / denominator));
+    let hit =
+        Vec3::from(plane_origin) + (nearest - direction * (nearest.dot(normal) / denominator));
     hit.is_finite().then_some(hit.to_array())
 }
 
@@ -129,8 +135,7 @@ pub fn are_coplanar(points: &[[f64; 3]], directions: &[[f64; 3]]) -> bool {
         .map(Vec3::from)
         .filter_map(Vec3::normalize);
     let axes: Vec<Vec3> = point_axes.chain(direction_axes).collect();
-    let Some(axis) = axes.first().copied()
-    else {
+    let Some(axis) = axes.first().copied() else {
         return true;
     };
     let Some(normal) = axes.iter().find_map(|candidate| {
@@ -146,8 +151,7 @@ pub fn are_coplanar(points: &[[f64; 3]], directions: &[[f64; 3]]) -> bool {
         .all(|offset| offset.dot(normal).abs() <= tolerance)
         && directions.iter().copied().map(Vec3::from).all(|direction| {
             direction.length_squared() == 0.0
-                || direction.dot(normal).abs()
-                    <= COPLANARITY_TOLERANCE * direction.length()
+                || direction.dot(normal).abs() <= COPLANARITY_TOLERANCE * direction.length()
         })
 }
 
@@ -266,11 +270,8 @@ impl Plane {
         let [xx, xy_axis, _] = self.x_axis;
         let [yx, yy, _] = self.y_axis;
         let determinant = xx * yy - xy_axis * yx;
-        let scale = (xx * xx + xy_axis * xy_axis)
-            * (yx * yx + yy * yy);
-        if !determinant.is_finite()
-            || determinant.abs() <= 1e-24 * scale.max(f64::MIN_POSITIVE)
-        {
+        let scale = (xx * xx + xy_axis * xy_axis) * (yx * yx + yy * yy);
+        if !determinant.is_finite() || determinant.abs() <= 1e-24 * scale.max(f64::MIN_POSITIVE) {
             return None;
         }
         let dx = xy[0] - self.origin[0];
@@ -354,15 +355,39 @@ mod tests {
     fn line_plane_intersection_preserves_elevation_and_rejects_invalid_inputs() {
         let plane = [639_792.184_2, 4_517_057.531_7, 12.5];
         let line = [plane[0] + 3.0, plane[1] - 7.0, 181_080.0];
-        assert_eq!(intersect_line_plane(line, [0.0, 0.0, -4.0], plane, [0.0, 0.0, 2.0], 1e-6),
-            Some([line[0], line[1], plane[2]]));
-        assert_eq!(intersect_line_plane([0.0, 0.0, 10.0], [1.0, 0.0, -1.0], [0.0; 3], [0.0, 1.0, 1.0], 1e-6),
-            Some([10.0, 0.0, 0.0]));
-        for direction in [[1.0, 0.0, 0.0], [1.0, 0.0, 1e-7], [0.0; 3], [f64::NAN, 0.0, 1.0]] {
-            assert_eq!(intersect_line_plane(line, direction, plane, [0.0, 0.0, 1.0], 1e-6), None);
+        assert_eq!(
+            intersect_line_plane(line, [0.0, 0.0, -4.0], plane, [0.0, 0.0, 2.0], 1e-6),
+            Some([line[0], line[1], plane[2]])
+        );
+        assert_eq!(
+            intersect_line_plane(
+                [0.0, 0.0, 10.0],
+                [1.0, 0.0, -1.0],
+                [0.0; 3],
+                [0.0, 1.0, 1.0],
+                1e-6
+            ),
+            Some([10.0, 0.0, 0.0])
+        );
+        for direction in [
+            [1.0, 0.0, 0.0],
+            [1.0, 0.0, 1e-7],
+            [0.0; 3],
+            [f64::NAN, 0.0, 1.0],
+        ] {
+            assert_eq!(
+                intersect_line_plane(line, direction, plane, [0.0, 0.0, 1.0], 1e-6),
+                None
+            );
         }
-        assert_eq!(intersect_line_plane(line, [0.0, 0.0, 1.0], plane, [0.0; 3], 1e-6), None);
-        assert_eq!(intersect_line_plane(line, [0.0, 0.0, 1.0], plane, [0.0, 0.0, 1.0], f64::NAN), None);
+        assert_eq!(
+            intersect_line_plane(line, [0.0, 0.0, 1.0], plane, [0.0; 3], 1e-6),
+            None
+        );
+        assert_eq!(
+            intersect_line_plane(line, [0.0, 0.0, 1.0], plane, [0.0, 0.0, 1.0], f64::NAN),
+            None
+        );
     }
 
     #[test]
@@ -447,7 +472,10 @@ mod tests {
         assert_eq!(plane.project_vector([3.0, 0.0, 4.0]), Some([3.0, -4.0]));
         // Skewed frames go through the same solve as `project`.
         let skew = skewed();
-        assert_eq!(skew.project_vector(skew.vector_at([2.0, 5.0])), Some([2.0, 5.0]));
+        assert_eq!(
+            skew.project_vector(skew.vector_at([2.0, 5.0])),
+            Some([2.0, 5.0])
+        );
     }
 
     #[test]

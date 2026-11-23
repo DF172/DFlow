@@ -3,16 +3,16 @@
 //! properties panel and every style editor so colour selection looks and
 //! behaves the same everywhere.
 
-use crate::ui::style::tokens;
 use crate::app::Message;
 use crate::t;
+use crate::ui::kit;
+use crate::ui::kit::plain_button;
 use crate::ui::properties::acad_color_display;
+use crate::ui::style::tokens;
 use crate::ui::ROW_H;
 use codec::types::Color as AcadColor;
 use iced::widget::{column, container, row, text};
-use crate::ui::kit::plain_button;
 use iced::{Color, Element, Length, Theme};
-use crate::ui::kit;
 
 /// Which "logical" entries the colour list offers besides the standard ACI
 /// colours.
@@ -111,11 +111,15 @@ pub fn color_display_name(c: AcadColor) -> String {
 /// `tokens::RADIUS_MARK` itself: a white swatch on a light popup and a black
 /// one on a dark popup are both invisible without that edge.
 pub fn swatch<'a>(bg: Color) -> Element<'a, Message> {
-    container(text("").width(tokens::MARK_SQUARE).height(tokens::MARK_SQUARE))
-        .style(move |theme: &Theme| kit::swatch_style(theme, bg, ""))
-        .width(tokens::MARK_SQUARE)
-        .height(tokens::MARK_SQUARE)
-        .into()
+    container(
+        text("")
+            .width(tokens::MARK_SQUARE)
+            .height(tokens::MARK_SQUARE),
+    )
+    .style(move |theme: &Theme| kit::swatch_style(theme, bg, ""))
+    .width(tokens::MARK_SQUARE)
+    .height(tokens::MARK_SQUARE)
+    .into()
 }
 
 /// Build a colour selector.
@@ -135,14 +139,7 @@ pub fn color_selector<'a>(
     theme: &Theme,
 ) -> Element<'a, Message> {
     color_selector_with_name(
-        current,
-        None,
-        open,
-        extras,
-        on_select,
-        on_toggle,
-        on_more,
-        theme,
+        current, None, open, extras, on_select, on_toggle, on_more, theme,
     )
 }
 
@@ -308,14 +305,12 @@ pub fn color_list<'a>(
     for i in 1u8..=9 {
         list = list.push(named_row(AcadColor::Index(i)));
     }
-    list = list.push(
-        kit::list_row(
-            text(t!("Select Color...")).size(tokens::TEXT_LABEL),
-            false,
-            kit::Press::On(on_more),
-            "",
-        ),
-    );
+    list = list.push(kit::list_row(
+        text(t!("Select Color...")).size(tokens::TEXT_LABEL),
+        false,
+        kit::Press::On(on_more),
+        "",
+    ));
     list.into()
 }
 

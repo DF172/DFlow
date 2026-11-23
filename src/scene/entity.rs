@@ -2196,7 +2196,14 @@ impl Scene {
                     .colors
                     .get(i)
                     .and_then(|e| e.color.rgb())
-                    .map(|(r, g, b)| [r as f32 / 255.0, g as f32 / 255.0, b as f32 / 255.0, color[3]])
+                    .map(|(r, g, b)| {
+                        [
+                            r as f32 / 255.0,
+                            g as f32 / 255.0,
+                            b as f32 / 255.0,
+                            color[3],
+                        ]
+                    })
             };
             gradient_color1 = stop(0);
             let color1 = gradient_color1.unwrap_or(color);
@@ -2368,7 +2375,7 @@ impl Scene {
                     .filter_map(crate::entities::hatch::edge_curve)
                     .collect()
             };
-            if let Some(refined) = kernel::geom2d::refine_spline_boundary(&ring, curves, &project) {
+            if let Some(refined) = kernel::geom2d::refine_spline_boundary(&ring, curves, project) {
                 if boundary.len() - range.len() + refined.len() > MAX_HATCH_MODEL_VERTS {
                     continue;
                 }

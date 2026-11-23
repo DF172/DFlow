@@ -174,6 +174,11 @@ pub(super) struct DocumentTab {
     pub(super) visibility_grip: Option<super::visibility::VisibilityGrip>,
     pub(super) wireframe: bool,
     pub(super) render_mode: codec::entities::ViewportRenderMode,
+    /// Item 41 (2026-11-20 degraded ruling): screen rect of the viewport that
+    /// last switched render mode, while the switch veil is live. `None` for
+    /// every viewport that did not switch — the veil is per-viewport, never
+    /// canvas-wide. Clamped to the canvas at kick time.
+    pub(super) render_mode_veil: Option<iced::Rectangle>,
     pub(super) visual_style: String,
     pub(super) last_cursor_world: glam::DVec3,
     pub(super) last_cursor_screen: iced::Point,
@@ -631,6 +636,7 @@ impl DocumentTab {
             visibility_grip: None,
             wireframe: false,
             render_mode: codec::entities::ViewportRenderMode::Wireframe2D,
+            render_mode_veil: None,
             visual_style: "Wireframe 2D".into(),
             last_cursor_world: glam::DVec3::ZERO,
             last_cursor_screen: iced::Point::ORIGIN,

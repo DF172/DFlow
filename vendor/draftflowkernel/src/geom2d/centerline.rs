@@ -75,17 +75,14 @@ pub fn centerline_between(
     let second_direction = unit(second.direction())?;
     let points = [first.start, first.end, second.start, second.end];
 
-    let (origin, mut axis) = if let Some((parameter, _)) = line_line(
-        first.start,
-        first_direction,
-        second.start,
-        second_direction,
-    ) {
+    let (origin, mut axis) = if let Some((parameter, _)) =
+        line_line(first.start, first_direction, second.start, second_direction)
+    {
         let intersection = add(first.start, mul(first_direction, parameter));
         let first_ray = oriented_towards(first_direction, intersection, first_pick);
         let second_ray = oriented_towards(second_direction, intersection, second_pick);
-        let bisector = unit(add(first_ray, second_ray))
-            .or_else(|| unit(sub(first_ray, second_ray)))?;
+        let bisector =
+            unit(add(first_ray, second_ray)).or_else(|| unit(sub(first_ray, second_ray)))?;
         (intersection, bisector)
     } else {
         let second_aligned = if dot(first_direction, second_direction) < 0.0 {
@@ -96,7 +93,11 @@ pub fn centerline_between(
         let direction = unit(add(first_direction, second_aligned)).unwrap_or(first_direction);
         let direction = oriented_towards(direction, first.start, first_pick);
         let normal = [-direction[1], direction[0]];
-        let normal_offset = points.into_iter().map(|point| dot(point, normal)).sum::<f64>() / 4.0;
+        let normal_offset = points
+            .into_iter()
+            .map(|point| dot(point, normal))
+            .sum::<f64>()
+            / 4.0;
         (mul(normal, normal_offset), direction)
     };
 

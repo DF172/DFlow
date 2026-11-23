@@ -41,6 +41,12 @@ impl DimEditCommand {
     }
 }
 
+impl Default for DimEditCommand {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CadCommand for DimEditCommand {
     fn name(&self) -> &'static str {
         "DIMEDIT"

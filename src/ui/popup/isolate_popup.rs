@@ -1,8 +1,8 @@
 //! Isolate / Hide / End Isolation status menu.
 
 use crate::ui::kit;
-use iced::widget::{row, text};
 use crate::ui::kit::plain_button;
+use iced::widget::{row, text};
 use iced::{Element, Fill};
 
 use crate::app::Message;

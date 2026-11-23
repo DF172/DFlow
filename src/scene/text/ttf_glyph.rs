@@ -127,7 +127,7 @@ impl ttf_parser::OutlineBuilder for OutlineFlattener {
 
     fn close(&mut self) {
         // Close the ring back to its start so the wire forms a loop.
-        if self.cur.first().map_or(false, |f| *f != self.pos) {
+        if self.cur.first().is_some_and(|f| *f != self.pos) {
             self.cur.push(self.start);
         }
         self.flush();
@@ -821,8 +821,6 @@ fn installed_family_glyph(
                 .then(|| (Arc::new(glyph), source))
         })
 }
-
-
 
 fn build_shaped(family: &str, text: &str) -> Option<ShapedRun> {
     use cosmic_text::{Attrs, Buffer, Family, Metrics, Shaping};

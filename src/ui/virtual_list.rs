@@ -53,7 +53,7 @@ const OVERSCAN_SCREENS: f32 = 1.0;
 /// non-positive `row_h` or `viewport_h` yields an empty window: a caller that
 /// has not measured yet must not ask for every row.
 pub fn window(total: usize, row_h: f32, offset_y: f32, viewport_h: f32) -> Window {
-    if total == 0 || !(row_h > 0.0) || !(viewport_h > 0.0) {
+    if total == 0 || row_h.is_nan() || row_h <= 0.0 || viewport_h.is_nan() || viewport_h <= 0.0 {
         return Window {
             start: 0,
             end: 0,
@@ -120,7 +120,10 @@ mod tests {
             mid.end
         );
         assert!(mid.start > 0, "row 1000 must not start the list");
-        assert!(mid.top_spacer > 0.0, "rows above the window still reserve space");
+        assert!(
+            mid.top_spacer > 0.0,
+            "rows above the window still reserve space"
+        );
         let top = window(TOTAL, ROW, 0.0, VIEW);
         assert_eq!(top.start, 0);
         assert_eq!(top.top_spacer, 0.0);

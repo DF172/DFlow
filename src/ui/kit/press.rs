@@ -104,9 +104,9 @@ impl<Message> Widget<Message, Theme, iced::Renderer> for Sink<'_, Message> {
         shell: &mut Shell<'_, Message>,
         viewport: &Rectangle,
     ) {
-        self.content.as_widget_mut().update(
-            tree, event, layout, cursor, renderer, shell, viewport,
-        );
+        self.content
+            .as_widget_mut()
+            .update(tree, event, layout, cursor, renderer, shell, viewport);
 
         // A click anywhere on a kit control means the person is on the pointer:
         // the keyboard ring comes off, the tab position stays.
@@ -204,7 +204,11 @@ mod tests {
         motion::set(key, 0.0, motion::HOVER);
         assert_eq!(offset(key), 0.0);
         motion::set(key, 0.4, motion::HOVER);
-        assert_eq!(offset(key), 0.0, "a sub-pixel value must not blur the glyph");
+        assert_eq!(
+            offset(key),
+            0.0,
+            "a sub-pixel value must not blur the glyph"
+        );
         motion::set(key, 0.6, motion::HOVER);
         assert_eq!(offset(key), 1.0);
     }

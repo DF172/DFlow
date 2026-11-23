@@ -33,7 +33,11 @@ pub(super) enum LocalError {
 #[derive(Debug, Clone, Copy)]
 pub(super) enum LocalBlend {
     Fillet(f64),
-    Chamfer { base_face: FaceKey, base: f64, other: f64 },
+    Chamfer {
+        base_face: FaceKey,
+        base: f64,
+        other: f64,
+    },
 }
 
 impl LocalBlend {
@@ -42,8 +46,16 @@ impl LocalBlend {
     fn distances(self, first: FaceKey, second: FaceKey) -> Option<(f64, f64)> {
         match self {
             Self::Fillet(radius) => Some((radius, radius)),
-            Self::Chamfer { base_face, base, other } if base_face == first => Some((base, other)),
-            Self::Chamfer { base_face, base, other } if base_face == second => Some((other, base)),
+            Self::Chamfer {
+                base_face,
+                base,
+                other,
+            } if base_face == first => Some((base, other)),
+            Self::Chamfer {
+                base_face,
+                base,
+                other,
+            } if base_face == second => Some((other, base)),
             Self::Chamfer { .. } => None,
         }
     }
@@ -57,7 +69,10 @@ pub(super) fn blend_rims(
     blend: LocalBlend,
 ) -> Option<Result<Body, LocalError>> {
     let tolerance = super::operation_tolerance(&[body]);
-    if selected.iter().any(|edge| rim(body, *edge, tolerance).is_none()) {
+    if selected
+        .iter()
+        .any(|edge| rim(body, *edge, tolerance).is_none())
+    {
         return None;
     }
     let mut result = body.clone();
@@ -72,8 +87,14 @@ pub(super) fn blend_rims(
             return Some(Err(LocalError::OutsideBaseFace(*edge)));
         };
         let round = matches!(blend, LocalBlend::Fillet(_));
-        if let Err(error) = stitch(&mut result, &rim, along_plane, along_cylinder, round, tolerance)
-        {
+        if let Err(error) = stitch(
+            &mut result,
+            &rim,
+            along_plane,
+            along_cylinder,
+            round,
+            tolerance,
+        ) {
             return Some(Err(error));
         }
     }
@@ -163,7 +184,11 @@ fn rim(body: &Body, key: EdgeKey, tolerance: f64) -> Option<Rim> {
     }
     let seam = seam?;
     let seam_edge = body.edges.get(seam)?;
-    let far = if seam_edge.start == vertex { seam_edge.end } else { seam_edge.start };
+    let far = if seam_edge.start == vertex {
+        seam_edge.end
+    } else {
+        seam_edge.start
+    };
     let at = |key: VertexKey| Some(Vec3::from(body.vertices.get(key)?.point));
     let rise = (at(far)? - at(vertex)?).dot(axis);
     if rise.abs() <= tolerance {
@@ -171,8 +196,16 @@ fn rim(body: &Body, key: EdgeKey, tolerance: f64) -> Option<Rim> {
     }
 
     let plane_out = Vec3::from(plane.normal()?)
-        * if body.faces.get(plane_face)?.forward { 1.0 } else { -1.0 };
-    let cylinder_out = if body.faces.get(cylinder_face)?.forward { 1.0 } else { -1.0 };
+        * if body.faces.get(plane_face)?.forward {
+            1.0
+        } else {
+            -1.0
+        };
+    let cylinder_out = if body.faces.get(cylinder_face)?.forward {
+        1.0
+    } else {
+        -1.0
+    };
     let along_cylinder = rise.signum();
     // Convex when the cylinder runs away from the plane's outside.
     let convex = along_cylinder * plane_out.dot(axis) < 0.0;
@@ -248,8 +281,15 @@ fn stitch(
         return Err(LocalError::TooLarge);
     }
 
-    let corner = Vec3::from(body.vertices.get(rim.vertex).ok_or(LocalError::InvalidResult)?.point);
-    let radial = (corner - rim.centre).normalize().ok_or(LocalError::InvalidResult)?;
+    let corner = Vec3::from(
+        body.vertices
+            .get(rim.vertex)
+            .ok_or(LocalError::InvalidResult)?
+            .point,
+    );
+    let radial = (corner - rim.centre)
+        .normalize()
+        .ok_or(LocalError::InvalidResult)?;
     let near = rim.centre + rim.axis * drop;
     let far_point = rim.centre + radial * outer;
     let near_point = corner + rim.axis * drop;
@@ -259,7 +299,11 @@ fn stitch(
     let (surface, band_curve, band_range) = if round {
         let tube = along_plane;
         let centre = rim.centre + radial * outer + rim.axis * drop;
-        let torus = Torus { frame: near_frame, major_radius: outer, minor_radius: tube };
+        let torus = Torus {
+            frame: near_frame,
+            major_radius: outer,
+            minor_radius: tube,
+        };
         // Measured from the radial direction toward the side that turns the
         // plane's tangent point into the cylinder's in a quarter turn.
         let side = -rim.along_plane * rim.along_cylinder;
@@ -272,7 +316,10 @@ fn stitch(
         let start = rim.along_plane * FRAC_PI_2;
         (
             Surface::Torus(torus),
-            Curve3::Circle(Circle3 { plane: meridian, radius: tube }),
+            Curve3::Circle(Circle3 {
+                plane: meridian,
+                radius: tube,
+            }),
             (start, start + FRAC_PI_2),
         )
     } else {
@@ -294,32 +341,54 @@ fn stitch(
     // The band's outward normal leaves the material: toward the old corner
     // on a convex rim, away from it on a concave one.
     let middle = Vec3::from(band_curve.point_at((band_range.0 + band_range.1) * 0.5));
-    let (u, v) = surface.parameters_at(middle.to_array()).ok_or(LocalError::InvalidResult)?;
+    let (u, v) = surface
+        .parameters_at(middle.to_array())
+        .ok_or(LocalError::InvalidResult)?;
     let normal = Vec3::from(surface.normal_at(u, v).ok_or(LocalError::InvalidResult)?);
     let outward = (corner - middle) * if rim.convex { 1.0 } else { -1.0 };
     let forward = normal.dot(outward) > 0.0;
 
-    let edge = body.edges.get(rim.edge).ok_or(LocalError::InvalidResult)?.clone();
-    let cylinder_coedge =
-        body.coedges.get(rim.cylinder_coedge).ok_or(LocalError::InvalidResult)?.clone();
+    let edge = body
+        .edges
+        .get(rim.edge)
+        .ok_or(LocalError::InvalidResult)?
+        .clone();
+    let cylinder_coedge = body
+        .coedges
+        .get(rim.cylinder_coedge)
+        .ok_or(LocalError::InvalidResult)?
+        .clone();
     let cylinder_loop = cylinder_coedge.owner;
-    let shell = body.faces.get(rim.cylinder_face).ok_or(LocalError::InvalidResult)?.owner;
+    let shell = body
+        .faces
+        .get(rim.cylinder_face)
+        .ok_or(LocalError::InvalidResult)?
+        .owner;
 
     // The plane keeps the rim edge, now on the band's far circle.
-    let vertex = body.vertices.get_mut(rim.vertex).ok_or(LocalError::InvalidResult)?;
+    let vertex = body
+        .vertices
+        .get_mut(rim.vertex)
+        .ok_or(LocalError::InvalidResult)?;
     vertex.point = far_point.to_array();
     let far_curve = body.curves.insert(Curve3::Circle(Circle3 {
         plane: rim.circle.plane,
         radius: outer,
     }));
-    body.edges.get_mut(rim.edge).ok_or(LocalError::InvalidResult)?.curve = far_curve;
+    body.edges
+        .get_mut(rim.edge)
+        .ok_or(LocalError::InvalidResult)?
+        .curve = far_curve;
 
     // The cylinder gets a new near circle and a shorter seam.
     let near_vertex = body.vertices.insert(Vertex {
         point: near_point.to_array(),
         provenance: Provenance::Synthesized,
     });
-    let near_curve = body.curves.insert(Curve3::Circle(Circle3 { plane: near_frame, radius }));
+    let near_curve = body.curves.insert(Curve3::Circle(Circle3 {
+        plane: near_frame,
+        radius,
+    }));
     let near_edge = body.edges.insert(Edge {
         curve: near_curve,
         start_parameter: edge.start_parameter,
@@ -336,7 +405,10 @@ fn stitch(
         owner: cylinder_loop,
         provenance: Provenance::Synthesized,
     });
-    let ring = body.loops.get_mut(cylinder_loop).ok_or(LocalError::InvalidResult)?;
+    let ring = body
+        .loops
+        .get_mut(cylinder_loop)
+        .ok_or(LocalError::InvalidResult)?;
     let slot = ring
         .coedges
         .iter()
@@ -344,14 +416,21 @@ fn stitch(
         .ok_or(LocalError::InvalidResult)?;
     ring.coedges[slot] = cylinder_near;
     {
-        let seam_curve = body.edges.get(rim.seam).ok_or(LocalError::InvalidResult)?.curve;
+        let seam_curve = body
+            .edges
+            .get(rim.seam)
+            .ok_or(LocalError::InvalidResult)?
+            .curve;
         let Some(&Curve3::Line(line)) = body.curves.get(seam_curve) else {
             return Err(LocalError::InvalidResult);
         };
         let direction = Vec3::from(line.direction);
         let parameter =
             (near_point - Vec3::from(line.origin)).dot(direction) / direction.length_squared();
-        let seam = body.edges.get_mut(rim.seam).ok_or(LocalError::InvalidResult)?;
+        let seam = body
+            .edges
+            .get_mut(rim.seam)
+            .ok_or(LocalError::InvalidResult)?;
         if seam.start == rim.vertex {
             seam.start = near_vertex;
             seam.start_parameter = parameter;
@@ -397,14 +476,32 @@ fn stitch(
     let down = coedge(band_seam, true);
     let back = coedge(near_edge, !cylinder_coedge.forward);
     let up = coedge(band_seam, false);
-    body.coedges.get_mut(rim.cylinder_coedge).ok_or(LocalError::InvalidResult)?.owner = band_loop;
-    body.loops.get_mut(band_loop).ok_or(LocalError::InvalidResult)?.coedges =
-        vec![rim.cylinder_coedge, down, back, up];
-    body.faces.get_mut(face).ok_or(LocalError::InvalidResult)?.loops.push(band_loop);
-    body.edges.get_mut(near_edge).ok_or(LocalError::InvalidResult)?.coedges =
-        vec![cylinder_near, back];
-    body.edges.get_mut(band_seam).ok_or(LocalError::InvalidResult)?.coedges = vec![down, up];
-    body.shells.get_mut(shell).ok_or(LocalError::InvalidResult)?.faces.push(face);
+    body.coedges
+        .get_mut(rim.cylinder_coedge)
+        .ok_or(LocalError::InvalidResult)?
+        .owner = band_loop;
+    body.loops
+        .get_mut(band_loop)
+        .ok_or(LocalError::InvalidResult)?
+        .coedges = vec![rim.cylinder_coedge, down, back, up];
+    body.faces
+        .get_mut(face)
+        .ok_or(LocalError::InvalidResult)?
+        .loops
+        .push(band_loop);
+    body.edges
+        .get_mut(near_edge)
+        .ok_or(LocalError::InvalidResult)?
+        .coedges = vec![cylinder_near, back];
+    body.edges
+        .get_mut(band_seam)
+        .ok_or(LocalError::InvalidResult)?
+        .coedges = vec![down, up];
+    body.shells
+        .get_mut(shell)
+        .ok_or(LocalError::InvalidResult)?
+        .faces
+        .push(face);
     Ok(())
 }
 
@@ -491,7 +588,11 @@ fn line(body: &Body, key: EdgeKey) -> Option<Line> {
             return None;
         };
         outward[side] = Vec3::from(plane.normal()?) * if face.forward { 1.0 } else { -1.0 };
-        let along = if body.coedges.get(coedges[side])?.forward { direction } else { -direction };
+        let along = if body.coedges.get(coedges[side])?.forward {
+            direction
+        } else {
+            -direction
+        };
         // A loop keeps its face on the left, looking down the outward normal.
         into[side] = outward[side].cross(along).normalize()?;
     }
@@ -510,8 +611,10 @@ fn line(body: &Body, key: EdgeKey) -> Option<Line> {
             {
                 return None;
             }
-            let owners =
-                [face_of(body, candidate.coedges[0])?, face_of(body, candidate.coedges[1])?];
+            let owners = [
+                face_of(body, candidate.coedges[0])?,
+                face_of(body, candidate.coedges[1])?,
+            ];
             let side = faces.iter().position(|face| owners.contains(face))?;
             if sides[side].replace(other).is_some() {
                 return None;
@@ -525,7 +628,12 @@ fn line(body: &Body, key: EdgeKey) -> Option<Line> {
         let Surface::Plane(plane) = body.surfaces.get(body.faces.get(face)?.surface)? else {
             return None;
         };
-        Some(Corner { vertex, sides: [sides[0]?, sides[1]?], face, plane: *plane })
+        Some(Corner {
+            vertex,
+            sides: [sides[0]?, sides[1]?],
+            face,
+            plane: *plane,
+        })
     };
     Some(Line {
         edge: key,
@@ -556,7 +664,11 @@ fn cut_line(
     };
     // Nothing else on either face may come within the setback.
     for (side, setback) in setbacks.iter().enumerate() {
-        let skip = [line.edge, line.ends[0].sides[side], line.ends[1].sides[side]];
+        let skip = [
+            line.edge,
+            line.ends[0].sides[side],
+            line.ends[1].sides[side],
+        ];
         let crowded = other_boundary_points(body, line.faces[side], &skip)
             .ok_or(invalid)?
             .into_iter()
@@ -585,7 +697,11 @@ fn cut_line(
             let along = normal.dot(Vec3::from(corner.plane.origin) - base) / rate;
             let point = base + line.direction * along;
             let edge = body.edges.get(corner.sides[side]).ok_or(invalid)?;
-            let far = if edge.start == corner.vertex { edge.end } else { edge.start };
+            let far = if edge.start == corner.vertex {
+                edge.end
+            } else {
+                edge.start
+            };
             let corner_point = Vec3::from(body.vertices.get(corner.vertex).ok_or(invalid)?.point);
             let far_point = Vec3::from(body.vertices.get(far).ok_or(invalid)?.point);
             let span = far_point - corner_point;
@@ -611,8 +727,10 @@ fn cut_line(
         .ok_or(invalid)?;
         (Surface::Cylinder(Cylinder { base, radius }), line.convex)
     } else {
-        let mut normal =
-            (points[0][1] - points[0][0]).cross(line.direction).normalize().ok_or(invalid)?;
+        let mut normal = (points[0][1] - points[0][0])
+            .cross(line.direction)
+            .normalize()
+            .ok_or(invalid)?;
         if normal.dot(outward) < 0.0 {
             normal = -normal;
         }
@@ -654,7 +772,10 @@ fn cut_line(
         }
     }
     let straight = |from: Vec3, to: Vec3| {
-        Curve3::Line(Line3 { origin: from.to_array(), direction: (to - from).to_array() })
+        Curve3::Line(Line3 {
+            origin: from.to_array(),
+            direction: (to - from).to_array(),
+        })
     };
 
     // The first face keeps the edge, now on its tangent line.
@@ -691,7 +812,11 @@ fn cut_line(
         provenance: Provenance::Synthesized,
     });
     let ring = body.loops.get_mut(moved.owner).ok_or(invalid)?;
-    let slot = ring.coedges.iter().position(|key| *key == line.coedges[1]).ok_or(invalid)?;
+    let slot = ring
+        .coedges
+        .iter()
+        .position(|key| *key == line.coedges[1])
+        .ok_or(invalid)?;
     ring.coedges[slot] = second_use;
 
     // Each corner face gains the band's section between its side edges.
@@ -748,7 +873,11 @@ fn cut_line(
             owner: ring_key,
             provenance: Provenance::Synthesized,
         });
-        body.loops.get_mut(ring_key).ok_or(invalid)?.coedges.insert(slot + 1, use_);
+        body.loops
+            .get_mut(ring_key)
+            .ok_or(invalid)?
+            .coedges
+            .insert(slot + 1, use_);
         sections[end] = section;
         corner_uses[end] = use_;
     }
@@ -794,8 +923,7 @@ fn cut_line(
         vec![line.coedges[1], opening, across, closing];
     body.faces.get_mut(face).ok_or(invalid)?.loops.push(band);
     body.edges.get_mut(second).ok_or(invalid)?.coedges = vec![second_use, across];
-    body.edges.get_mut(sections[first]).ok_or(invalid)?.coedges =
-        vec![corner_uses[first], opening];
+    body.edges.get_mut(sections[first]).ok_or(invalid)?.coedges = vec![corner_uses[first], opening];
     body.edges.get_mut(sections[last]).ok_or(invalid)?.coedges = vec![corner_uses[last], closing];
     body.shells.get_mut(shell).ok_or(invalid)?.faces.push(face);
     Ok(())
@@ -884,8 +1012,14 @@ mod tests {
         assert!(rounded.validate().is_empty());
         assert!(chamfered.validate().is_empty());
         assert_eq!(rounded.faces.len(), body.faces.len() + 1);
-        assert!(has(&rounded, |surface| matches!(surface, Surface::Torus(_))));
-        assert!(has(&chamfered, |surface| matches!(surface, Surface::Cone(_))));
+        assert!(has(&rounded, |surface| matches!(
+            surface,
+            Surface::Torus(_)
+        )));
+        assert!(has(&chamfered, |surface| matches!(
+            surface,
+            Surface::Cone(_)
+        )));
         // The hole wall is 2 from the block side.
         assert!(fillet_edges(&body, &[rim], 2.5).is_err());
     }

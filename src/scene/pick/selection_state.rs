@@ -122,11 +122,7 @@ impl SelectionMenu {
         // The menu slides out of the pointer once per opening. Replayed
         // rather than continued: a second right-click is a new menu, not a
         // move of the old one, and must arrive on its own.
-        crate::ui::motion::replay(
-            crate::ui::motion::MENU_OPEN,
-            1.0,
-            crate::ui::motion::HOVER,
-        );
+        crate::ui::motion::replay(crate::ui::motion::MENU_OPEN, 1.0, crate::ui::motion::HOVER);
     }
 
     /// Close the context menu (no-op when it is not open).

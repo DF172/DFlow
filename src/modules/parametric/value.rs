@@ -293,17 +293,26 @@ impl CadCommand for DistanceConstraintCommand {
             (true, DistanceMode::Diameter) => crate::tf!(
                 "Specify diameter <{:.4}> or [Radius]: ",
                 self.default_value * 2.0
-            ).into_owned(),
+            )
+            .into_owned(),
             (true, DistanceMode::Auto | DistanceMode::Radius) => crate::tf!(
                 "Specify distance <{:.4}> or [Diameter]: ",
                 self.default_value
-            ).into_owned(),
-            (false, DistanceMode::X) => crate::tf!("Specify X distance <{:.4}>: ", self.default_x).into_owned(),
-            (false, DistanceMode::Y) => crate::tf!("Specify Y distance <{:.4}>: ", self.default_y).into_owned(),
-            (false, DistanceMode::Auto | DistanceMode::Aligned | DistanceMode::Linear) => crate::tf!(
-                "Specify distance <{:.4}> or [Xdistance/Ydistance]: ",
-                self.default_value
-            ).into_owned(),
+            )
+            .into_owned(),
+            (false, DistanceMode::X) => {
+                crate::tf!("Specify X distance <{:.4}>: ", self.default_x).into_owned()
+            }
+            (false, DistanceMode::Y) => {
+                crate::tf!("Specify Y distance <{:.4}>: ", self.default_y).into_owned()
+            }
+            (false, DistanceMode::Auto | DistanceMode::Aligned | DistanceMode::Linear) => {
+                crate::tf!(
+                    "Specify distance <{:.4}> or [Xdistance/Ydistance]: ",
+                    self.default_value
+                )
+                .into_owned()
+            }
             _ => "Unsupported distance constraint mode.".to_string(),
         }
     }

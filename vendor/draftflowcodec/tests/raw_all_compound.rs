@@ -1,4 +1,6 @@
-use draftflowcodec::entities::{AttributeEntity, EntityType, Insert, Polyline2D, Polyline3D, Vertex2D};
+use draftflowcodec::entities::{
+    AttributeEntity, EntityType, Insert, Polyline2D, Polyline3D, Vertex2D,
+};
 use draftflowcodec::io::dwg::dwg_stream_readers::object_reader::DwgObjectReader;
 use draftflowcodec::io::dwg::dwg_stream_writers::object_writer::DwgObjectWriter;
 use draftflowcodec::tables::BlockRecord;

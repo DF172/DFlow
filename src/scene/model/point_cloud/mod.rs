@@ -336,7 +336,7 @@ pub(crate) fn placed(
 ) -> Option<Arc<PlacedCloud>> {
     let cloud = load(&resolve_source(document, data)?)?;
     let skipped: Vec<std::ops::Range<usize>> = if hidden.iter().any(|h| h == UNASSIGNED_OFF) {
-        vec![0..cloud.positions.len()]
+        std::iter::once(0..cloud.positions.len()).collect()
     } else {
         cloud
             .scan_ranges

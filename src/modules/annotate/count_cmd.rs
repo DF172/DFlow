@@ -471,6 +471,12 @@ impl UpdateFieldCommand {
     }
 }
 
+impl Default for UpdateFieldCommand {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CadCommand for UpdateFieldCommand {
     fn name(&self) -> &'static str {
         "UPDATEFIELD"

@@ -76,6 +76,12 @@ impl AlignedDimensionCommand {
     }
 }
 
+impl Default for AlignedDimensionCommand {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// An aligned dimension between two points of the working plane, its
 /// dimension line through `point` — what DIMALIGNED places and what an
 /// aligned dimensional constraint draws.

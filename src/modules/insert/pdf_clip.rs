@@ -314,7 +314,8 @@ impl CadCommand for PdfClipCommand {
             Step::Option => crate::tf!(
                 "Enter {} clipping option [ON/OFF/Delete/New boundary] <New boundary>:",
                 self.kind_name()
-            ).into_owned(),
+            )
+            .into_owned(),
             Step::DeleteOld if self.image_mode => {
                 "Delete old boundary? [No/Yes] <Yes>:".to_string()
             }

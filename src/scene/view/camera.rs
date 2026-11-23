@@ -464,14 +464,32 @@ impl Camera {
         if delta_x.abs() < 1e-6 && delta_y.abs() < 1e-6 {
             return;
         }
-        let old_rot = self.rotation;
-        let speed = 0.005_f32;
+        let speed = Self::ORBIT_RAD_PER_PX;
+        self.spin(-delta_x * speed, -delta_y * speed, pivot);
+    }
 
-        let yaw = Quat::from_rotation_z(-delta_x * speed);
+    /// Radians of turntable rotation per screen pixel of drag.
+    pub const ORBIT_RAD_PER_PX: f32 = 0.005;
+
+    /// Turntable rotation by an explicit angle delta (radians): `delta_yaw`
+    /// about world +Z, then `delta_pitch` about the camera's (always
+    /// horizontal) right axis, with the target revolved around `pivot`.
+    ///
+    /// [`Camera::orbit`] converts its pixel drag into these two angles and
+    /// calls this; the item 7 coast springs (P2 batch 1) drive the same method
+    /// from their radian tracks, so a released flick keeps rotating the view
+    /// exactly the way the hand was rotating it — same axes, same pivot
+    /// revolution, same `sync_yaw_pitch` bookkeeping.
+    pub fn spin(&mut self, delta_yaw: f32, delta_pitch: f32, pivot: Option<DVec3>) {
+        if delta_yaw.abs() < 1e-9 && delta_pitch.abs() < 1e-9 {
+            return;
+        }
+        let old_rot = self.rotation;
+
+        let yaw = Quat::from_rotation_z(delta_yaw);
         self.rotation = (yaw * self.rotation).normalize();
         let cam_right = self.rotation * Vec3::X;
-        self.rotation =
-            (Quat::from_axis_angle(cam_right, -delta_y * speed) * self.rotation).normalize();
+        self.rotation = (Quat::from_axis_angle(cam_right, delta_pitch) * self.rotation).normalize();
 
         // Revolve the target around the pivot by the same rotation delta so the
         // view orbits the chosen centre instead of the fixed file centre (#229).
@@ -1157,8 +1175,10 @@ mod rte_tests {
             width: 1600.0,
             height: 900.0,
         };
-        let mut at_origin = Camera::default();
-        at_origin.target = glam::DVec3::ZERO;
+        let at_origin = Camera {
+            target: glam::DVec3::ZERO,
+            ..Default::default()
+        };
 
         let mut at_utm = at_origin.clone();
         at_utm.target = glam::DVec3::new(639_792.184_2, 4_517_057.531_7, 12.5);
@@ -1181,9 +1201,11 @@ mod rte_tests {
     #[test]
     fn the_basis_matches_what_two_positions_gave_where_they_were_exact() {
         for (yaw, pitch) in [(0.0, 1.2), (0.7, 0.3), (-2.1, -0.9)] {
-            let mut camera = Camera::default();
-            camera.target = glam::DVec3::ZERO;
-            camera.rotation = Quat::from_rotation_z(yaw) * Quat::from_rotation_x(pitch);
+            let camera = Camera {
+                target: glam::DVec3::ZERO,
+                rotation: Quat::from_rotation_z(yaw) * Quat::from_rotation_x(pitch),
+                ..Default::default()
+            };
             let up_dir = camera.rotation * Vec3::Y;
 
             let mut old = look_at_mat4(camera.eye().as_vec3(), camera.target.as_vec3(), up_dir);

@@ -546,6 +546,16 @@ impl DraftFlowCAD {
                 // A regen is a field evaluation event (FIELDEVAL bit 16).
                 self.tabs[i].scene.update_fields(16, None);
                 self.tabs[i].scene.populate_meshes_from_document();
+                // Item 40: the rebuild is synchronous, so its completion is
+                // this very moment. The first frame drawn after the command
+                // returns wears the peak veil and fades back to full colour.
+                crate::ui::motion::pulse(
+                    crate::ui::motion::REGEN_FADE,
+                    1.0,
+                    0.0,
+                    0,
+                    crate::ui::motion::REGEN_FADE_MS,
+                );
                 self.command_line
                     .push_output(crate::t!("REGEN: regenerated model.").as_ref());
                 return Some(Task::none());
@@ -2074,16 +2084,17 @@ impl DraftFlowCAD {
         }
         let doc = &self.tabs[i].scene.document;
         let current_style = doc.header.current_table_style_name.clone();
-        table.table_style_handle = doc.objects.iter().find_map(|(handle, object)| {
-            match object {
+        table.table_style_handle = doc
+            .objects
+            .iter()
+            .find_map(|(handle, object)| match object {
                 codec::objects::ObjectType::TableStyle(style)
                     if style.name.eq_ignore_ascii_case(&current_style) =>
                 {
                     Some(*handle)
                 }
                 _ => None,
-            }
-        });
+            });
         let command =
             crate::modules::annotate::data_link::DataLinkPlaceCommand::new(table, link_path);
         self.command_line
@@ -2296,6 +2307,27 @@ mod tests {
         assert_ne!(
             app.tabs[i].scene.geometry_epoch, epoch_before,
             "REGEN did not bump the geometry epoch",
+        );
+    }
+
+    /// Item 40: REGEN completion publishes the fade veil at its peak on the
+    /// completion frame (rise 0), so the first frame drawn after the
+    /// synchronous rebuild reads the full veil and then fades to nothing.
+    #[test]
+    fn regen_completion_publishes_the_fade_veil_at_peak() {
+        let _gate = crate::ui::motion::test_gate_lock();
+        crate::ui::motion::set_enabled(true);
+        let mut app = DraftFlowCAD::new_for_test();
+        app.automation_op(r#"{"op":"new"}"#);
+        let _ = app.run_command_line("REGEN");
+        assert_eq!(
+            crate::ui::motion::value_or(crate::ui::motion::REGEN_FADE, -1.0),
+            1.0,
+            "the completion frame must read the peak veil",
+        );
+        assert!(
+            crate::ui::motion::any_active(),
+            "an active veil must ask for frames until it settles",
         );
     }
 

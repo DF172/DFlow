@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "draftflow": {
+      "type": "stdio",
+      "command": "D:\\app\\DraftFlowCAD\\DraftFlowCAD.exe",
+      "args": ["--mcp"]
+    }
+  }
+}

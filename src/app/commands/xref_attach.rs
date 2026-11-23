@@ -180,16 +180,21 @@ impl DraftFlowCAD {
         let host = self.tabs[i].current_path.clone();
         if let Some(host) = host.as_deref() {
             if crate::modules::insert::xattach::is_self_attach(host, &full, host.parent()) {
-                self.command_line
-                    .push_error(crate::t!("Error: Possible circular reference to current drawing. *Invalid*").as_ref());
+                self.command_line.push_error(
+                    crate::t!("Error: Possible circular reference to current drawing. *Invalid*")
+                        .as_ref(),
+                );
                 return;
             }
         }
         let existing = existing_reference(&self.tabs[i].scene, &name);
         if let Some(existing) = existing.as_ref() {
+            self.command_line.push_output(&crate::tf!(
+                "Xref \"{}\" has already been defined.",
+                existing
+            ));
             self.command_line
-                .push_output(&crate::tf!("Xref \"{}\" has already been defined.", existing));
-            self.command_line.push_output(crate::t!("Using existing definition.").as_ref());
+                .push_output(crate::t!("Using existing definition.").as_ref());
         } else {
             let verb = if request.overlay {
                 format!("Overlay Xref \"{}\": {}", name, display_path(&full))
@@ -204,7 +209,8 @@ impl DraftFlowCAD {
                     .unwrap_or(full.clone());
                 self.command_line
                     .push_output(&crate::tf!("\"{}\" cannot be found.", file));
-                self.command_line.push_error(crate::t!("*Invalid*").as_ref());
+                self.command_line
+                    .push_error(crate::t!("*Invalid*").as_ref());
                 return;
             }
             self.command_line
@@ -465,9 +471,11 @@ impl DraftFlowCAD {
                     // A point cloud goes on to the Attach Point Cloud dialog.
                     "rcp" | "rcs" => {
                         if crate::scene::model::point_cloud::load(&path).is_none() {
+                            self.command_line.push_error(
+                                crate::t!("All scans are not found or invalid.").as_ref(),
+                            );
                             self.command_line
-                                .push_error(crate::t!("All scans are not found or invalid.").as_ref());
-                            self.command_line.push_error(crate::t!("Attach point cloud failed").as_ref());
+                                .push_error(crate::t!("Attach point cloud failed").as_ref());
                             return Task::none();
                         }
                         self.open_point_cloud_attach_dialog(&path);
@@ -590,8 +598,7 @@ impl DraftFlowCAD {
                         .map(f64::to_degrees),
                 };
                 let invalid = (!state.insert_on_screen && placement.insert.is_none())
-                    || (!state.scale_on_screen
-                        && placement.scale.is_none_or(|s| s.iter().any(|v| *v == 0.0)))
+                    || (!state.scale_on_screen && placement.scale.is_none_or(|s| s.contains(&0.0)))
                     || (!state.rotation_on_screen && placement.rotation.is_none());
                 if invalid || state.path.is_empty() {
                     self.command_line

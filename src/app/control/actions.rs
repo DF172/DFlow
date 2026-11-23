@@ -714,7 +714,9 @@ impl DraftFlowCAD {
                     }
                     _ => None,
                 };
-                let page = page.ok_or_else(|| String::from(crate::tf!("Layout '{name}' plot area is empty.")))?;
+                let page = page.ok_or_else(|| {
+                    String::from(crate::tf!("Layout '{name}' plot area is empty."))
+                })?;
                 pages.push(page);
             }
             Ok(pages)

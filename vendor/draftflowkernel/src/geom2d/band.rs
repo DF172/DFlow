@@ -118,10 +118,7 @@ pub fn polyline_band_boundary(
     }
 }
 
-fn sampled_source(
-    source: &Polyline,
-    max_angle: f64,
-) -> (Vec<SourceEdge>, Vec<Vec<usize>>, f64) {
+fn sampled_source(source: &Polyline, max_angle: f64) -> (Vec<SourceEdge>, Vec<Vec<usize>>, f64) {
     let count = source.vertices.len();
     let segment_count = if source.closed {
         count
@@ -139,7 +136,10 @@ fn sampled_source(
                 arc.tessellate_angle(max_angle),
                 arc.radius * arc.sweep.abs(),
             ),
-            None => (vec![start, end], (end[0] - start[0]).hypot(end[1] - start[1])),
+            None => (
+                vec![start, end],
+                (end[0] - start[0]).hypot(end[1] - start[1]),
+            ),
         };
         let piece_count = samples.len().saturating_sub(1);
         for piece in 0..piece_count {
@@ -149,10 +149,7 @@ fn sampled_source(
             edges.push(SourceEdge {
                 points: [samples[piece], samples[piece + 1]],
                 source_segment: index,
-                source_distances: [
-                    source_distance + local_start,
-                    source_distance + local_end,
-                ],
+                source_distances: [source_distance + local_start, source_distance + local_end],
                 segment_distances: [local_start, local_end],
             });
             pieces[index].push(tag);
@@ -296,8 +293,20 @@ fn rail_intersection(
     next: &Rail,
     side: f64,
 ) -> Option<[f64; 2]> {
-    let d = rail_tangent(source, widths[previous.source_segment], previous.source_segment, true, side)?;
-    let e = rail_tangent(source, widths[next.source_segment], next.source_segment, false, side)?;
+    let d = rail_tangent(
+        source,
+        widths[previous.source_segment],
+        previous.source_segment,
+        true,
+        side,
+    )?;
+    let e = rail_tangent(
+        source,
+        widths[next.source_segment],
+        next.source_segment,
+        false,
+        side,
+    )?;
     let p0 = *previous.points.last()?;
     let q0 = *next.points.first()?;
     let (t, _) = super::intersect::line_line(p0, d, q0, e)?;
@@ -370,11 +379,7 @@ fn rail_chain(rails: &[Rail], closed: bool, reverse: bool) -> Vec<TaggedLine> {
         if has_next {
             let next = &rails[order[(position + 1) % order.len()]];
             let (start, end, tag) = if reverse {
-                (
-                    rail.points[0],
-                    *next.points.last().unwrap(),
-                    rail.tags[0],
-                )
+                (rail.points[0], *next.points.last().unwrap(), rail.tags[0])
             } else {
                 (
                     *rail.points.last().unwrap(),
@@ -395,11 +400,7 @@ fn tagged(start: [f64; 2], end: [f64; 2], tag: usize) -> TaggedLine {
     }
 }
 
-fn clean_boundary(
-    edges: Vec<TaggedLine>,
-    origin: [f64; 2],
-    scale: f64,
-) -> Vec<TaggedLine> {
+fn clean_boundary(edges: Vec<TaggedLine>, origin: [f64; 2], scale: f64) -> Vec<TaggedLine> {
     let to_local = |point: [f64; 2]| {
         [
             (point[0] - origin[0]) / scale,
@@ -454,10 +455,7 @@ fn boundary_edge(edge: TaggedLine, source_edges: &[SourceEdge]) -> Option<BandBo
 }
 
 fn point_segment_parameter(point: [f64; 2], segment: [[f64; 2]; 2]) -> f64 {
-    let along = [
-        segment[1][0] - segment[0][0],
-        segment[1][1] - segment[0][1],
-    ];
+    let along = [segment[1][0] - segment[0][0], segment[1][1] - segment[0][1]];
     let length_squared = along[0] * along[0] + along[1] * along[1];
     if length_squared <= f64::EPSILON {
         return 0.0;
@@ -472,9 +470,7 @@ fn lerp(range: [f64; 2], t: f64) -> f64 {
 }
 
 fn edge_key(line: Line) -> ([u64; 2], [u64; 2]) {
-    let key = |point: [f64; 2]| {
-        point.map(|value| if value == 0.0 { 0 } else { value.to_bits() })
-    };
+    let key = |point: [f64; 2]| point.map(|value| if value == 0.0 { 0 } else { value.to_bits() });
     let (start, end) = (key(line.start), key(line.end));
     if start < end {
         (start, end)

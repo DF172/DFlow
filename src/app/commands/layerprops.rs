@@ -14,7 +14,7 @@ impl DraftFlowCAD {
                     ""
                 };
                 let parts: Vec<&str> = raw_rest.split_whitespace().collect();
-                let sub = parts.get(0).map(|s| s.to_uppercase()).unwrap_or_default();
+                let sub = parts.first().map(|s| s.to_uppercase()).unwrap_or_default();
                 match sub.as_str() {
                     "" | "LIST" | "?" => {
                         let info: Vec<String> = self.tabs[i]
@@ -517,11 +517,7 @@ impl DraftFlowCAD {
                             let ucs = self.tabs[i]
                                 .active_ucs
                                 .get_or_insert_with(|| Ucs::new("*ACTIVE*"));
-                            ucs.origin = Vector3::new(
-                                wcs_origin.x as f64,
-                                wcs_origin.y as f64,
-                                wcs_origin.z as f64,
-                            );
+                            ucs.origin = Vector3::new(wcs_origin.x, wcs_origin.y, wcs_origin.z);
                             active_changed = true;
                             self.command_line.push_output(
                                 crate::tf!(
@@ -788,7 +784,8 @@ impl DraftFlowCAD {
             // the command one by one, as typed.
             "-VIEW" => {
                 use crate::command::CadCommand;
-                let c = crate::modules::view::view_cmd::DashViewCommand::new(self.dash_view_names(i));
+                let c =
+                    crate::modules::view::view_cmd::DashViewCommand::new(self.dash_view_names(i));
                 self.command_line.push_info(&c.prompt());
                 self.tabs[i].active_cmd = Some(Box::new(c));
             }
@@ -924,7 +921,8 @@ impl DraftFlowCAD {
                     // Standard orientation presets: the world views -VIEW sets,
                     // with the orthographic UCS while UCSORTHO is on. These
                     // names take precedence over a same-named saved view.
-                    "TOP" | "FRONT" | "BACK" | "LEFT" | "RIGHT" | "BOTTOM" | "SWISO" | "SEISO" | "NEISO" | "NWISO" => {
+                    "TOP" | "FRONT" | "BACK" | "LEFT" | "RIGHT" | "BOTTOM" | "SWISO" | "SEISO"
+                    | "NEISO" | "NWISO" => {
                         return Some(self.apply_view_preset(&sub));
                     }
                     // ISO alone is the south-west one.
@@ -1179,7 +1177,7 @@ impl DraftFlowCAD {
                 use codec::tables::DimStyle;
                 let raw_rest = cmd.split_once(' ').map(|(_, r)| r.trim()).unwrap_or("");
                 let parts: Vec<&str> = raw_rest.split_whitespace().collect();
-                let sub = parts.get(0).map(|s| s.to_uppercase()).unwrap_or_default();
+                let sub = parts.first().map(|s| s.to_uppercase()).unwrap_or_default();
                 match sub.as_str() {
                     // No sub-command or "DIALOG" → open the DimStyle Manager dialog
                     "" | "DIALOG" | "UI" => {
@@ -1266,7 +1264,12 @@ impl DraftFlowCAD {
                                         ds.dimscale = val;
                                     }
                                     "dimlfac" => {
+                                        let before = ds.dimlfac;
                                         ds.dimlfac = val;
+                                        // The same unit switch as the DimStyle
+                                        // dialog's field: text eases across
+                                        // rather than re-reading in one frame.
+                                        crate::ui::motion::unit_chase(before, val);
                                     }
                                     "dimdle" => {
                                         ds.dimdle = val;
@@ -1507,7 +1510,7 @@ impl DraftFlowCAD {
                     ("STYLE", cmd.trim_start_matches("STYLE").trim())
                 };
                 let parts: Vec<&str> = rest.splitn(3, ' ').collect();
-                let sub = parts.get(0).map(|s| s.to_uppercase()).unwrap_or_default();
+                let sub = parts.first().map(|s| s.to_uppercase()).unwrap_or_default();
                 match sub.as_str() {
                     "" | "DIALOG" | "UI" => {
                         return Some(Task::done(Message::TextStyleDialogOpen));

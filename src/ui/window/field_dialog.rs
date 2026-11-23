@@ -842,9 +842,7 @@ fn msg(m: FieldDialogMsg) -> Message {
 fn card<'a>(title: String, content: impl Into<Element<'a, Message>>) -> Element<'a, Message> {
     kit::surface(
         column![
-            text(title)
-                .size(tokens::TEXT_MICRO)
-                .style(kit::muted_style),
+            text(title).size(tokens::TEXT_MICRO).style(kit::muted_style),
             content.into()
         ]
         .spacing(tokens::GAP_ROW),
@@ -861,7 +859,13 @@ fn list<'a>(rows: Vec<(String, bool, FieldDialogMsg)>, height: f32) -> Element<'
     let rows = rows.into_iter().map(|(label, on, m)| {
         // list_row owns the selection: the chosen line is a wash on the page,
         // not a Primary plate, which is what the other four accepted screens do.
-        kit::list_row(text(label).size(tokens::TEXT_BODY), on, kit::Press::On(msg(m)), "").into()
+        kit::list_row(
+            text(label).size(tokens::TEXT_BODY),
+            on,
+            kit::Press::On(msg(m)),
+            "",
+        )
+        .into()
     });
     container(crate::ui::kit::themed_scrollable(
         iced::widget::Column::with_children(rows.collect::<Vec<Element<'a, Message>>>())
@@ -1073,7 +1077,9 @@ fn format_panel<'a>(state: &'a FieldDialogState) -> Element<'a, Message> {
                 .collect();
             column![
                 row![
-                    text(t!("Format")).size(tokens::TEXT_BODY).width(Length::Fixed(80.0)),
+                    text(t!("Format"))
+                        .size(tokens::TEXT_BODY)
+                        .width(Length::Fixed(80.0)),
                     crate::ui::kit::themed_pick_list(
                         Some(formats[state.formula_format].clone()),
                         formats.clone(),
@@ -1087,7 +1093,9 @@ fn format_panel<'a>(state: &'a FieldDialogState) -> Element<'a, Message> {
                 .spacing(tokens::GAP_ROW)
                 .align_y(iced::Center),
                 row![
-                    text(t!("Precision")).size(tokens::TEXT_BODY).width(Length::Fixed(80.0)),
+                    text(t!("Precision"))
+                        .size(tokens::TEXT_BODY)
+                        .width(Length::Fixed(80.0)),
                     crate::ui::kit::themed_pick_list(
                         Some(precisions[state.formula_precision].clone()),
                         precisions.clone(),
@@ -1118,7 +1126,9 @@ fn format_panel<'a>(state: &'a FieldDialogState) -> Element<'a, Message> {
             .spacing(tokens::GAP_ROW)
             .align_y(iced::Center),
             row![
-                text(t!("Address")).size(tokens::TEXT_BODY).width(Length::Fixed(120.0)),
+                text(t!("Address"))
+                    .size(tokens::TEXT_BODY)
+                    .width(Length::Fixed(120.0)),
                 text_input("https://", &state.hyperlink_url)
                     .size(tokens::TEXT_BODY)
                     .padding(kit::Size::Control.padding())
@@ -1148,10 +1158,16 @@ fn format_panel<'a>(state: &'a FieldDialogState) -> Element<'a, Message> {
                     codec::fields::BLOCK_PLACEHOLDER_PROPERTIES[state.placeholder_property];
                 let mut panel = column![
                     row![
-                        text(t!("Block name")).size(tokens::TEXT_BODY).width(Length::Fixed(110.0)),
-                        container(text(block.clone()).size(tokens::TEXT_BODY).style(muted_style))
-                            .padding(kit::Size::Control.padding())
-                            .width(Fill),
+                        text(t!("Block name"))
+                            .size(tokens::TEXT_BODY)
+                            .width(Length::Fixed(110.0)),
+                        container(
+                            text(block.clone())
+                                .size(tokens::TEXT_BODY)
+                                .style(muted_style)
+                        )
+                        .padding(kit::Size::Control.padding())
+                        .width(Fill),
                     ]
                     .spacing(tokens::GAP_ROW)
                     .align_y(iced::Center),
@@ -1198,9 +1214,11 @@ fn format_panel<'a>(state: &'a FieldDialogState) -> Element<'a, Message> {
         .spacing(tokens::GAP_ROW)
         .into(),
         FieldKind::Count => column![].into(),
-        FieldKind::SheetSet => column![text(t!("Format")).size(tokens::TEXT_BODY), case_list(state)]
-            .spacing(tokens::GAP_ROW)
-            .into(),
+        FieldKind::SheetSet => {
+            column![text(t!("Format")).size(tokens::TEXT_BODY), case_list(state)]
+                .spacing(tokens::GAP_ROW)
+                .into()
+        }
         FieldKind::SheetSetCustom => {
             let names = if state.name == "CurrentSheetCustom" {
                 &state.ss_sheet_custom
@@ -1266,17 +1284,19 @@ fn format_panel<'a>(state: &'a FieldDialogState) -> Element<'a, Message> {
             ]
             .spacing(tokens::GAP_ROW);
             if kind == "Custom" {
-                col = col.push(text(t!("Custom property name")).size(tokens::TEXT_BODY)).push(
-                    crate::ui::kit::themed_pick_list(
-                        (!state.ss_custom.is_empty()).then(|| state.ss_custom.clone()),
-                        state.ss_sheet_custom.clone(),
-                        |s: &String| s.clone(),
-                    )
-                    .on_select(|s| msg(FieldDialogMsg::SsCustom(s)))
-                    .text_size(tokens::TEXT_BODY)
-                    .padding(kit::Size::Control.padding())
-                    .width(Fill),
-                );
+                col = col
+                    .push(text(t!("Custom property name")).size(tokens::TEXT_BODY))
+                    .push(
+                        crate::ui::kit::themed_pick_list(
+                            (!state.ss_custom.is_empty()).then(|| state.ss_custom.clone()),
+                            state.ss_sheet_custom.clone(),
+                            |s: &String| s.clone(),
+                        )
+                        .on_select(|s| msg(FieldDialogMsg::SsCustom(s)))
+                        .text_size(tokens::TEXT_BODY)
+                        .padding(kit::Size::Control.padding())
+                        .width(Fill),
+                    );
             }
             col.into()
         }
@@ -1377,7 +1397,9 @@ fn format_panel<'a>(state: &'a FieldDialogState) -> Element<'a, Message> {
         }
         FieldKind::Object => column![
             row![
-                text(t!("Object type")).size(tokens::TEXT_BODY).width(Length::Fixed(96.0)),
+                text(t!("Object type"))
+                    .size(tokens::TEXT_BODY)
+                    .width(Length::Fixed(96.0)),
                 container(
                     text(
                         state
@@ -1433,7 +1455,9 @@ pub fn view<'a>(
         t!("Field").into_owned(),
         column![
             row![
-                text(t!("Category")).size(tokens::TEXT_BODY).width(Length::Fixed(70.0)),
+                text(t!("Category"))
+                    .size(tokens::TEXT_BODY)
+                    .width(Length::Fixed(70.0)),
                 crate::ui::kit::themed_pick_list(
                     Some(categories[state.category].clone()),
                     categories.clone(),

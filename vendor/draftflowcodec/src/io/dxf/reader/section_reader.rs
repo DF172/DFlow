@@ -993,7 +993,13 @@ impl DynamicDxfFields {
             .into_iter()
             .flatten()
             .filter(|(item_code, _)| *item_code == code)
-            .map(|(_, value)| if preserve_whitespace { value.as_str() } else { value.trim() })
+            .map(|(_, value)| {
+                if preserve_whitespace {
+                    value.as_str()
+                } else {
+                    value.trim()
+                }
+            })
             .collect()
     }
 
@@ -1036,7 +1042,13 @@ impl DynamicDxfFields {
 
     /// Vector stored as 140/141/142 (AutoCAD) or 140/150/160 (older draftflowcodec output).
     fn vector_140(&self, section: &str) -> Vector3 {
-        let pick = |a: i32, b: i32| if self.values(section, a).is_empty() { self.f64(section, b) } else { self.f64(section, a) };
+        let pick = |a: i32, b: i32| {
+            if self.values(section, a).is_empty() {
+                self.f64(section, b)
+            } else {
+                self.f64(section, a)
+            }
+        };
         Vector3::new(self.f64(section, 140), pick(141, 150), pick(142, 160))
     }
 
@@ -1059,7 +1071,9 @@ fn dynamic_dxf_eval(fields: &DynamicDxfFields) -> BlockEvalExpression {
         .unwrap_or(-9999);
     let value = match value_code {
         // AutoCAD writes a real value as 140; older draftflowcodec output used 40.
-        40 if !fields.values(section, 140).is_empty() => BlockEvalValue::Real(fields.f64(section, 140)),
+        40 if !fields.values(section, 140).is_empty() => {
+            BlockEvalValue::Real(fields.f64(section, 140))
+        }
         40 => BlockEvalValue::Real(fields.f64(section, 40)),
         10 | 11 => BlockEvalValue::Point([
             fields.f64(section, value_code as i32),
@@ -1391,7 +1405,13 @@ fn dynamic_dxf_history_sweep(
                 acis_data: AcisData::from_sat(&AcisData::decode_sat_binary(&sats[index])),
             });
         }
-        crate::io::dwg::embedded_entity::decode_embedded_entity(type_code, bits, bytes, dwg_version, dxf_version)
+        crate::io::dwg::embedded_entity::decode_embedded_entity(
+            type_code,
+            bits,
+            bytes,
+            dwg_version,
+            dxf_version,
+        )
     });
     SolidHistorySweep {
         base: dynamic_dxf_history_base(fields),
@@ -4218,12 +4238,9 @@ impl<'a> SectionReader<'a> {
                 let mut bodies: Vec<(i32, i32, usize, Vec<u8>)> = Vec::new();
                 for (code, value) in fields.sections.get(section).into_iter().flatten() {
                     match *code {
-                        93 | 96 | 98 => bodies.push((
-                            *code,
-                            value.trim().parse().unwrap_or(0),
-                            0,
-                            Vec::new(),
-                        )),
+                        93 | 96 | 98 => {
+                            bodies.push((*code, value.trim().parse().unwrap_or(0), 0, Vec::new()))
+                        }
                         94 | 97 | 99 => {
                             if let Some(body) = bodies.last_mut() {
                                 body.2 = value.trim().parse().unwrap_or(0);
@@ -5270,7 +5287,11 @@ impl<'a> SectionReader<'a> {
         })
     }
 
-    fn read_class_object_dxf(&mut self, dxf_name: &str, version: DxfVersion) -> Result<ClassObject> {
+    fn read_class_object_dxf(
+        &mut self,
+        dxf_name: &str,
+        version: DxfVersion,
+    ) -> Result<ClassObject> {
         let mut object = ClassObject::default();
         let mut fields = ClassDxfFields::default();
         let mut section = String::new();
@@ -5468,14 +5489,12 @@ impl<'a> SectionReader<'a> {
                     shadow_softness: fields.i16(section, 280) as u8,
                 })
             }
-            "RENDERSETTINGS" => {
-                ClassObjectData::RenderSettings(class_dxf_render_settings(
-                    &mut fields,
-                    version >= DxfVersion::AC1027,
-                    false,
-                    version,
-                ))
-            }
+            "RENDERSETTINGS" => ClassObjectData::RenderSettings(class_dxf_render_settings(
+                &mut fields,
+                version >= DxfVersion::AC1027,
+                false,
+                version,
+            )),
             "MENTALRAYRENDERSETTINGS" => {
                 let base = class_dxf_render_settings(&mut fields, false, false, version);
                 let section = "AcDbMentalRayRenderSettings";
@@ -5729,9 +5748,12 @@ impl<'a> SectionReader<'a> {
             "ACDBPOINTCLOUDDEF" | "POINTCLOUDDEF" => ClassObjectData::PointCloudDefinition(
                 class_dxf_point_cloud_definition(&mut fields, "AcDbPointCloudDef"),
             ),
-            "ACDBPOINTCLOUDDEF_EX" | "ACDBPOINTCLOUDDEFEX" | "POINTCLOUDDEFEX" => ClassObjectData::PointCloudDefinitionEx(
-                class_dxf_point_cloud_definition(&mut fields, "AcDbPointCloudDefEx"),
-            ),
+            "ACDBPOINTCLOUDDEF_EX" | "ACDBPOINTCLOUDDEFEX" | "POINTCLOUDDEFEX" => {
+                ClassObjectData::PointCloudDefinitionEx(class_dxf_point_cloud_definition(
+                    &mut fields,
+                    "AcDbPointCloudDefEx",
+                ))
+            }
             "ACDBPOINTCLOUDDEF_REACTOR" | "POINTCLOUDDEF_REACTOR" => {
                 ClassObjectData::PointCloudDefinitionReactor(PointCloudDefinitionReactor {
                     class_version: fields.i32("AcDbPointCloudDefReactor", 90),
@@ -5874,7 +5896,9 @@ impl<'a> SectionReader<'a> {
                             DataTableCellType::Double => value.real = fields.f64(section, 40),
                             DataTableCellType::Text => value.text = fields.string(section, 3),
                             DataTableCellType::Point => value.point = fields.point3(section, 10),
-                            DataTableCellType::ObjectId => value.handle = fields.handle(section, 331),
+                            DataTableCellType::ObjectId => {
+                                value.handle = fields.handle(section, 331)
+                            }
                             _ => unreachable!("cell type checked above"),
                         }
                         rows.push(value);
@@ -7376,7 +7400,8 @@ impl<'a> SectionReader<'a> {
             40, 41, 63, 64, 65, 75, 42, 92, 66, 43, 76, 77, 78, 67, 79, 170, 171, 290, 174, 175,
             93, 44, 173, 45,
         ];
-        let mut legacy_properties: Vec<VisualStyleProperty> = VisualStyle::new().legacy_properties();
+        let mut legacy_properties: Vec<VisualStyleProperty> =
+            VisualStyle::new().legacy_properties();
         let mut legacy_color_slot: Option<usize> = None;
         while let Some(pair) = self.reader.read_pair()? {
             if pair.code == 0 {
@@ -9173,7 +9198,14 @@ impl<'a> SectionReader<'a> {
             match pair.code {
                 5 => value.handle = parse_dxf_handle(&pair.value_string),
                 330 if value.owner.is_null() => value.owner = parse_dxf_handle(&pair.value_string),
-                90 => count = pair.value_string.trim().parse::<usize>().unwrap_or(0).min(20_000),
+                90 => {
+                    count = pair
+                        .value_string
+                        .trim()
+                        .parse::<usize>()
+                        .unwrap_or(0)
+                        .min(20_000)
+                }
                 290 => value.unknown = pair.value_string.trim().parse::<i32>().unwrap_or(0) != 0,
                 330 => {
                     if value.fields.len() < count {
@@ -14471,8 +14503,10 @@ impl<'a> SectionReader<'a> {
                     if crop_points_expected == 0 {
                         if let Some(mut value) = crop.take() {
                             value.plane = crop_plane.get_point().unwrap_or(Vector3::ZERO);
-                            value.x_direction = crop_x_direction.get_point().unwrap_or(Vector3::UNIT_X);
-                            value.y_direction = crop_y_direction.get_point().unwrap_or(Vector3::UNIT_Y);
+                            value.x_direction =
+                                crop_x_direction.get_point().unwrap_or(Vector3::UNIT_X);
+                            value.y_direction =
+                                crop_y_direction.get_point().unwrap_or(Vector3::UNIT_Y);
                             croppings.push(value);
                         }
                     }
@@ -14502,11 +14536,16 @@ impl<'a> SectionReader<'a> {
                         }
                         crop_point = PointReader::new();
                         // The crop's last point ends it.
-                        if crop.as_ref().is_some_and(|value| value.points.len() >= crop_points_expected) {
+                        if crop
+                            .as_ref()
+                            .is_some_and(|value| value.points.len() >= crop_points_expected)
+                        {
                             if let Some(mut value) = crop.take() {
                                 value.plane = crop_plane.get_point().unwrap_or(Vector3::ZERO);
-                                value.x_direction = crop_x_direction.get_point().unwrap_or(Vector3::UNIT_X);
-                                value.y_direction = crop_y_direction.get_point().unwrap_or(Vector3::UNIT_Y);
+                                value.x_direction =
+                                    crop_x_direction.get_point().unwrap_or(Vector3::UNIT_X);
+                                value.y_direction =
+                                    crop_y_direction.get_point().unwrap_or(Vector3::UNIT_Y);
                                 croppings.push(value);
                             }
                         }
@@ -16987,7 +17026,8 @@ impl<'a> SectionReader<'a> {
                     }
                 }
                 340 => {
-                    vp.clip_boundary_handle = pair.as_handle().map(Handle::new).unwrap_or(Handle::NULL);
+                    vp.clip_boundary_handle =
+                        pair.as_handle().map(Handle::new).unwrap_or(Handle::NULL);
                 }
                 281 => {
                     if let Some(v) = pair.as_i16() {

@@ -147,6 +147,12 @@ impl CircleCommand {
     }
 }
 
+impl Default for CircleCommand {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CadCommand for CircleCommand {
     fn set_working_plane(&mut self, plane: WorkingPlane) {
         self.plane = plane;
@@ -329,6 +335,12 @@ impl CircleCDCommand {
     }
 }
 
+impl Default for CircleCDCommand {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CadCommand for CircleCDCommand {
     fn set_working_plane(&mut self, plane: WorkingPlane) {
         self.plane = plane;
@@ -435,6 +447,12 @@ impl Circle2PCommand {
     }
 }
 
+impl Default for Circle2PCommand {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CadCommand for Circle2PCommand {
     fn set_working_plane(&mut self, plane: WorkingPlane) {
         self.plane = plane;
@@ -494,6 +512,12 @@ impl Circle3PCommand {
             pts: Vec::new(),
             plane: WorkingPlane::default(),
         }
+    }
+}
+
+impl Default for Circle3PCommand {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -1315,6 +1339,12 @@ impl CircleTTRCommand {
     }
 }
 
+impl Default for CircleTTRCommand {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CadCommand for CircleTTRCommand {
     fn set_working_plane(&mut self, plane: WorkingPlane) {
         self.plane = plane;
@@ -1458,6 +1488,12 @@ impl CircleTTTCommand {
             hits: Vec::new(),
             plane: WorkingPlane::default(),
         }
+    }
+}
+
+impl Default for CircleTTTCommand {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

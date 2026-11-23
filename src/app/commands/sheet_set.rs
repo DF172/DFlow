@@ -2,7 +2,7 @@
 //! SSM* / SS* system variables, the Sheet Set Manager palette and its
 //! dialogs, the drawing's sheet link written on save and located on open.
 
-use crate::app::{Message, DraftFlowCAD};
+use crate::app::{DraftFlowCAD, Message};
 use crate::command::{CadCommand, CmdOption, CmdResult};
 use crate::scene::model::wire_model::WireModel;
 use crate::ui::window::sheet_set::{
@@ -86,11 +86,9 @@ pub(crate) fn read_set(path: &str) -> Result<SheetSetDatabase, String> {
     SheetSetDatabase::read(path)
 }
 
-
 fn write_set(db: &mut SheetSetDatabase, path: &str) -> Result<(), String> {
     db.write(path)
 }
-
 
 /// The user and machine names a lock file carries.
 fn lock_owner() -> (String, String) {
@@ -359,8 +357,8 @@ fn model_view(doc: &codec::CadDocument, view: Option<&str>) -> Option<ModelView>
             center: Vector3::new(c.x, c.y, c.z),
             width: v.width.abs().max(1e-6),
             height: v.height.abs().max(1e-6),
-            target: v.target.clone(),
-            direction: v.direction.clone(),
+            target: v.target,
+            direction: v.direction,
         });
     }
     let (lo, hi) = (
@@ -659,13 +657,19 @@ impl DraftFlowCAD {
         match name.as_str() {
             "SSMSTATE" => {
                 let v = u8::from(self.sheet_set.show);
-                self.command_line
-                    .push_output(&crate::tf!("SSMSTATE = {v} ({})", crate::t!("Read-only"), v = v));
+                self.command_line.push_output(&crate::tf!(
+                    "SSMSTATE = {v} ({})",
+                    crate::t!("Read-only"),
+                    v = v
+                ));
             }
             "SSFOUND" => {
                 let v = self.sheet_set.found.clone();
-                self.command_line
-                    .push_output(&crate::tf!("SSFOUND = \"{v}\" ({})", crate::t!("Read-only"), v = v));
+                self.command_line.push_output(&crate::tf!(
+                    "SSFOUND = \"{v}\" ({})",
+                    crate::t!("Read-only"),
+                    v = v
+                ));
             }
             _ => {
                 let (current, min, max) = match name.as_str() {
@@ -811,7 +815,6 @@ impl DraftFlowCAD {
     fn report_lock_fault(&mut self, fault: LockFault) {
         self.command_line.push_warning_once(&fault.message());
     }
-
 
     /// Reload every open set whose `.dst` was changed by someone else.
     fn poll_sheet_sets(&mut self) {
@@ -2449,8 +2452,8 @@ impl DraftFlowCAD {
                 vp.width = w;
                 vp.height = h;
                 vp.id = scene.next_viewport_id();
-                vp.view_target = mv.target.clone();
-                vp.view_direction = mv.direction.clone();
+                vp.view_target = mv.target;
+                vp.view_direction = mv.direction;
                 // ponytail: plan views only (the DCS offset is the world XY
                 // offset); a twisted or 3D view needs the view basis here.
                 vp.view_center =
@@ -2864,7 +2867,8 @@ impl DraftFlowCAD {
                 let folder = if f.hierarchy {
                     let folder = Path::new(&parent_folder).join(&name);
                     if std::fs::create_dir_all(&folder).is_err() {
-                        f.error = Some(crate::t!("The sheet folder cannot be created.").into_owned());
+                        f.error =
+                            Some(crate::t!("The sheet folder cannot be created.").into_owned());
                         self.sheet_set.dialog = Some(SsDialog::Form(f));
                         return Task::none();
                     }
@@ -3412,8 +3416,7 @@ mod drawing_lock_tests {
     /// the record file it aims at.
     fn record_dir_lock() -> std::sync::MutexGuard<'static, ()> {
         static LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
-        LOCK.lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner())
+        LOCK.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
     }
 
     fn case_dir(name: &str) -> PathBuf {

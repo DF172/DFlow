@@ -44,7 +44,10 @@ mod b6_feedback_tests {
         for tone in tones {
             let glyph = tone.glyph();
             assert!(!glyph.is_empty(), "{tone:?} points at an empty glyph");
-            assert!(!seen.contains(&glyph), "{tone:?} reuses another tone's glyph");
+            assert!(
+                !seen.contains(&glyph),
+                "{tone:?} reuses another tone's glyph"
+            );
             seen.push(glyph);
         }
     }

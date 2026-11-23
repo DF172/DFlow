@@ -71,8 +71,8 @@ impl Face3dCommand {
             vector(self.points[2]),
             vector(fourth),
         );
-        for edge in 0..4 {
-            set_edge_invisible(&mut face.invisible_edges, edge, self.invisible[edge]);
+        for (edge, &hidden) in self.invisible.iter().enumerate() {
+            set_edge_invisible(&mut face.invisible_edges, edge, hidden);
         }
         Some(EntityType::Face3D(face))
     }
@@ -96,6 +96,12 @@ impl Face3dCommand {
         self.points.push(third);
         self.invisible = [shared_edge_invisible, false, false, false];
         self.pending_invisible = false;
+    }
+}
+
+impl Default for Face3dCommand {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

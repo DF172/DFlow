@@ -218,14 +218,16 @@ impl ArcLengthDimensionCommand {
             return CmdResult::NeedPoint;
         }
 
-        let mut dimension = DimensionArc::default();
-        dimension.center_point = v3(center);
-        dimension.first_extension_point = v3(first);
-        dimension.second_extension_point = v3(second);
-        dimension.definition_point = v3(picked);
-        dimension.is_partial = selection.is_partial;
-        dimension.arc_start_parameter = selection.start_angle;
-        dimension.arc_end_parameter = selection.end_angle;
+        let mut dimension = DimensionArc {
+            center_point: v3(center),
+            first_extension_point: v3(first),
+            second_extension_point: v3(second),
+            definition_point: v3(picked),
+            is_partial: selection.is_partial,
+            arc_start_parameter: selection.start_angle,
+            arc_end_parameter: selection.end_angle,
+            ..Default::default()
+        };
         dimension.base.definition_point = dimension.definition_point;
         dimension.base.text_middle_point = dimension.definition_point;
         dimension.base.insertion_point = dimension.definition_point;
@@ -263,6 +265,12 @@ impl ArcLengthDimensionCommand {
             preserve_base_style: false,
             continue_command: false,
         }
+    }
+}
+
+impl Default for ArcLengthDimensionCommand {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

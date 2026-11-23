@@ -6,8 +6,11 @@ use iced::time::Instant;
 use crate::app::Message;
 use crate::command::CmdOption;
 use crate::t;
-use iced::widget::{column, container, opaque, row, scrollable, stack, text, text_editor, text_input, tooltip, Space};
 use crate::ui::kit::plain_button;
+use iced::widget::{
+    column, container, opaque, row, scrollable, stack, text, text_editor, text_input, tooltip,
+    Space,
+};
 use iced::{Background, Color, Element, Length, Padding, Theme};
 use std::ops::Range;
 
@@ -313,8 +316,10 @@ impl iced::advanced::text::Highlighter for HistoryHighlighter {
 
 impl CommandLine {
     pub fn new() -> Self {
-        let mut cl = Self::default();
-        cl.history_height = HISTORY_HEIGHT_DEFAULT;
+        let mut cl = Self {
+            history_height: HISTORY_HEIGHT_DEFAULT,
+            ..Default::default()
+        };
         cl.push_info(&crate::tr!("command-line", "ready"));
         cl.push_info(&crate::tr!("command-line", "hint"));
         cl
@@ -433,6 +438,16 @@ impl CommandLine {
     pub fn push_error(&mut self, msg: &str) {
         self.error_revision = self.error_revision.wrapping_add(1);
         self.last_error = Some(msg.to_owned());
+        // Batch 3 item 27: every failed command rides this one choke point
+        // (677 call sites), so the card's danger border pulse fires here and
+        // nowhere else. Warnings deliberately do not: they are not failures.
+        crate::ui::motion::pulse(
+            crate::ui::motion::CMD_ERROR_PULSE,
+            1.0,
+            0.0,
+            0,
+            crate::ui::motion::CMD_ERROR_PULSE_TIME,
+        );
         self.push(EntryKind::Error, format_error(&t!(msg)));
     }
     /// Append an error unless it is already the latest history line. Repeated
@@ -441,6 +456,14 @@ impl CommandLine {
     pub fn push_error_once(&mut self, msg: &str) {
         self.error_revision = self.error_revision.wrapping_add(1);
         self.last_error = Some(msg.to_owned());
+        // Same pulse as push_error: a repeated retry failure still failed.
+        crate::ui::motion::pulse(
+            crate::ui::motion::CMD_ERROR_PULSE,
+            1.0,
+            0.0,
+            0,
+            crate::ui::motion::CMD_ERROR_PULSE_TIME,
+        );
         let text = format_error(&t!(msg));
         if let Some(last) = self
             .history
@@ -641,7 +664,7 @@ impl CommandLine {
             .history
             .iter()
             .flat_map(|entry| {
-                std::iter::repeat(entry.kind.clone()).take(entry.text.split('\n').count())
+                std::iter::repeat_n(entry.kind.clone(), entry.text.split('\n').count())
             })
             .collect();
         HistoryHighlightSettings { line_kinds }
@@ -824,63 +847,62 @@ impl CommandLine {
         }
         let start = visible.len().saturating_sub(clip);
         let has_recent_history = start < visible.len();
-        let history_rows = visible[start..]
-            .iter()
-            .fold(column![].spacing(tokens::GAP_NONE), |col, entry| {
-                let kind = entry.kind.clone();
-                let is_error = kind == EntryKind::Error;
-                let entry_text = |value: String| {
-                    let mut txt = text(value)
-                        .size(tokens::TEXT_LABEL)
-                        .font(iced::Font::MONOSPACE)
-                        .style({
-                            let kind = kind.clone();
-                            move |theme: &Theme| kit::color_style(history_color(theme, &kind))
-                        });
-                    if is_error {
-                        txt = txt.font(
-                            iced::Font::MONOSPACE.weight(iced::font::Weight::Bold),
-                        );
+        let history_rows =
+            visible[start..]
+                .iter()
+                .fold(column![].spacing(tokens::GAP_NONE), |col, entry| {
+                    let kind = entry.kind.clone();
+                    let is_error = kind == EntryKind::Error;
+                    let entry_text = |value: String| {
+                        let mut txt = text(value)
+                            .size(tokens::TEXT_LABEL)
+                            .font(iced::Font::MONOSPACE)
+                            .style({
+                                let kind = kind.clone();
+                                move |theme: &Theme| kit::color_style(history_color(theme, &kind))
+                            });
+                        if is_error {
+                            txt = txt.font(iced::Font::MONOSPACE.weight(iced::font::Weight::Bold));
+                        }
+                        txt
+                    };
+                    // The current step's prompt is the single pinned line. When the
+                    // step offers options, render them as clickable buttons inline
+                    // beside the prompt text — so options need never be typed and
+                    // don't clutter the prompt string itself. (#304) The buttons
+                    // already name every choice, so the prompt's own "[A / B / …]"
+                    // listing is dropped here (the history log keeps the full text).
+                    if entry.pinned && !self.step_options.is_empty() {
+                        let shown = strip_option_listing(&entry.text, &self.step_options);
+                        let mut r = row![entry_text(shown)]
+                            .spacing(tokens::GAP_CONTROL)
+                            .align_y(iced::Center);
+                        for (slot, opt) in self.step_options.iter().enumerate() {
+                            let btn = kit::btn(
+                                text(crate::t!(&opt.label).to_uppercase()).size(tokens::TEXT_LABEL),
+                                kit::Role::Standard,
+                                kit::Size::Compact,
+                                kit::Press::On(Message::CommandOptionPick(opt.keyword.clone())),
+                                crate::ui::motion::indexed_key("cmd:chip", slot),
+                            );
+                            r = r.push(btn);
+                        }
+                        // #192 → B5: one line that scrolls, never wraps. iced lays
+                        // an overflowing `row!` at zero width, so the old single
+                        // line silently dropped GEOMCONSTRAINT's last three chips;
+                        // `wrap` fixed that but let a 12-chip step change the
+                        // strip's height with the command family. The strip keeps
+                        // its own height now and the chips move under a fade.
+                        col.push(
+                            container(chip_strip(r)).padding([tokens::GAP_SEAM, tokens::GAP_ROW]),
+                        )
+                    } else {
+                        col.push(
+                            container(entry_text(entry.text.clone()))
+                                .padding([tokens::GAP_SEAM, tokens::GAP_ROW]),
+                        )
                     }
-                    txt
-                };
-                // The current step's prompt is the single pinned line. When the
-                // step offers options, render them as clickable buttons inline
-                // beside the prompt text — so options need never be typed and
-                // don't clutter the prompt string itself. (#304) The buttons
-                // already name every choice, so the prompt's own "[A / B / …]"
-                // listing is dropped here (the history log keeps the full text).
-                if entry.pinned && !self.step_options.is_empty() {
-                    let shown = strip_option_listing(&entry.text, &self.step_options);
-                    let mut r = row![entry_text(shown)]
-                        .spacing(tokens::GAP_CONTROL)
-                        .align_y(iced::Center);
-                    for (slot, opt) in self.step_options.iter().enumerate() {
-                        let btn = kit::btn(
-                            text(crate::t!(&opt.label).to_uppercase()).size(tokens::TEXT_LABEL),
-                            kit::Role::Standard,
-                            kit::Size::Compact,
-                            kit::Press::On(Message::CommandOptionPick(
-                                opt.keyword.clone(),
-                            )),
-                            crate::ui::motion::indexed_key("cmd:chip", slot),
-                        );
-                        r = r.push(btn);
-                    }
-                    // #192 → B5: one line that scrolls, never wraps. iced lays
-                    // an overflowing `row!` at zero width, so the old single
-                    // line silently dropped GEOMCONSTRAINT's last three chips;
-                    // `wrap` fixed that but let a 12-chip step change the
-                    // strip's height with the command family. The strip keeps
-                    // its own height now and the chips move under a fade.
-                    col.push(
-                        container(chip_strip(r))
-                            .padding([tokens::GAP_SEAM, tokens::GAP_ROW]),
-                    )
-                } else {
-                    col.push(container(entry_text(entry.text.clone())).padding([tokens::GAP_SEAM, tokens::GAP_ROW]))
-                }
-            });
+                });
         // On the sheet the prompt is a label, not the brand: `P` sits in muted
         // beside the field. The other themes keep the accent tone the kit
         // guarantees clears 3:1 on every plane of every scheme.
@@ -998,8 +1020,7 @@ impl CommandLine {
                         theme,
                         false,
                         "",
-                    )
-                    .into();
+                    );
                     kit::alpha::entrance(empty_alpha, || card)
                 } else {
                     container(column![]).height(0).into()
@@ -1009,10 +1030,8 @@ impl CommandLine {
                 // One scalar for the whole list: a highlight that moves between
                 // rows paints the two it spans at fractional strength, so it
                 // slides instead of blinking out and back.
-                let sel = crate::ui::motion::value_or(
-                    crate::ui::motion::AUTOCOMPLETE_SEL,
-                    cursor as f32,
-                );
+                let sel =
+                    crate::ui::motion::value_or(crate::ui::motion::AUTOCOMPLETE_SEL, cursor as f32);
                 let mut col = column![].spacing(tokens::GAP_NONE).width(Length::Fill);
                 for (idx, cmd) in matches.iter().enumerate() {
                     let details = self.contextual_suggestions.get(idx);
@@ -1041,7 +1060,7 @@ impl CommandLine {
                             ));
                         }
 
-                        if let Some(color) = details.color.clone() {
+                        if let Some(color) = details.color {
                             let swatch_color =
                                 crate::ui::window::layers::iced_color_from_acad(&color);
 
@@ -1094,8 +1113,7 @@ impl CommandLine {
                     theme,
                     false,
                     "",
-                )
-                .into();
+                );
                 kit::alpha::entrance(panel_alpha, || panel)
             }
         } else {
@@ -1141,16 +1159,17 @@ impl CommandLine {
             false,
             "",
         );
-        let mcp_btn =
-            container(tooltip(mcp_btn, mcp_tip, tooltip::Position::Top).gap(4).style(
-                |theme: &Theme| kit::Tier::Flush.style(theme, ""),
-            ))
-            .padding(Padding {
-                top: 0.0,
-                right: 6.0,
-                bottom: 0.0,
-                left: 0.0,
-            });
+        let mcp_btn = container(
+            tooltip(mcp_btn, mcp_tip, tooltip::Position::Top)
+                .gap(4)
+                .style(|theme: &Theme| kit::Tier::Flush.style(theme, "")),
+        )
+        .padding(Padding {
+            top: 0.0,
+            right: 6.0,
+            bottom: 0.0,
+            left: 0.0,
+        });
         let graph_btn = kit::btn(
             crate::ui::icons::themed(crate::ui::icons::NODE_GRAPH, 13.0),
             if graph_open {
@@ -1278,7 +1297,7 @@ impl CommandLine {
                     .align_x(iced::alignment::Horizontal::Left)
                     .align_y(iced::alignment::Vertical::Top),
             ];
-            opaque(panel).into()
+            opaque(panel)
         } else {
             container(column![]).height(0).into()
         };
@@ -1332,7 +1351,21 @@ impl CommandLine {
             iced::Padding::from([tokens::GAP_CONTROL, tokens::GAP_FIELD]),
             "",
         )
-        .style(|theme: &Theme| kit::sheet_style(theme, ""))
+        .style(|theme: &Theme| {
+            let mut style = kit::sheet_style(theme, "");
+            // Batch 3 item 27: the card's border flashes danger for 150 ms
+            // when a command fails. No popup, no shake — the eye is already
+            // on the card because that is where the error line landed.
+            let p = crate::ui::motion::value_or(crate::ui::motion::CMD_ERROR_PULSE, 0.0);
+            if p > 0.0 {
+                style.border.color = crate::ui::motion::mix(
+                    style.border.color,
+                    theme.palette().danger.base.color,
+                    p,
+                );
+            }
+            style
+        })
         .width(Length::Fill.max(720.0));
 
         // The card's edge is its own frame now, so the seam that used to
@@ -1405,10 +1438,7 @@ fn chip_strip<'a>(chips: iced::widget::Row<'a, Message>) -> Element<'a, Message>
             .into();
         layers = layers.push(layer);
     }
-    layers
-        .width(Length::Fill)
-        .height(Length::Shrink)
-        .into()
+    layers.width(Length::Fill).height(Length::Shrink).into()
 }
 
 /// Command names matching `needle`, ranked for autocomplete: case-insensitive
@@ -1651,7 +1681,7 @@ mod tests {
         line.push_error(error);
         line.push_output(output);
 
-        let expected = vec![
+        let expected = [
             format!("❯ {} {command}", t!("Command:")),
             format!("{INFO_PREFIX}{info}"),
             format!("{ERROR_PREFIX}{}: {error}", t!("Invalid").to_uppercase()),
@@ -1901,11 +1931,7 @@ mod tests {
         // Read the call, not the line: two of the sites wrap across lines, and a per-line scan would
         // have skipped them and reported a clean file. The test module is cut off first -- it quotes the
         // very pattern being split on, and would otherwise be counted as a push site.
-        let flat = src
-            .split("#[cfg(test)]")
-            .next()
-            .unwrap()
-            .replace('\n', " ");
+        let flat = src.split("#[cfg(test)]").next().unwrap().replace('\n', " ");
         let mut sites = 0;
         for chunk in flat.split("self.push(").skip(1) {
             let Some(arg) = chunk.trim_start().strip_prefix("EntryKind::") else {
@@ -1925,7 +1951,10 @@ mod tests {
                 "push site hands raw text to the screen: self.push(EntryKind::{arg}"
             );
         }
-        assert_eq!(sites, 8, "the push-site denominator moved; re-read each site");
+        assert_eq!(
+            sites, 8,
+            "the push-site denominator moved; re-read each site"
+        );
     }
 
     /// #192's door, replaced in B5: the witness moved from "the row wraps" to
@@ -1968,7 +1997,8 @@ mod tests {
         let strip = src
             .find("fn chip_strip")
             .expect("chip_strip was renamed or removed: the one-line scroller is gone");
-        let strip_body = &src[strip..strip + src[strip..].find("\n}\n").expect("chip_strip has no end")];
+        let strip_body =
+            &src[strip..strip + src[strip..].find("\n}\n").expect("chip_strip has no end")];
         assert!(
             strip_body.contains("Scrollbar::hidden()"),
             "an auto scrollbar inside a 6 px strip would change its height"

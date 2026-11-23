@@ -80,7 +80,10 @@ pub fn segments_overlap_collinearly(
     let coordinate_scale = [first_start, first_end, second_start, second_end]
         .into_iter()
         .fold(1.0_f64, |scale, point| {
-            scale.max(point.x.abs()).max(point.y.abs()).max(point.z.abs())
+            scale
+                .max(point.x.abs())
+                .max(point.y.abs())
+                .max(point.z.abs())
         });
     let tolerance = linear_tolerance.max(coordinate_scale * f64::EPSILON * 32.0);
     if first.cross(second).length() > 1.0e-12 * first_length * second_length {
@@ -115,8 +118,8 @@ pub fn curvature_through(point: [f64; 3], next: [f64; 3], third: [f64; 3]) -> [f
         return [0.0, 0.0, 0.0];
     }
     // The circumcentre relative to `point`, by the standard identity.
-    let centre = (v.cross(across) * u.length_squared() + across.cross(u) * v.length_squared())
-        / denominator;
+    let centre =
+        (v.cross(across) * u.length_squared() + across.cross(u) * v.length_squared()) / denominator;
     let radius_squared = centre.length_squared();
     if radius_squared <= f64::MIN_POSITIVE {
         return [0.0, 0.0, 0.0];
@@ -131,7 +134,12 @@ mod tests {
 
     #[test]
     fn a_bezier_starts_and_ends_on_its_outer_control_points() {
-        let control = [[0.0, 0.0, 0.0], [1.0, 5.0, 0.0], [4.0, 5.0, 2.0], [5.0, 0.0, 2.0]];
+        let control = [
+            [0.0, 0.0, 0.0],
+            [1.0, 5.0, 0.0],
+            [4.0, 5.0, 2.0],
+            [5.0, 0.0, 2.0],
+        ];
         assert_eq!(bezier_point(&control, 0.0), control[0]);
         assert_eq!(bezier_point(&control, 1.0), control[3]);
     }
@@ -151,9 +159,8 @@ mod tests {
             let mut binomial = 1.0f64;
             let mut point = Vec3::ZERO;
             for (index, value) in control.iter().enumerate() {
-                let weight = binomial
-                    * t.powi(index as i32)
-                    * (1.0 - t).powi((degree - index) as i32);
+                let weight =
+                    binomial * t.powi(index as i32) * (1.0 - t).powi((degree - index) as i32);
                 point = point + Vec3::from(*value) * weight;
                 binomial = binomial * (degree - index) as f64 / (index + 1) as f64;
             }
@@ -184,7 +191,12 @@ mod tests {
         // What the blend relies on: the tangent at the start runs towards the
         // second control point, which is how a tangent-continuous join is
         // arranged.
-        let control = [[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [2.0, 1.0, 0.0], [3.0, 1.0, 0.0]];
+        let control = [
+            [0.0, 0.0, 0.0],
+            [1.0, 0.0, 0.0],
+            [2.0, 1.0, 0.0],
+            [3.0, 1.0, 0.0],
+        ];
         let step = Vec3::from(bezier_point(&control, 1e-6)) - Vec3::from(control[0]);
         let along = step.normalize().unwrap();
         assert!((along.x - 1.0).abs() < 1e-5, "{along:?}");
@@ -249,21 +261,14 @@ mod tests {
 
     #[test]
     fn spatial_angle_bisector_handles_regular_and_nearly_opposite_rays() {
-        let diagonal = Vec3::from(
-            angle_bisector([1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0])
-                .unwrap(),
-        );
+        let diagonal =
+            Vec3::from(angle_bisector([1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]).unwrap());
         let expected = std::f64::consts::FRAC_1_SQRT_2;
         assert!((diagonal.x - expected).abs() < 1e-12);
         assert!((diagonal.y - expected).abs() < 1e-12);
 
         let near_opposite = Vec3::from(
-            angle_bisector(
-                [1.0, 1e-9, 0.0],
-                [-1.0, 1e-9, 0.0],
-                [0.0, 0.0, 1.0],
-            )
-            .unwrap(),
+            angle_bisector([1.0, 1e-9, 0.0], [-1.0, 1e-9, 0.0], [0.0, 0.0, 1.0]).unwrap(),
         );
         assert!(near_opposite.x.abs() < 1e-12, "{near_opposite:?}");
         assert!((near_opposite.y - 1.0).abs() < 1e-12, "{near_opposite:?}");
@@ -287,7 +292,10 @@ mod tests {
 
     #[test]
     fn spatial_angle_bisector_rejects_invalid_rays_without_overflowing() {
-        assert_eq!(angle_bisector([0.0; 3], [1.0, 0.0, 0.0], [0.0, 0.0, 1.0]), None);
+        assert_eq!(
+            angle_bisector([0.0; 3], [1.0, 0.0, 0.0], [0.0, 0.0, 1.0]),
+            None
+        );
         assert_eq!(
             angle_bisector([f64::INFINITY, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 0.0, 1.0]),
             None
@@ -310,10 +318,19 @@ mod tests {
 /// A zero ray, nonfinite input or an indeterminate antiparallel plane fails.
 /// Nearly opposite but distinct rays retain their actual bisector.
 pub fn angle_bisector(first: [f64; 3], second: [f64; 3], normal: [f64; 3]) -> Option<[f64; 3]> {
-    if first.iter().chain(second.iter()).chain(normal.iter()).any(|v| !v.is_finite()) { return None; }
+    if first
+        .iter()
+        .chain(second.iter())
+        .chain(normal.iter())
+        .any(|v| !v.is_finite())
+    {
+        return None;
+    }
     fn unit(value: Vec3) -> Option<Vec3> {
         let scale = value.x.abs().max(value.y.abs()).max(value.z.abs());
-        if scale == 0.0 || !scale.is_finite() { return None; }
+        if scale == 0.0 || !scale.is_finite() {
+            return None;
+        }
         (value / scale).normalize()
     }
     let a = unit(Vec3::from(first))?;

@@ -14,8 +14,8 @@ use iced::{Element, Fill, Length};
 
 use crate::app::Message;
 use crate::t;
-use crate::ui::kit::{dialog_button, dialog_button_styled_opt, form_radio};
 use crate::ui::kit;
+use crate::ui::kit::{dialog_button, dialog_button_styled_opt, form_radio};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum TableSource {
@@ -455,7 +455,10 @@ fn labeled_input<'a>(
     msg: fn(String) -> Message,
 ) -> Element<'a, Message> {
     row![
-        text(label.into()).size(tokens::TEXT_LABEL).style(kit::muted_style).width(FIELD_LABEL),
+        text(label.into())
+            .size(tokens::TEXT_LABEL)
+            .style(kit::muted_style)
+            .width(FIELD_LABEL),
         text_input("", value)
             .on_input(msg)
             .padding(kit::Size::Control.padding())
@@ -473,7 +476,10 @@ fn cell_style_picker<'a>(
     msg: fn(String) -> Message,
 ) -> Element<'a, Message> {
     row![
-        text(label.into()).size(tokens::TEXT_LABEL).style(kit::muted_style).width(FIELD_LABEL),
+        text(label.into())
+            .size(tokens::TEXT_LABEL)
+            .style(kit::muted_style)
+            .width(FIELD_LABEL),
         crate::ui::kit::themed_pick_list(
             Some(selected.to_string()),
             vec![
@@ -516,9 +522,11 @@ pub fn table_insert_view(
     state: &TableInsertState,
     sizing: crate::ui::shell::Sizing,
 ) -> Element<'_, Message> {
-    let style = crate::ui::kit::themed_pick_list(Some(state.style.clone()), state.styles.clone(), |value| {
-        value.clone()
-    })
+    let style = crate::ui::kit::themed_pick_list(
+        Some(state.style.clone()),
+        state.styles.clone(),
+        |value| value.clone(),
+    )
     .on_select(Message::TableInsertStyle)
     .padding(kit::PAD_FIELD)
     .text_size(tokens::TEXT_BODY)
@@ -546,9 +554,13 @@ pub fn table_insert_view(
     .spacing(tokens::GAP_HAIRLINE);
     let link_picker: Element<'_, Message> = if state.source == TableSource::DataLink {
         row![
-            text(t!("Data link")).size(tokens::TEXT_LABEL).style(kit::muted_style).width(FIELD_LABEL),
-            crate::ui::kit::themed_pick_list(state.link.clone(), state.links.clone(), |value| value
-                .to_string())
+            text(t!("Data link"))
+                .size(tokens::TEXT_LABEL)
+                .style(kit::muted_style)
+                .width(FIELD_LABEL),
+            crate::ui::kit::themed_pick_list(state.link.clone(), state.links.clone(), |value| {
+                value.to_string()
+            })
             .on_select(|value| Message::TableInsertField(TableInsertField::Link(value)))
             .padding(kit::PAD_FIELD)
             .text_size(tokens::TEXT_BODY)
@@ -645,7 +657,10 @@ pub fn data_link_view(
     state: &DataLinkManagerState,
     sizing: crate::ui::shell::Sizing,
 ) -> Element<'_, Message> {
-    let mut links = column![text(t!("Spreadsheet Links")).size(tokens::TEXT_LABEL).style(kit::muted_style)].spacing(tokens::GAP_HAIRLINE);
+    let mut links = column![text(t!("Spreadsheet Links"))
+        .size(tokens::TEXT_LABEL)
+        .style(kit::muted_style)]
+    .spacing(tokens::GAP_HAIRLINE);
     links = links.push(
         kit::btn(
             text(t!("Create a New Data Link")).size(tokens::TEXT_BODY),
@@ -678,7 +693,10 @@ pub fn data_link_view(
                 Message::DataLinkField(DataLinkField::Name(v))
             }),
             row![
-                text(t!("File")).size(tokens::TEXT_LABEL).style(kit::muted_style).width(FIELD_LABEL),
+                text(t!("File"))
+                    .size(tokens::TEXT_LABEL)
+                    .style(kit::muted_style)
+                    .width(FIELD_LABEL),
                 text_input("", &state.path)
                     .on_input(|v| Message::DataLinkField(DataLinkField::Path(v)))
                     .padding(kit::Size::Control.padding())
@@ -695,7 +713,10 @@ pub fn data_link_view(
             .spacing(tokens::GAP_CONTROL)
             .align_y(iced::Center),
             row![
-                text(t!("Path type")).size(tokens::TEXT_LABEL).style(kit::muted_style).width(FIELD_LABEL),
+                text(t!("Path type"))
+                    .size(tokens::TEXT_LABEL)
+                    .style(kit::muted_style)
+                    .width(FIELD_LABEL),
                 crate::ui::kit::themed_pick_list(
                     Some(state.path_type),
                     vec![
@@ -711,7 +732,10 @@ pub fn data_link_view(
             ]
             .spacing(tokens::GAP_ROW),
             row![
-                text(t!("Link option")).size(tokens::TEXT_LABEL).style(kit::muted_style).width(FIELD_LABEL),
+                text(t!("Link option"))
+                    .size(tokens::TEXT_LABEL)
+                    .style(kit::muted_style)
+                    .width(FIELD_LABEL),
                 crate::ui::kit::themed_pick_list(
                     Some(state.range_kind),
                     vec![
@@ -731,10 +755,15 @@ pub fn data_link_view(
         if !state.sheets.is_empty() && state.range_kind != LinkRange::NamedRange {
             editor = editor.push(
                 row![
-                    text(t!("Sheet")).size(tokens::TEXT_LABEL).style(kit::muted_style).width(FIELD_LABEL),
-                    crate::ui::kit::themed_pick_list(Some(state.sheet.clone()), state.sheets.clone(), |value| {
-                        value.clone()
-                    })
+                    text(t!("Sheet"))
+                        .size(tokens::TEXT_LABEL)
+                        .style(kit::muted_style)
+                        .width(FIELD_LABEL),
+                    crate::ui::kit::themed_pick_list(
+                        Some(state.sheet.clone()),
+                        state.sheets.clone(),
+                        |value| { value.clone() }
+                    )
                     .on_select(|value| Message::DataLinkField(DataLinkField::Sheet(value)))
                     .width(Fill)
                     .padding(kit::PAD_FIELD),
@@ -745,7 +774,10 @@ pub fn data_link_view(
         if state.range_kind == LinkRange::NamedRange && !state.named_ranges.is_empty() {
             editor = editor.push(
                 row![
-                    text(t!("Named range")).size(tokens::TEXT_LABEL).style(kit::muted_style).width(FIELD_LABEL),
+                    text(t!("Named range"))
+                        .size(tokens::TEXT_LABEL)
+                        .style(kit::muted_style)
+                        .width(FIELD_LABEL),
                     crate::ui::kit::themed_pick_list(
                         Some(state.range.clone()),
                         state.named_ranges.clone(),
@@ -826,7 +858,8 @@ pub fn data_link_view(
             text(t!("Select a data link or create a new one."))
                 .size(tokens::TEXT_LABEL)
                 .style(kit::muted_style),
-        ).into()
+        )
+        .into()
     };
     let actions = if state.editing {
         row![
@@ -958,7 +991,8 @@ pub fn data_extraction_view(
                 .align_y(iced::Center),
             ]
             .spacing(tokens::GAP_CONTROL),
-        ).into(),
+        )
+        .into(),
         ExtractionPage::Source => kit::group_box(
             t!("Define data source"),
             column![
@@ -1013,7 +1047,8 @@ pub fn data_extraction_view(
                 text(state.source_files.join("\n")).size(tokens::TEXT_MICRO),
             ]
             .spacing(tokens::GAP_CONTROL),
-        ).into(),
+        )
+        .into(),
         ExtractionPage::Objects => {
             let mut list = column![].spacing(tokens::GAP_TIGHT);
             for (i, item) in state.objects.iter().enumerate() {
@@ -1026,7 +1061,11 @@ pub fn data_extraction_view(
                         .size(tokens::MARK_SQUARE),
                 );
             }
-            kit::group_box(t!("Select objects"), crate::ui::kit::themed_scrollable(list).height(Fill)).into()
+            kit::group_box(
+                t!("Select objects"),
+                crate::ui::kit::themed_scrollable(list).height(Fill),
+            )
+            .into()
         }
         ExtractionPage::Properties => {
             let mut categories = row![].spacing(tokens::GAP_FIELD);
@@ -1064,7 +1103,8 @@ pub fn data_extraction_view(
             kit::group_box(
                 t!("Select properties"),
                 crate::ui::kit::themed_scrollable(list).height(Fill),
-            ).into()
+            )
+            .into()
         }
         ExtractionPage::Refine => kit::group_box(
             t!("Refine data"),
@@ -1093,7 +1133,8 @@ pub fn data_extraction_view(
                 crate::ui::kit::themed_scrollable(preview_grid(&state.preview)).height(Fill),
             ]
             .spacing(tokens::GAP_ROW),
-        ).into(),
+        )
+        .into(),
         ExtractionPage::Output => kit::group_box(
             t!("Choose output"),
             column![
@@ -1108,7 +1149,10 @@ pub fn data_extraction_view(
                     .on_toggle(|v| Message::DataExtractionField(DataExtractionField::OutputFile(v)))
                     .size(tokens::MARK_SQUARE),
                 row![
-                    text(t!("Output file")).size(tokens::TEXT_LABEL).style(kit::muted_style).width(FIELD_LABEL),
+                    text(t!("Output file"))
+                        .size(tokens::TEXT_LABEL)
+                        .style(kit::muted_style)
+                        .width(FIELD_LABEL),
                     text_input("", &state.output_path)
                         .on_input(|v| Message::DataExtractionField(
                             DataExtractionField::OutputPath(v)
@@ -1128,12 +1172,16 @@ pub fn data_extraction_view(
                 .align_y(iced::Center),
             ]
             .spacing(tokens::GAP_CONTROL),
-        ).into(),
+        )
+        .into(),
         ExtractionPage::TableStyle => kit::group_box(
             t!("Table style"),
             column![
                 row![
-                    text(t!("Style")).size(tokens::TEXT_LABEL).style(kit::muted_style).width(FIELD_LABEL),
+                    text(t!("Style"))
+                        .size(tokens::TEXT_LABEL)
+                        .style(kit::muted_style)
+                        .width(FIELD_LABEL),
                     crate::ui::kit::themed_pick_list(
                         Some(state.table_style.clone()),
                         state.table_styles.clone(),
@@ -1152,11 +1200,13 @@ pub fn data_extraction_view(
                 preview_grid(&state.preview),
             ]
             .spacing(tokens::GAP_CONTROL),
-        ).into(),
+        )
+        .into(),
         ExtractionPage::Finish => kit::group_box(
             t!("Finish"),
             column![
-                text(t!("The selected drawing data is ready to be extracted.")).size(tokens::TEXT_BODY),
+                text(t!("The selected drawing data is ready to be extracted."))
+                    .size(tokens::TEXT_BODY),
                 text(format!(
                     "{}: {}",
                     t!("Rows"),
@@ -1180,7 +1230,8 @@ pub fn data_extraction_view(
                 .size(tokens::TEXT_LABEL)
             ]
             .spacing(tokens::GAP_CONTROL),
-        ).into(),
+        )
+        .into(),
     };
     column![
         text(format!(

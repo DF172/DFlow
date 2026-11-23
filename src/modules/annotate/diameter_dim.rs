@@ -87,6 +87,12 @@ impl DiameterDimensionCommand {
     }
 }
 
+impl Default for DiameterDimensionCommand {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// A diameter dimension for a dimensional constraint: the dimension line
 /// runs through the centre towards `location`, and the style places the
 /// text.

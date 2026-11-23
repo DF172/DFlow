@@ -163,7 +163,6 @@ fn font_system(
     Some((FontSystem::new(), None, Weight::SEMIBOLD))
 }
 
-
 fn pack_bitmaps(bitmaps: &[LabelBitmap]) -> LabelAtlas {
     let mut pixels = vec![0_u8; (ATLAS_WIDTH * ATLAS_HEIGHT) as usize];
     let mut tiles = [AtlasTile::default(); TILE_COUNT];

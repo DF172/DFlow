@@ -3,7 +3,7 @@
 //! the control protocol's `set_property_value`) aimed at that entity. The
 //! `graph` crate evaluates; [`AppHost`] gives it the drawing.
 
-use super::{Message, DraftFlowCAD};
+use super::{DraftFlowCAD, Message};
 use crate::scene::model::object::PropSection;
 use crate::ui::node_graph::{Drag, GraphMsg, NodeRow, NodeSection, ObjectKind, RowWidget};
 use codec::Handle;
@@ -170,6 +170,18 @@ impl DraftFlowCAD {
         engine.evaluate(&mut host);
         tasks.append(&mut host.tasks);
         self.tabs[i].graph.engine = engine;
+        // Item 47 (P1, batch 5): one replay per evaluation under a single key.
+        // The engine evaluates the whole graph in one `order()` sweep and
+        // exposes no touched-node set, so this is the ruled degradation:
+        // every edge pulses at once. A drag that re-evaluates on each frame
+        // restarts that same track instead of stacking one per call.
+        if !self.tabs[i].graph.engine.links.is_empty() {
+            crate::ui::motion::replay(
+                crate::ui::motion::GRAPH_FLOW,
+                1.0,
+                crate::ui::motion::GRAPH_FLOW_MS,
+            );
+        }
         self.graph_undo_open = false;
         Task::batch(tasks)
     }

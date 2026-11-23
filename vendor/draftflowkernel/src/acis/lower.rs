@@ -3,10 +3,10 @@
 //! Clean provenance keeps original records; dirty and synthesized nodes are
 //! written from kernel geometry.
 
+use crate::brep::{Body, Curve3, Provenance, Surface};
 use draftflowcodec::entities::acis::types::{
     SatDocument, SatEdge, SatFace, SatPointer, SatRecord, SatToken, SatVertex,
 };
-use crate::brep::{Body, Curve3, Provenance, Surface};
 
 /// Why a body could not be written back.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -40,10 +40,7 @@ pub fn lower(body: &Body, document: &mut SatDocument) -> Result<usize, Unwritabl
         let Some(source) = dirty_source(&face.provenance) else {
             continue;
         };
-        let surface = body
-            .surfaces
-            .get(face.surface)
-            .ok_or(Unwritable::Surface)?;
+        let surface = body.surfaces.get(face.surface).ok_or(Unwritable::Surface)?;
         let tokens = surface_tokens(surface).ok_or(Unwritable::Surface)?;
         // The surface lives in the record the face *points at*, not in the
         // face record, which holds nothing but pointers. Writing geometry
@@ -155,8 +152,15 @@ fn write_tokens(
 /// back byte for byte.
 pub fn pending(body: &Body) -> usize {
     let dirty = |provenance: &Provenance| !provenance.is_reusable();
-    body.faces.iter().filter(|(_, f)| dirty(&f.provenance)).count()
-        + body.edges.iter().filter(|(_, e)| dirty(&e.provenance)).count()
+    body.faces
+        .iter()
+        .filter(|(_, f)| dirty(&f.provenance))
+        .count()
+        + body
+            .edges
+            .iter()
+            .filter(|(_, e)| dirty(&e.provenance))
+            .count()
         + body
             .vertices
             .iter()

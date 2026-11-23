@@ -13,8 +13,6 @@ pub(crate) mod commands;
 pub(crate) mod dim_viewport;
 #[cfg(test)]
 mod dimension_preview_tests;
-#[cfg(test)]
-mod modal_lifecycle_tests;
 mod dock;
 mod document;
 mod drafting_settings;
@@ -23,6 +21,8 @@ mod find_replace;
 pub(crate) mod helpers;
 mod history;
 mod layers;
+#[cfg(test)]
+mod modal_lifecycle_tests;
 mod model_ops;
 mod mtext_editor;
 mod navigation;
@@ -292,7 +292,7 @@ pub(crate) enum FindMatchKey {
 use crate::snap::Snapper;
 use crate::ui::{CommandLine, Ribbon, StatusBar};
 use codec::types::{Color as AcadColor, LineWeight};
-use codec::CadDocument;
+use codec::{CadDocument, Handle};
 
 use iced::time::Instant;
 use iced::window;
@@ -357,9 +357,7 @@ struct AddSelectedRestore {
 /// gone, and so are the variants. `#[serde(other)]` matters: a stored
 /// `"section":"Videos"` would otherwise fail the whole parse and `AppConfig::load`
 /// would silently reset every other preference too.
-#[derive(
-    Clone, Copy, PartialEq, Eq, Default, Debug, serde::Serialize, serde::Deserialize,
-)]
+#[derive(Clone, Copy, PartialEq, Eq, Default, Debug, serde::Serialize, serde::Deserialize)]
 pub enum StartSection {
     Recent,
     #[default]
@@ -441,6 +439,94 @@ pub(super) struct DraftFlowCAD {
     vp_size: (f32, f32),
     /// Full window size (w, h); used to anchor status-bar popups to their pill.
     win_size: (f32, f32),
+    /// Inertial viewport motion: cumulative zoom steps already pushed into the
+    /// camera, and the applied pan offset of the current glide.
+    zoom_glide_applied: f32,
+    pan_glide_applied: (f32, f32),
+    /// Extra zoom fraction of the paper↔model settle already pushed into the
+    /// camera, plus which way that settle runs (+1 into a viewport, -1 out).
+    space_focus_applied: f32,
+    space_focus_sign: f32,
+    /// Pointer travel accumulated during a middle-drag, sampled for release
+    /// velocity; a pan gesture only coasts when `pan_drag_active` is set.
+    pan_drag_pos: (f32, f32),
+    pan_vel_x: crate::ui::motion::VelocityEstimator,
+    pan_vel_y: crate::ui::motion::VelocityEstimator,
+    pan_drag_active: bool,
+    /// P2 batch 1 item 7: pointer travel accumulated during a middle-drag
+    /// ORBIT, in SCREEN PIXELS — the same ruler the orbit itself uses
+    /// (`Camera::ORBIT_RAD_PER_PX`), so the released flick coasts at exactly
+    /// the angular speed the hand was dragging at. Only a model-space orbit
+    /// feeds these; a pan keeps its own accumulators above.
+    orbit_drag_yaw: f32,
+    orbit_drag_pitch: f32,
+    orbit_vel_yaw: crate::ui::motion::VelocityEstimator,
+    orbit_vel_pitch: crate::ui::motion::VelocityEstimator,
+    orbit_drag_active: bool,
+    /// Radians already pushed into the camera by the running coast, the pivot
+    /// it turns about, and the tab that owns it.
+    orbit_glide_applied: (f32, f32),
+    orbit_glide_pivot: Option<glam::DVec3>,
+    orbit_glide_tab: usize,
+    /// Tab owning the running view glide, so a tab switch drops it instead of
+    /// panning/zooming a drawing nobody started the gesture on.
+    glide_tab: usize,
+    /// The snap marker the overlay last drew, and the tab it belonged to. The
+    /// update layer diffs this after every message to pulse the marker on a
+    /// fresh acquisition; the overlay itself is stateless.
+    last_snap_marker: Option<(Point, crate::snap::SnapType)>,
+    snap_motion_tab: usize,
+    /// Where the marker was released by the pointer when the current snap was
+    /// acquired; the view pulls the marker from here onto the snap point.
+    snap_settle_from: Option<Point>,
+    /// Screen position of the first committed point's anchor pulse (item 13).
+    /// One-shot: later points never overwrite it, and a command restart clears
+    /// the accepted-snap list so the next first point pulses again.
+    first_point_pulse: Option<Point>,
+    /// Whether ortho/polar angle constraint currently owns the cursor
+    /// (item 11). The sweep fires on the false→true edge only, so a constraint
+    /// that stays engaged across many mouse moves never replays it.
+    angle_snap_engaged: bool,
+    /// Screen-space sector of the running angle-takeover sweep (item 11):
+    /// pivot plus the free and locked angles in screen radians.
+    angle_sweep: Option<crate::ui::overlay::AngleSweep>,
+    /// Marquee direction last seen, so a direction flip (window ↔ crossing)
+    /// starts the colour cross-fade exactly once.
+    last_box_crossing: bool,
+    last_poly_crossing: bool,
+    last_box_marquee: bool,
+    last_poly_marquee: bool,
+    /// Tab whose save-state dot the track describes, plus the state it was
+    /// last seen in. A tab switch re-seats both without animating.
+    dirty_track_tab: usize,
+    last_active_dirty: Option<bool>,
+    /// F3 (b): the unit-switch multiplier is a process-global track, so it is
+    /// attributed to the tab that started it. `unit_chase_tab` is the last
+    /// active tab this logic saw (a switch lands the chase at 1.0 instantly,
+    /// item 22's contract); `unit_chase_owner` is the tab a running chase
+    /// belongs to (`usize::MAX` = none). Only the owner's value is published.
+    unit_chase_tab: usize,
+    unit_chase_owner: usize,
+    /// Dimension whose association state the break flash describes, and
+    /// whether it was already broken. Selection changes re-seat the pair
+    /// without animating; only a resolved→broken flip fires the pulse.
+    assoc_break_handle: Option<Handle>,
+    assoc_break_broken: bool,
+    /// UCS tripod rotation: the orientation being left, the one being entered
+    /// and the tab they belong to. The view slerps between them by the
+    /// `UCS_ROT` progress, so the icon turns instead of jumping.
+    ucs_axes_from: Option<glam::Quat>,
+    ucs_axes_to: Option<glam::Quat>,
+    ucs_axes_tab: usize,
+    /// ViewCube orientation damping (item 5): the camera quaternion being left,
+    /// the snapped one being entered, and the tab that started the turn. The
+    /// update layer slerps between them by the `VIEW_ORIENT` progress and writes
+    /// the result back to the navigation camera each frame. The camera's own
+    /// snap methods stay instant — mspace decodes a throwaway camera through
+    /// them — so only this app-layer dispatch eases. `usize::MAX` tab = no turn.
+    view_orient_from: Option<glam::Quat>,
+    view_orient_to: Option<glam::Quat>,
+    view_orient_tab: usize,
     snapper: Snapper,
     snap_popup_open: bool,
     drafting_settings_state: Option<crate::ui::window::drafting_settings::DraftingSettingsState>,
@@ -785,6 +871,10 @@ pub(super) struct DraftFlowCAD {
     /// hidden while dragging and this copy only preserves its original appearance
     /// and provides edge directions when the engaged grip is acquired for OTRACK.
     grip_reference_wires: Vec<crate::scene::model::wire_model::WireModel>,
+    /// Cursor position (window px) where the current grip drag began. The
+    /// ghost's dissolve is measured from here, so a drag that doubles back
+    /// brings the original outline back instead of leaving it erased.
+    grip_ghost_origin: Option<iced::Point>,
     /// Drag-start snapshot of the dragged entity's SDF glyph quads. A whole-
     /// entity text move slides these each frame (translating the already-shaped
     /// glyphs) instead of re-tessellating the run every cursor move (issue #316).
@@ -813,6 +903,11 @@ pub(super) struct DraftFlowCAD {
     render_bar_w: std::sync::Arc<std::sync::atomic::AtomicU32>,
     /// Whether the visual-style flyout beside the active viewport is open.
     render_mode_menu_open: bool,
+    /// Item 35 (C): latch for the canvas scrim under the right-click menu.
+    /// `sync_motion` edges the MENU_SCRIM track on this changing, so every
+    /// open/close path (including the direct `open_at = None` writes) fades
+    /// the scrim without touching those call sites.
+    menu_scrim_open: bool,
     /// Mode whose sample is shown while the pointer moves through the flyout.
     /// This does not alter the drawing until the corresponding row is clicked.
     render_mode_preview: Option<codec::entities::ViewportRenderMode>,
@@ -867,6 +962,14 @@ pub(super) struct DraftFlowCAD {
     pub(crate) dock_icon_hover: Option<crate::ui::dock::PanelId>,
     /// Last pointer position during a dock drag.
     pub(crate) dock_drag_last: Option<iced::Point>,
+    /// Pointer delta of the most recent dock drag move (item 36: the
+    /// landing overshoot travels along the drag's dominant axis).
+    pub(crate) dock_drag_delta: iced::Vector,
+    /// Panel that just landed from a dock drag (item 36). While the
+    /// DOCK_LAND spring is active its body rides a pure visual offset.
+    pub(crate) dock_land_panel: Option<crate::ui::dock::PanelId>,
+    /// Unit direction of the landing overshoot for `dock_land_panel`.
+    pub(crate) dock_land_dir: iced::Vector,
     /// Docked panel whose title bar the pointer is over (shows pin / close).
     pub(crate) dock_title_hover: Option<crate::ui::dock::PanelId>,
     /// Edge whose icon-strip pallet menu (+) is open.
@@ -1038,6 +1141,16 @@ pub(super) struct DraftFlowCAD {
     /// Read-only session (`--read-only`): editing is allowed but every save
     /// path is refused. Set once at boot from the CLI config.
     read_only: bool,
+    /// Batch 3 item 26: when the read-only boundary hint fired. With motion
+    /// enabled the pulse track carries the 150 ms beat and this timestamp is
+    /// only a fired-once latch; with motion reduced it drives the static
+    /// 150 ms wall-clock hint window (see the subscription's
+    /// `readonly_edge_tick` channel).
+    readonly_edge_at: Option<Instant>,
+    /// Batch 3 item 28: how many redo-dropdown rows the last undo highlighted
+    /// (row 0 = last undone operation). Cleared by redo and by any fresh edit
+    /// that drops the redo stack. Positional because history rows have no id.
+    undo_highlight_steps: usize,
     /// In-memory clipboard: cloned entities waiting to be pasted.
     clipboard: Vec<codec::EntityType>,
     /// Entities removed by the most recent ERASE, kept so OOPS can restore them.
@@ -1216,9 +1329,15 @@ pub(super) struct DraftFlowCAD {
 
     // ── Color Scheme ──────────────────────────────────────────────────────
     active_theme: Theme,
-    /// Root surface colour captured when the last theme switch began; the
-    /// root container cross-fades from it to the new theme's base colour.
-    theme_fade_from: iced::Color,
+    /// Canvas ground colour captured when the last theme switch began. Item 45:
+    /// the window ground lands on the new theme in the switch frame, so this
+    /// colour is spent by the canvas veil alone (`THEME_VEIL`), never by the
+    /// page style.
+    theme_canvas_from: iced::Color,
+    /// Item 46: world-space source and destination anchors of the last applied
+    /// MATCHPROP transfer. `None` while no transfer is playing — the flow line
+    /// needs both ends and draws nothing without them.
+    matchprop_flow: Option<(glam::DVec3, Vec<glam::DVec3>)>,
     ui_theme: config::UiThemeConfig,
     theme_color_inputs: [String; 6],
     model_space: config::ModelSpaceThemeConfig,
@@ -1521,7 +1640,6 @@ pub(super) struct PendingNativeThumbnailSave {
     check_external_change: bool,
 }
 
-
 #[derive(Debug, Clone)]
 pub(super) struct PendingSaveFailure {
     tab_id: u64,
@@ -1542,7 +1660,6 @@ pub(super) struct PendingExternalChange {
     continuation: SaveContinuation,
     set_current_path: bool,
 }
-
 
 #[derive(Debug, Clone)]
 pub struct SaveOutcome {
@@ -2135,7 +2252,9 @@ pub enum Message {
     /// A frame has been drawn (or the anti-hang timer expired) for a parked
     /// `capture` request: take the screenshot now, so it shows the latest
     /// state instead of the previous frame (C11).
-    ControlCaptureFrame { redrew: bool },
+    ControlCaptureFrame {
+        redrew: bool,
+    },
     ControlToggle,
     /// Node graph overlay interaction.
     Graph(crate::ui::node_graph::GraphMsg),
@@ -3964,7 +4083,10 @@ pub enum Message {
     ),
     /// Chrome micro-motion: pointer entered or left a hover-tracked region.
     /// `key` is the motion registry key (`&'static str`, see `ui::motion`).
-    UiHover { key: &'static str, entered: bool },
+    UiHover {
+        key: &'static str,
+        entered: bool,
+    },
     /// Frame tick while chrome motion is live; only drives a redraw, the
     /// registry itself samples `Instant::now()` so no state update is needed.
     MotionTick(Instant),
@@ -4078,6 +4200,45 @@ impl DraftFlowCAD {
             cursor_pos: Point::ORIGIN,
             vp_size: (1280.0, 720.0),
             win_size: (1280.0, 720.0),
+            zoom_glide_applied: 0.0,
+            pan_glide_applied: (0.0, 0.0),
+            space_focus_applied: 0.0,
+            space_focus_sign: 1.0,
+            pan_drag_pos: (0.0, 0.0),
+            pan_vel_x: crate::ui::motion::VelocityEstimator::default(),
+            pan_vel_y: crate::ui::motion::VelocityEstimator::default(),
+            pan_drag_active: false,
+            orbit_drag_yaw: 0.0,
+            orbit_drag_pitch: 0.0,
+            orbit_vel_yaw: crate::ui::motion::VelocityEstimator::default(),
+            orbit_vel_pitch: crate::ui::motion::VelocityEstimator::default(),
+            orbit_drag_active: false,
+            orbit_glide_applied: (0.0, 0.0),
+            orbit_glide_pivot: None,
+            orbit_glide_tab: usize::MAX,
+            glide_tab: usize::MAX,
+            last_snap_marker: None,
+            snap_motion_tab: usize::MAX,
+            snap_settle_from: None,
+            first_point_pulse: None,
+            angle_snap_engaged: false,
+            angle_sweep: None,
+            last_box_crossing: false,
+            last_poly_crossing: false,
+            dirty_track_tab: usize::MAX,
+            last_active_dirty: None,
+            unit_chase_tab: usize::MAX,
+            unit_chase_owner: usize::MAX,
+            assoc_break_handle: None,
+            assoc_break_broken: false,
+            ucs_axes_from: None,
+            ucs_axes_to: None,
+            ucs_axes_tab: usize::MAX,
+            view_orient_from: None,
+            view_orient_to: None,
+            view_orient_tab: usize::MAX,
+            last_box_marquee: false,
+            last_poly_marquee: false,
             snapper: Snapper::default(),
             snap_popup_open: false,
             drafting_settings_state: None,
@@ -4233,6 +4394,7 @@ impl DraftFlowCAD {
             grip_history_originals: Vec::new(),
             grip_dirty_before: None,
             grip_reference_wires: Vec::new(),
+            grip_ghost_origin: None,
             grip_text_verts: Vec::new(),
             grip_text_slide: false,
             qselect: None,
@@ -4242,6 +4404,7 @@ impl DraftFlowCAD {
             show_viewcube: true,
             render_bar_w: std::sync::Arc::new(std::sync::atomic::AtomicU32::new(0)),
             render_mode_menu_open: false,
+            menu_scrim_open: false,
             render_mode_preview: None,
             show_properties: true,
             show_layers: false,
@@ -4270,6 +4433,9 @@ impl DraftFlowCAD {
             dock_float_menu_at: iced::Point::ORIGIN,
             dock_drag: None,
             dock_drag_last: None,
+            dock_drag_delta: iced::Vector::ZERO,
+            dock_land_panel: None,
+            dock_land_dir: iced::Vector::ZERO,
             dock_title_hover: None,
             dock_edge_menu: None,
             dock_grip_hover: None,
@@ -4339,6 +4505,8 @@ impl DraftFlowCAD {
             plot_styles_dir: None,
             autosave_dir: None,
             read_only: false,
+            readonly_edge_at: None,
+            undo_highlight_steps: 0,
             clipboard: Vec::new(),
             oops_cache: Vec::new(),
             clipboard_base: glam::DVec3::ZERO,
@@ -4409,11 +4577,12 @@ impl DraftFlowCAD {
             .ok(),
             // Color scheme (default: DraftFlow Dark)
             active_theme: crate::ui::style::draftflow_theme::draftflow_dark(),
-            theme_fade_from: crate::ui::style::draftflow_theme::draftflow_dark()
+            theme_canvas_from: crate::ui::style::draftflow_theme::draftflow_dark()
                 .palette()
                 .background
                 .base
                 .color,
+            matchprop_flow: None,
             ui_theme: config::UiThemeConfig::default(),
             theme_color_inputs: config::UiThemePalette::default().hex_values(),
             model_space: config::ModelSpaceThemeConfig::default(),
@@ -4841,57 +5010,50 @@ impl DraftFlowCAD {
             ]),
         )
     }
-
 }
 
 use std::path::PathBuf;
 
 pub fn run() -> iced::Result {
-    iced::daemon(
-        DraftFlowCAD::boot,
-        DraftFlowCAD::update,
-        DraftFlowCAD::view,
-    )
-    .settings(iced::Settings {
-        power_preference: iced::backend::PowerPreference::HighPerformance,
-        ..iced::Settings::default()
-    })
-    .subscription(DraftFlowCAD::subscription)
-    .scale_factor(|state: &DraftFlowCAD, _| f32::from(state.ui_scale_percent) / 100.0)
-    .title(|state: &DraftFlowCAD, window_id: window::Id| {
-        let _ = window_id; // all dialogs are in-canvas modals now
-        if let Some(tab) = state.tabs.get(state.active_tab) {
-            let dot = if tab.dirty { "● " } else { "" };
-            let name = tab.tab_display_name();
-            format!(
-                "{}DraftFlow CAD {} - {}",
-                dot,
-                env!("DRAFTFLOW_APP_VERSION"),
-                name
-            )
-        } else {
-            concat!("DraftFlow CAD ", env!("DRAFTFLOW_APP_VERSION")).to_string()
-        }
-    })
-    .theme(|state: &DraftFlowCAD, _| state.active_theme.clone())
-    .font(iced_aw::ICED_AW_FONT_BYTES)
-    // The shell's own face: Noto Sans SC (SIL OFL 1.1) carries Latin and
-    // Simplified Chinese in one design, and its variable weight axis gives the
-    // kit's Medium/Semibold voices real instances instead of a fallback face.
-    // See `ui::style::tokens::UI_FONT_FAMILY` for why this is native-only.
-    .font(include_bytes!("../../assets/fonts/NotoSansSC-VF.ttf").as_slice())
-    // The plate's display pair: Playfair Display (SIL OFL 1.1) roman 700 and
-    // italic 400, registered under one family so the wordmark can pair a
-    // roman DRAFT with an italic FLOW. It is bundled for the splash only —
-    // see `ui::style::tokens::splash::WORDMARK_FAMILY`.
-    .font(include_bytes!("../../assets/fonts/PlayfairDisplay-Bold.ttf").as_slice())
-    .font(include_bytes!("../../assets/fonts/PlayfairDisplay-Italic.ttf").as_slice())
-    .default_font(crate::ui::style::tokens::UI_FONT)
-    .run()
+    iced::daemon(DraftFlowCAD::boot, DraftFlowCAD::update, DraftFlowCAD::view)
+        .settings(iced::Settings {
+            power_preference: iced::backend::PowerPreference::HighPerformance,
+            ..iced::Settings::default()
+        })
+        .subscription(DraftFlowCAD::subscription)
+        .scale_factor(|state: &DraftFlowCAD, _| f32::from(state.ui_scale_percent) / 100.0)
+        .title(|state: &DraftFlowCAD, window_id: window::Id| {
+            let _ = window_id; // all dialogs are in-canvas modals now
+            if let Some(tab) = state.tabs.get(state.active_tab) {
+                let dot = if tab.dirty { "● " } else { "" };
+                let name = tab.tab_display_name();
+                format!(
+                    "{}DraftFlow CAD {} - {}",
+                    dot,
+                    env!("DRAFTFLOW_APP_VERSION"),
+                    name
+                )
+            } else {
+                concat!("DraftFlow CAD ", env!("DRAFTFLOW_APP_VERSION")).to_string()
+            }
+        })
+        .theme(|state: &DraftFlowCAD, _| state.active_theme.clone())
+        .font(iced_aw::ICED_AW_FONT_BYTES)
+        // The shell's own face: Noto Sans SC (SIL OFL 1.1) carries Latin and
+        // Simplified Chinese in one design, and its variable weight axis gives the
+        // kit's Medium/Semibold voices real instances instead of a fallback face.
+        // See `ui::style::tokens::UI_FONT_FAMILY` for why this is native-only.
+        .font(include_bytes!("../../assets/fonts/NotoSansSC-VF.ttf").as_slice())
+        // The plate's display pair: Playfair Display (SIL OFL 1.1) roman 700 and
+        // italic 400, registered under one family so the wordmark can pair a
+        // roman DRAFT with an italic FLOW. It is bundled for the splash only —
+        // see `ui::style::tokens::splash::WORDMARK_FAMILY`.
+        .font(include_bytes!("../../assets/fonts/PlayfairDisplay-Bold.ttf").as_slice())
+        .font(include_bytes!("../../assets/fonts/PlayfairDisplay-Italic.ttf").as_slice())
+        .default_font(crate::ui::style::tokens::UI_FONT)
+        .run()
 }
 
 impl Drop for DraftFlowCAD {
-    fn drop(&mut self) {
-    }
+    fn drop(&mut self) {}
 }
-

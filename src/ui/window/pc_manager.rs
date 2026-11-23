@@ -3,17 +3,19 @@
 //! its points. The switches are the cloud's own hidden scans and regions, so
 //! the tree is read straight from the document on every view.
 
-use crate::ui::style::tokens;
 use crate::app::Message;
 use crate::scene::model::point_cloud::{self, UNASSIGNED_OFF};
 use crate::ui::dock::PanelId;
+use crate::ui::kit;
+use crate::ui::kit::plain_button;
+use crate::ui::style::tokens;
 use codec::entities::ExtendedEntityData;
 use codec::{CadDocument, EntityType, Handle};
-use iced::widget::{checkbox, column, container, mouse_area, row, text, text_input, tooltip, Space};
-use crate::ui::kit::plain_button;
+use iced::widget::{
+    checkbox, column, container, mouse_area, row, text, text_input, tooltip, Space,
+};
 use iced::{Background, Element, Fill, Length, Theme};
 use std::collections::HashSet;
-use crate::ui::kit;
 
 const CLOUD_ICON: &[u8] = include_bytes!("../../../assets/icons/pc_attach.svg");
 const REGION_ICON: &[u8] = include_bytes!("../../../assets/icons/region.svg");
@@ -263,9 +265,13 @@ fn fold_button<'a>(
         .on_press(msg(message))
         .style(kit::subtle_style)
         .padding([tokens::GAP_HAIRLINE, tokens::GAP_TIGHT]);
-    tooltip(b, text(tip).size(tokens::TEXT_MICRO), tooltip::Position::Bottom)
-        .gap(4)
-        .into()
+    tooltip(
+        b,
+        text(tip).size(tokens::TEXT_MICRO),
+        tooltip::Position::Bottom,
+    )
+    .gap(4)
+    .into()
 }
 
 pub fn view<'a>(
@@ -389,19 +395,24 @@ pub fn view<'a>(
     ]
     .spacing(tokens::GAP_HAIRLINE)
     .align_y(iced::Center);
-    let card = container(column![header, crate::ui::kit::themed_scrollable(tree).height(Fill)].spacing(tokens::GAP_CONTROL))
-        .padding(tokens::GAP_CONTROL)
-        .width(Fill)
-        .height(Fill)
-        .style(|theme: &Theme| {
-            kit::field_radius_plate_style(Background::Color(
-                theme.palette().background.weak.color,
-            ))
-        });
+    let card = container(
+        column![header, crate::ui::kit::themed_scrollable(tree).height(Fill)]
+            .spacing(tokens::GAP_CONTROL),
+    )
+    .padding(tokens::GAP_CONTROL)
+    .width(Fill)
+    .height(Fill)
+    .style(|theme: &Theme| {
+        kit::field_radius_plate_style(Background::Color(theme.palette().background.weak.color))
+    });
     let search = text_input(&crate::t!("Search"), &state.search)
         .on_input(|v| msg(PcManagerMsg::Search(v)))
         .padding(kit::Size::Compact.padding())
         .size(tokens::TEXT_BODY);
 
-    crate::ui::dock::frame(title_bar, column![card, search].spacing(tokens::GAP_CONTROL), width)
+    crate::ui::dock::frame(
+        title_bar,
+        column![card, search].spacing(tokens::GAP_CONTROL),
+        width,
+    )
 }

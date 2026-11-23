@@ -140,7 +140,7 @@ impl DraftFlowCAD {
 
 #[cfg(test)]
 mod tests {
-    use crate::app::{settings, Message, DraftFlowCAD};
+    use crate::app::{settings, DraftFlowCAD, Message};
 
     fn app() -> DraftFlowCAD {
         let mut app = DraftFlowCAD::new_for_test();
@@ -207,7 +207,10 @@ mod tests {
         assert_eq!(app.zoom_factor, before + 7);
         let _ = app.update(Message::OptionsOpen);
         let _ = app.update(Message::OptionsClose);
-        assert!(!app.options_close_confirm, "nothing to lose, nothing to ask");
+        assert!(
+            !app.options_close_confirm,
+            "nothing to lose, nothing to ask"
+        );
         land_the_fade(&mut app);
         assert_eq!(app.active_modal, None);
         // Keep editing returns to the window with the change intact.

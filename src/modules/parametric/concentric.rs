@@ -95,6 +95,12 @@ impl ConcentricConstraintCommand {
     }
 }
 
+impl Default for ConcentricConstraintCommand {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CadCommand for ConcentricConstraintCommand {
     fn name(&self) -> &'static str {
         "GCCONCENTRIC"

@@ -65,15 +65,12 @@ fn read_alias_version(path: &PathBuf) -> u32 {
         .unwrap_or(0)
 }
 
-
-
 /// Version of the shipped default alias table. Bump this whenever the embedded
 /// defaults add aliases or change a default target, so existing profiles can be
 /// migrated forward (see `introduced_at` / `migrate_aliases`). Version 1 shipped
 /// the pre-REDRAW table; version 2 introduced the REDRAW-family aliases; version 3
 /// introduced HB (HATCHTOBACK); version 4 introduced ER (EXTERNALREFERENCES).
 const DEFAULT_ALIASES_VERSION: u32 = 6;
-
 
 /// The aliases introduced by a given version of the default table (1-indexed).
 /// A profile that last saw version `V` receives each alias in versions `V+1..`
@@ -178,7 +175,7 @@ pub(super) fn load_aliases() -> FxHashMap<String, String> {
         let Some(path) = alias_file_path() else {
             return default_map();
         };
-        return match std::fs::read_to_string(&path) {
+        match std::fs::read_to_string(&path) {
             Ok(body) => {
                 let mut map = parse_pgp(&body);
                 let seen = alias_version_file_path()
@@ -212,9 +209,8 @@ pub(super) fn load_aliases() -> FxHashMap<String, String> {
                 }
                 default_map()
             }
-        };
+        }
     }
-
 }
 
 /// Persist the alias table to the user's `aliases.pgp`.
@@ -226,9 +222,8 @@ pub(super) fn save_map(map: &FxHashMap<String, String>) -> std::io::Result<()> {
         if let Some(dir) = path.parent() {
             std::fs::create_dir_all(dir)?;
         }
-        return std::fs::write(path, to_pgp(map));
+        std::fs::write(path, to_pgp(map))
     }
-
 }
 
 impl DraftFlowCAD {
@@ -448,7 +443,8 @@ mod tests {
     }
 
     fn alias_case(name: &str) -> std::path::PathBuf {
-        let dir = std::env::temp_dir().join(format!("draftflow-alias-{name}-{}", std::process::id()));
+        let dir =
+            std::env::temp_dir().join(format!("draftflow-alias-{name}-{}", std::process::id()));
         std::fs::remove_dir_all(&dir).ok();
         std::fs::create_dir_all(&dir).unwrap();
         dir

@@ -186,6 +186,12 @@ impl SymmetricConstraintCommand {
     }
 }
 
+impl Default for SymmetricConstraintCommand {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CadCommand for SymmetricConstraintCommand {
     fn name(&self) -> &'static str {
         "SYCONSTRAINT"

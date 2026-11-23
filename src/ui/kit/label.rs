@@ -155,7 +155,6 @@ pub fn chord_ink_style(theme: &Theme, on_filled: bool) -> text::Style {
 /// multiplying the guarantee by a transient alpha would make the solved ink
 /// translucent again — which is exactly the class of bug #69 and #74 were about.
 /// What is guaranteed is the resting pixel, `fade(track) == 1.0`.
-#[must_use]
 pub fn voice_ink(theme: &Theme, alpha: f32) -> Color {
     resolve_on(
         theme.palette().background.base.text.scale_alpha(alpha),
@@ -213,9 +212,12 @@ pub fn tone_style_on(theme: &Theme, tone: Tone, plate: Color) -> text::Style {
 /// paints its own ground: the plate is known, so the solve has one entry and the
 /// verdict cannot come out a different colour depending on which tier the band was
 /// dropped into.
-#[must_use]
 pub fn tone_ink_on(theme: &Theme, tone: Tone, plate: Color) -> Color {
-    resolve_on(tone_pair(theme, tone).color, &[plate], tokens::AA_INK_CONTRAST)
+    resolve_on(
+        tone_pair(theme, tone).color,
+        &[plate],
+        tokens::AA_INK_CONTRAST,
+    )
 }
 
 impl Tone {
@@ -237,9 +239,12 @@ impl Tone {
 
 /// The tone's own ink: [`tone_pair`]'s fill colour, pulled until it reads on
 /// every plane a kit word can land on.
-#[must_use]
 pub fn tone_ink(theme: &Theme, tone: Tone) -> Color {
-    resolve_on(tone_pair(theme, tone).color, &kit_planes(theme), tokens::AA_INK_CONTRAST)
+    resolve_on(
+        tone_pair(theme, tone).color,
+        &kit_planes(theme),
+        tokens::AA_INK_CONTRAST,
+    )
 }
 
 /// The accent as a word: [`tone_style`] with the one [`Tone`] that is not a
@@ -301,11 +306,7 @@ pub fn kit_planes(theme: &Theme) -> Vec<Color> {
             .weak
             .color
             .scale_alpha(tokens::TINT_SELECTED),
-        palette
-            .primary
-            .weak
-            .color
-            .scale_alpha(tokens::TINT_DROPPED),
+        palette.primary.weak.color.scale_alpha(tokens::TINT_DROPPED),
     ];
 
     let mut planes: Vec<Color> = tiers.iter().map(|tier| plane(theme, *tier)).collect();
@@ -418,7 +419,6 @@ fn worst_on(color: Color, planes: &[Color]) -> f32 {
 /// and only ever taken when the extremes did not already clear `min`, so no
 /// answer this function used to give is moved by it — the sweep fires on the
 /// failures and never on the passes.
-#[must_use]
 pub fn resolve_on(ink: Color, planes: &[Color], min: f32) -> Color {
     if worst_on(ink, planes) >= min {
         return ink;
@@ -495,7 +495,6 @@ pub fn resolve_on(ink: Color, planes: &[Color], min: f32) -> Color {
 /// needed. Where the fill loses, [`tokens::legible_on`] pulls the hue the minimum
 /// distance that clears the bar, with the headroom and slack that function exists
 /// to keep.
-#[must_use]
 pub fn resolve_edge(hue: Color, plate: Color, ground: Color, min: f32) -> Color {
     if wcag_contrast(plate, ground) >= min {
         return hue;

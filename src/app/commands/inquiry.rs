@@ -132,8 +132,8 @@ impl DraftFlowCAD {
                 || cmd.starts_with("QC ") =>
             {
                 let expr = cmd
-                    .splitn(2, char::is_whitespace)
-                    .nth(1)
+                    .split_once(char::is_whitespace)
+                    .map(|x| x.1)
                     .unwrap_or("")
                     .trim();
                 if expr.is_empty() {
@@ -244,9 +244,9 @@ impl DraftFlowCAD {
                             .iter()
                             .map(|(b, n)| format!("{b}×{n}"))
                             .collect();
-                        msg.push_str(&crate::tf!("\n  Blocks: {}", blocks.join(", ")).into_owned());
+                        msg.push_str(&crate::tf!("\n  Blocks: {}", blocks.join(", ")));
                     }
-                    msg.push_str(&crate::tf!("\n  Handles: {}", list.join(",")).into_owned());
+                    msg.push_str(&crate::tf!("\n  Handles: {}", list.join(",")));
                     self.command_line.push_output(&msg);
                 }
             }
@@ -1624,8 +1624,9 @@ impl DraftFlowCAD {
             .set_current_entity_transparency(transparency)
         {
             self.add_selected_restore = None;
-            self.command_line
-                .push_error(crate::t!("ADDSELECTED: template transparency cannot be adopted.").as_ref());
+            self.command_line.push_error(
+                crate::t!("ADDSELECTED: template transparency cannot be adopted.").as_ref(),
+            );
             return Task::none();
         }
 
@@ -1715,8 +1716,9 @@ impl DraftFlowCAD {
             .document
             .set_current_entity_transparency(r.transparency)
         {
-            self.command_line
-                .push_error(crate::t!("ADDSELECTED: current transparency could not be restored.").as_ref());
+            self.command_line.push_error(
+                crate::t!("ADDSELECTED: current transparency could not be restored.").as_ref(),
+            );
         }
         self.tabs[i].active_layer = r.tab_active_layer;
         self.tabs[i].layers.current_layer = r.tab_layers_current;

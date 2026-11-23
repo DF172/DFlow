@@ -57,7 +57,7 @@ impl DraftFlowCAD {
                 return Some(Task::done(Message::ImagePick));
             }
 
-            cmd if cmd == "IMAGEEMBED" => {
+            "IMAGEEMBED" => {
                 return Some(Task::done(Message::ImageEmbedPick));
             }
 
@@ -198,7 +198,8 @@ impl DraftFlowCAD {
                     "ON" => 2,
                     "NORMAL" | "N" => 1,
                     _ => {
-                        self.command_line.push_error(crate::t!("Invalid option keyword.").as_ref());
+                        self.command_line
+                            .push_error(crate::t!("Invalid option keyword.").as_ref());
                         return Some(Task::none());
                     }
                 };
@@ -208,7 +209,8 @@ impl DraftFlowCAD {
                     self.tabs[i].dirty = true;
                     self.tabs[i].scene.bump_geometry();
                 }
-                self.command_line.push_output(crate::t!("Regenerating model.").as_ref());
+                self.command_line
+                    .push_output(crate::t!("Regenerating model.").as_ref());
             }
 
             "DONUT" => {
@@ -760,7 +762,7 @@ impl DraftFlowCAD {
                 let inherited = selected.iter().find_map(|handle| {
                     let model = self.tabs[i].scene.hatches.get(handle)?.clone();
                     let common = self.tabs[i].scene.document.get_entity(*handle)?.common();
-                    Some((model, common.color.clone(), common.transparency))
+                    Some((model, common.color, common.transparency))
                 });
                 let new_cmd =
                     HatchCommand::new(outlines, boundary_sources, selected, inherited, plane)
@@ -975,7 +977,8 @@ impl DraftFlowCAD {
                     self.command_line.push_info(&command.prompt());
                     self.tabs[i].active_cmd = Some(Box::new(command));
                 } else if handles.is_empty() {
-                    self.command_line.push_output(crate::t!("No objects selected.").as_ref());
+                    self.command_line
+                        .push_output(crate::t!("No objects selected.").as_ref());
                 } else {
                     let command = ConstraintBarOptionCommand::new(handles);
                     self.command_line.push_info(&command.prompt());
@@ -1019,7 +1022,8 @@ impl DraftFlowCAD {
             "CONSTRAINTBAR_RESET" => {
                 let handles = self.tabs[i].scene.selected_handles_in_order();
                 if handles.is_empty() {
-                    self.command_line.push_output(crate::t!("No objects selected.").as_ref());
+                    self.command_line
+                        .push_output(crate::t!("No objects selected.").as_ref());
                 } else {
                     let scope = self.tabs[i].current_parametric_scope();
                     let count = self.tabs[i].scene.set_parametric_constraint_visibility(
@@ -1058,7 +1062,8 @@ impl DraftFlowCAD {
                     let scope = self.tabs[i].current_parametric_scope();
                     let Some(before) = self.tabs[i].scene.parametric_constraint_set(scope).cloned()
                     else {
-                        self.command_line.push_output(crate::t!("No constraints found.").as_ref());
+                        self.command_line
+                            .push_output(crate::t!("No constraints found.").as_ref());
                         return None;
                     };
                     let mut ids: Vec<_> = before
@@ -1075,7 +1080,8 @@ impl DraftFlowCAD {
                     ids.sort_unstable();
                     ids.dedup();
                     if ids.is_empty() {
-                        self.command_line.push_output(crate::t!("No constraints found.").as_ref());
+                        self.command_line
+                            .push_output(crate::t!("No constraints found.").as_ref());
                         return None;
                     }
                     let dimensions: Vec<codec::Handle> = ids
@@ -1217,7 +1223,10 @@ impl DraftFlowCAD {
                 } else if handles.len() != 2 {
                     self.tabs[i].scene.deselect_all();
                     self.command_line.push_error(
-                        crate::t!("Smooth requires an open spline first and a target curve second.").as_ref(),
+                        crate::t!(
+                            "Smooth requires an open spline first and a target curve second."
+                        )
+                        .as_ref(),
                     );
                     let command = SmoothConstraintCommand::new();
                     self.command_line.push_info(&command.prompt());
@@ -1488,8 +1497,10 @@ impl DraftFlowCAD {
                     self.command_line.push_info(&command.prompt());
                     self.tabs[i].active_cmd = Some(Box::new(command));
                 } else if handles.len() != 1 {
-                    self.command_line
-                        .push_error(&crate::tf!("{axis}: select exactly one compatible object.", axis = axis));
+                    self.command_line.push_error(&crate::tf!(
+                        "{axis}: select exactly one compatible object.",
+                        axis = axis
+                    ));
                 } else {
                     let handle = handles[0];
                     let reference =
@@ -1677,9 +1688,10 @@ impl DraftFlowCAD {
                                 self.command_line.push_info(&new_cmd.prompt());
                                 self.tabs[i].active_cmd = Some(Box::new(new_cmd));
                             }
-                            None => self
-                                .command_line
-                                .push_error(&crate::tf!("Parameter {name} not found.", name = name)),
+                            None => self.command_line.push_error(&crate::tf!(
+                                "Parameter {name} not found.",
+                                name = name
+                            )),
                         }
                     }
                     "SET" => {
@@ -1716,8 +1728,9 @@ impl DraftFlowCAD {
                     self.command_line.push_info(&command.prompt());
                     self.tabs[i].active_cmd = Some(Box::new(command));
                 } else if handles.len() != 2 {
-                    self.command_line
-                        .push_output(crate::t!("Select exactly two perpendicular-compatible objects.").as_ref());
+                    self.command_line.push_output(
+                        crate::t!("Select exactly two perpendicular-compatible objects.").as_ref(),
+                    );
                 } else {
                     let picks = handles
                         .iter()
@@ -1757,8 +1770,9 @@ impl DraftFlowCAD {
                     self.command_line.push_info(&command.prompt());
                     self.tabs[i].active_cmd = Some(Box::new(command));
                 } else if handles.len() != 2 {
-                    self.command_line
-                        .push_output(crate::t!("Select exactly two tangent-compatible objects.").as_ref());
+                    self.command_line.push_output(
+                        crate::t!("Select exactly two tangent-compatible objects.").as_ref(),
+                    );
                 } else {
                     let refs = handles
                         .iter()
@@ -1895,7 +1909,10 @@ impl DraftFlowCAD {
                     }
                     self.tabs[i].scene.deselect_all();
                     self.command_line.push_error(
-                        crate::t!("Symmetric: select two compatible objects followed by a line axis.").as_ref(),
+                        crate::t!(
+                            "Symmetric: select two compatible objects followed by a line axis."
+                        )
+                        .as_ref(),
                     );
                     let command = SymmetricConstraintCommand::new();
                     self.command_line.push_info(&command.prompt());
@@ -1996,7 +2013,10 @@ impl DraftFlowCAD {
                     self.tabs[i].active_cmd = Some(Box::new(sel));
                 } else if handles.len() != 1 {
                     self.command_line.push_output(
-                        crate::t!("Select exactly one line or circle, then run this constraint again.").as_ref(),
+                        crate::t!(
+                            "Select exactly one line or circle, then run this constraint again."
+                        )
+                        .as_ref(),
                     );
                 } else {
                     use crate::modules::parametric::{DistanceConstraintCommand, DistanceMode};
@@ -2017,9 +2037,10 @@ impl DraftFlowCAD {
                             self.command_line.push_info(&new_cmd.prompt());
                             self.tabs[i].active_cmd = Some(Box::new(new_cmd));
                         }
-                        None => self
-                            .command_line
-                            .push_output(crate::t!("Select a line or a circle for a distance constraint.").as_ref()),
+                        None => self.command_line.push_output(
+                            crate::t!("Select a line or a circle for a distance constraint.")
+                                .as_ref(),
+                        ),
                     }
                 }
             }
@@ -2285,7 +2306,10 @@ impl DraftFlowCAD {
                     }
                 } else if open_plane_rejected {
                     self.command_line.push_error(
-                        crate::t!("REGION: open objects must form coplanar, noncollinear boundaries.").as_ref(),
+                        crate::t!(
+                            "REGION: open objects must form coplanar, noncollinear boundaries."
+                        )
+                        .as_ref(),
                     );
                 }
                 if regions.is_empty() {

@@ -1,9 +1,9 @@
 //! Application policy for device navigation. All scene writes run on the UI
 //! thread, preserving active commands and the scene's viewport locks.
-use crate::ui::kit;
-use super::{Message, ModalKind, DraftFlowCAD};
+use super::{DraftFlowCAD, Message, ModalKind};
 use crate::input::spacemouse::{Action, NavigationMode, Target, View};
 use crate::scene::view::camera::Projection;
+use crate::ui::kit;
 use iced::Task;
 
 #[derive(Default)]
@@ -262,7 +262,9 @@ impl DraftFlowCAD {
             // The ring and nothing inside it: a `Space` has no ink to decide. The
             // site typed its border width as a bare `2.`; the rung the kit reads is
             // `EDGE_FRAME`, which is 2.0, so the number reaching iced is unchanged.
-            .style(|theme: &iced::Theme| kit::marker_ring_style(theme.palette().primary.base.color));
+            .style(|theme: &iced::Theme| {
+                kit::marker_ring_style(theme.palette().primary.base.color)
+            });
         Some(
             iced::widget::pin(marker)
                 .position(iced::Point::new(rect.x + p.x - 5., rect.y + p.y - 5.))
@@ -490,10 +492,12 @@ mod tests {
         let mut app = app();
         let scene = &mut app.tabs[app.active_tab].scene;
         let paper_camera = scene.camera.borrow().clone();
-        let mut vp = codec::entities::Viewport::default();
-        vp.width = 200.;
-        vp.height = 100.;
-        vp.view_height = 50.;
+        let vp = codec::entities::Viewport {
+            width: 200.,
+            height: 100.,
+            view_height: 50.,
+            ..Default::default()
+        };
         let handle = scene.add_entity(codec::EntityType::Viewport(vp));
         scene.active_viewport = Some(handle);
         let mut camera = scene.navigation_camera();

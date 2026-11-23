@@ -150,8 +150,13 @@ pub(crate) fn interpolate_open<const N: usize>(
     parameterization: Parameterization,
 ) -> Option<(Vec<[f64; N]>, Vec<f64>)> {
     let count = points.len();
-    if count < 2 || !points.iter().flatten().all(|value| value.is_finite())
-        || start_tangent.iter().chain(end_tangent.iter()).flatten().any(|value| !value.is_finite())
+    if count < 2
+        || !points.iter().flatten().all(|value| value.is_finite())
+        || start_tangent
+            .iter()
+            .chain(end_tangent.iter())
+            .flatten()
+            .any(|value| !value.is_finite())
     {
         return None;
     }
@@ -160,16 +165,24 @@ pub(crate) fn interpolate_open<const N: usize>(
     };
     let start_tangent = usable(start_tangent);
     let end_tangent = usable(end_tangent);
-    let spans = points.windows(2).map(|pair| {
-        let distance = (0..N).map(|axis| (pair[1][axis] - pair[0][axis]).powi(2))
-            .sum::<f64>().sqrt().max(1e-9);
-        match parameterization {
-            Parameterization::Uniform => 1.0,
-            Parameterization::Centripetal => distance.sqrt(),
-            Parameterization::Chord => distance,
-        }
-    }).collect::<Vec<_>>();
-    if !spans.iter().all(|span| span.is_finite()) { return None; }
+    let spans = points
+        .windows(2)
+        .map(|pair| {
+            let distance = (0..N)
+                .map(|axis| (pair[1][axis] - pair[0][axis]).powi(2))
+                .sum::<f64>()
+                .sqrt()
+                .max(1e-9);
+            match parameterization {
+                Parameterization::Uniform => 1.0,
+                Parameterization::Centripetal => distance.sqrt(),
+                Parameterization::Chord => distance,
+            }
+        })
+        .collect::<Vec<_>>();
+    if !spans.iter().all(|span| span.is_finite()) {
+        return None;
+    }
 
     let mut lower = vec![0.0; count];
     let mut diagonal = vec![0.0; count];
@@ -204,7 +217,8 @@ pub(crate) fn interpolate_open<const N: usize>(
         lower[count - 1] = 1.0;
         diagonal[count - 1] = 2.0;
         for axis in 0..N {
-            slopes[count - 1][axis] = 3.0 * (points[count - 1][axis] - points[count - 2][axis]) / spans[count - 2];
+            slopes[count - 1][axis] =
+                3.0 * (points[count - 1][axis] - points[count - 2][axis]) / spans[count - 2];
         }
     }
     solve_tridiagonal_system(&lower, &diagonal, &upper, &mut slopes)?;
@@ -222,7 +236,9 @@ pub(crate) fn interpolate_open<const N: usize>(
         }
         controls.extend([after, before, points[index + 1]]);
         parameter += spans[index];
-        if index + 1 < count - 1 { knots.extend([parameter; 3]); }
+        if index + 1 < count - 1 {
+            knots.extend([parameter; 3]);
+        }
     }
     knots.extend([parameter; 4]);
     (controls.iter().flatten().all(|value| value.is_finite()) && parameter.is_finite())
@@ -278,8 +294,7 @@ pub(crate) fn interpolate_periodic<const N: usize>(
         for axis in 0..N {
             let previous_slope = (points[index][axis] - points[previous][axis]) / before;
             let next_slope = (points[next][axis] - points[index][axis]) / after;
-            right[index][axis] =
-                3.0 * (after * previous_slope + before * next_slope);
+            right[index][axis] = 3.0 * (after * previous_slope + before * next_slope);
         }
     }
     let alpha = lower[0];
@@ -338,14 +353,11 @@ fn solve_cyclic_system<const N: usize>(
     correction[count - 1] = [alpha; N];
     solve_tridiagonal_system(lower, &adjusted, upper, &mut correction)?;
     for axis in 0..N {
-        let denominator = 1.0
-            + correction[0][axis]
-            + beta * correction[count - 1][axis] / gamma;
+        let denominator = 1.0 + correction[0][axis] + beta * correction[count - 1][axis] / gamma;
         if denominator.abs() < 1e-14 {
             return None;
         }
-        let factor =
-            (right[0][axis] + beta * right[count - 1][axis] / gamma) / denominator;
+        let factor = (right[0][axis] + beta * right[count - 1][axis] / gamma) / denominator;
         for row in 0..count {
             right[row][axis] -= factor * correction[row][axis];
         }
@@ -380,8 +392,7 @@ fn solve_tridiagonal_system<const N: usize>(
         }
         modified_upper[row] = upper[row] / pivot;
         for axis in 0..N {
-            right[row][axis] =
-                (right[row][axis] - lower[row] * right[row - 1][axis]) / pivot;
+            right[row][axis] = (right[row][axis] - lower[row] * right[row - 1][axis]) / pivot;
         }
     }
     for row in (0..count - 1).rev() {
@@ -398,19 +409,35 @@ mod tests {
 
     #[test]
     fn a_clamped_curve_starts_and_ends_on_its_own_control_points() {
-        let points = [[0.0, 0.0, 1.0], [1.0, 4.0, 1.0], [5.0, 4.0, 1.0], [6.0, 0.0, 1.0]];
+        let points = [
+            [0.0, 0.0, 1.0],
+            [1.0, 4.0, 1.0],
+            [5.0, 4.0, 1.0],
+            [6.0, 0.0, 1.0],
+        ];
         let knots = clamped_uniform_knots(3, 4);
         let start = de_boor(3, &knots, &points, 0.0);
         let end = de_boor(3, &knots, &points, 1.0);
-        assert!((start[0]).abs() < 1e-12 && (start[1]).abs() < 1e-12, "{start:?}");
-        assert!((end[0] - 6.0).abs() < 1e-12 && (end[1]).abs() < 1e-12, "{end:?}");
+        assert!(
+            (start[0]).abs() < 1e-12 && (start[1]).abs() < 1e-12,
+            "{start:?}"
+        );
+        assert!(
+            (end[0] - 6.0).abs() < 1e-12 && (end[1]).abs() < 1e-12,
+            "{end:?}"
+        );
     }
 
     #[test]
     fn the_same_curve_evaluates_alike_however_many_coordinates_it_carries() {
         // The reason this is generic: a plane curve and the same curve with a
         // zero z must agree, and they only do if one algorithm evaluates both.
-        let flat = [[0.0, 0.0, 1.0], [2.0, 6.0, 1.0], [8.0, 6.0, 1.0], [10.0, 0.0, 1.0]];
+        let flat = [
+            [0.0, 0.0, 1.0],
+            [2.0, 6.0, 1.0],
+            [8.0, 6.0, 1.0],
+            [10.0, 0.0, 1.0],
+        ];
         let spatial: Vec<[f64; 4]> = flat
             .iter()
             .map(|point| [point[0], point[1], 0.0, point[2]])

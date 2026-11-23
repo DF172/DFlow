@@ -253,7 +253,9 @@ fn outline_texts(sheet: &mut Sheet) {
             });
         }
         let triangles: Vec<SubPath> = fills
-            .chunks_exact(3)
+            .as_chunks::<3>()
+            .0
+            .iter()
             .map(|t| SubPath {
                 segments: vec![
                     Segment::Line(at(t[0]), at(t[1])),
@@ -443,7 +445,7 @@ fn rasterize(sheet: &Sheet, side: f64, backdrop: Backdrop) -> Option<PdfPage> {
         }
     }
     let mut pixels = pixmap.take();
-    for px in pixels.chunks_exact_mut(4) {
+    for px in pixels.as_chunks_mut::<4>().0 {
         let a = px[3] as u32;
         if a > 0 && a < 255 {
             for c in &mut px[..3] {

@@ -469,7 +469,15 @@ impl Renderer {
         let total = self.layers.as_slice().len();
 
         let Some(split) = split else {
-            self.render_range(encoder, frame, clear_color, viewport, 0..total, &mut counters, None);
+            self.render_range(
+                encoder,
+                frame,
+                clear_color,
+                viewport,
+                0..total,
+                &mut counters,
+                None,
+            );
             self.count_layers(viewport);
             return;
         };
@@ -478,13 +486,29 @@ impl Renderer {
             .ensure(&self.engine.device, self.engine.format, size);
 
         let Some(base) = self.backdrop.base().cloned() else {
-            self.render_range(encoder, frame, clear_color, viewport, 0..total, &mut counters, None);
+            self.render_range(
+                encoder,
+                frame,
+                clear_color,
+                viewport,
+                0..total,
+                &mut counters,
+                None,
+            );
             self.count_layers(viewport);
             return;
         };
 
         // Beneath the first reader: the whole stack, painted into the backdrop source.
-        self.render_range(encoder, &base, clear_color, viewport, 0..split, &mut counters, None);
+        self.render_range(
+            encoder,
+            &base,
+            clear_color,
+            viewport,
+            0..split,
+            &mut counters,
+            None,
+        );
         self.backdrop.compose(&self.engine.queue, encoder, frame);
 
         let blurred = self.backdrop.blurred();

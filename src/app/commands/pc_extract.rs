@@ -33,10 +33,10 @@ impl DraftFlowCAD {
                 document
                     .layers
                     .get(&common.layer)
-                    .map(|layer| layer.color.clone())
-                    .unwrap_or(common.color.clone())
+                    .map(|layer| layer.color)
+                    .unwrap_or(common.color)
             } else {
-                common.color.clone()
+                common.color
             };
             let color = color.rgb().map_or([255; 3], |(r, g, b)| [r, g, b]);
             if let Some(placed) = crate::scene::model::point_cloud::placed(
@@ -192,8 +192,10 @@ impl DraftFlowCAD {
                     .ok()
                     .filter(|v| (0..=10).contains(v))
                 else {
-                    self.command_line
-                        .push_error(crate::t!("Colinear angle tolerance only accepts integer from 0 to 10.").as_ref());
+                    self.command_line.push_error(
+                        crate::t!("Colinear angle tolerance only accepts integer from 0 to 10.")
+                            .as_ref(),
+                    );
                     return Task::none();
                 };
                 let Some(max_points) = state

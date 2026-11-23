@@ -6,9 +6,9 @@
 //! which is only applied when Translate is pressed — so a mapping can be
 //! reconsidered, and a translation is one undo step rather than many.
 
+use crate::ui::kit::plain_button;
 use crate::ui::style::tokens;
 use iced::widget::{checkbox, column, container, row, text, Space};
-use crate::ui::kit::plain_button;
 use iced::{Border, Element, Fill, Length, Theme};
 
 use crate::app::Message;
@@ -58,20 +58,30 @@ fn pane<'a>(
     sizing: crate::ui::shell::Sizing,
 ) -> Element<'a, Message> {
     let body: Element<'_, Message> = if rows.is_empty() {
-        container(text(t!("(none)")).size(tokens::TEXT_LABEL).style(kit::muted_style))
-            .padding(tokens::GAP_ROW)
-            .into()
+        container(
+            text(t!("(none)"))
+                .size(tokens::TEXT_LABEL)
+                .style(kit::muted_style),
+        )
+        .padding(tokens::GAP_ROW)
+        .into()
     } else {
         crate::ui::kit::themed_scrollable(column(rows).spacing(tokens::GAP_SEAM))
             .height(sizing.height)
             .into()
     };
-    container(column![text(title).size(tokens::TEXT_LABEL).style(kit::muted_style), body].spacing(tokens::GAP_TIGHT))
-        .padding(tokens::GAP_CONTROL)
-        .width(sizing.width)
-        .height(sizing.height)
-        .style(kit::fieldset_well_style)
-        .into()
+    container(
+        column![
+            text(title).size(tokens::TEXT_LABEL).style(kit::muted_style),
+            body
+        ]
+        .spacing(tokens::GAP_TIGHT),
+    )
+    .padding(tokens::GAP_CONTROL)
+    .width(sizing.width)
+    .height(sizing.height)
+    .style(kit::fieldset_well_style)
+    .into()
 }
 
 pub fn view_window<'a>(
@@ -145,9 +155,15 @@ pub fn view_window<'a>(
         .collect();
 
     let loaded: Element<'_, Message> = if state.source_file.is_empty() {
-        text(t!("No standard loaded.")).size(tokens::TEXT_LABEL).style(kit::muted_style).into()
+        text(t!("No standard loaded."))
+            .size(tokens::TEXT_LABEL)
+            .style(kit::muted_style)
+            .into()
     } else {
-        text(state.source_file.clone()).size(tokens::TEXT_LABEL).style(kit::muted_style).into()
+        text(state.source_file.clone())
+            .size(tokens::TEXT_LABEL)
+            .style(kit::muted_style)
+            .into()
     };
 
     let can_map = state.selected_from.is_some() && state.selected_to.is_some();
@@ -173,7 +189,8 @@ pub fn view_window<'a>(
             .size(tokens::MARK_SQUARE),
         text(t!("Force objects to ByLayer")).size(tokens::TEXT_LABEL),
         Space::new().width(tokens::GAP_FIELD),
-        checkbox(state.write_log)            .on_toggle(Message::LayerTranslatorWriteLog)
+        checkbox(state.write_log)
+            .on_toggle(Message::LayerTranslatorWriteLog)
             .size(tokens::MARK_SQUARE),
         text(t!("Write translation log")).size(tokens::TEXT_LABEL),
     ]

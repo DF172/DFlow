@@ -650,7 +650,10 @@ fn write_header_fields(w: &mut SectionWriter, v: DxfVersion, h: &HeaderVariables
     if r2007_plus(v) {
         w.write_bit_double(h.dim_fixed_ext_line_length);
         // DIMJOGANG valid range is 5°..90°
-        w.write_bit_double(h.dim_jog_angle.clamp(0.0872665, std::f64::consts::FRAC_PI_2));
+        w.write_bit_double(
+            h.dim_jog_angle
+                .clamp(0.0872665, std::f64::consts::FRAC_PI_2),
+        );
         w.write_bit_short(h.dim_text_fill);
         w.write_cm_color(&h.dim_text_fill_color);
     }
@@ -895,8 +898,16 @@ fn write_header_fields(w: &mut SectionWriter, v: DxfVersion, h: &HeaderVariables
         w.write_byte(u8::from(h.record_solid_history));
         w.write_byte(h.show_solid_history.clamp(0, 2) as u8);
         // PSOLWIDTH / PSOLHEIGHT must be positive
-        w.write_bit_double(if h.polysolid_width > 0.0 { h.polysolid_width } else { 0.25 });
-        w.write_bit_double(if h.polysolid_height > 0.0 { h.polysolid_height } else { 4.0 });
+        w.write_bit_double(if h.polysolid_width > 0.0 {
+            h.polysolid_width
+        } else {
+            0.25
+        });
+        w.write_bit_double(if h.polysolid_height > 0.0 {
+            h.polysolid_height
+        } else {
+            4.0
+        });
         w.write_bit_double(h.loft_angle1);
         w.write_bit_double(h.loft_angle2);
         w.write_bit_double(h.loft_magnitude1);

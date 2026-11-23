@@ -7,8 +7,8 @@
 //! dialog next to the insertion scale it belongs to. (#668)
 
 use crate::ui::kit;
-use iced::widget::{container, row, text, Space};
 use crate::ui::kit::plain_button;
+use iced::widget::{container, row, text, Space};
 use iced::{Element, Fill, Theme};
 
 use crate::app::Message;
@@ -74,9 +74,11 @@ fn format_row(
         crate::ui::icons::themed_check_cell(active),
         text(t!(label)).size(tokens::TEXT_LABEL),
         Space::new().width(Fill),
-        text(sample).size(tokens::TEXT_MICRO).style(|theme: &Theme| {
-            kit::color_style(theme.palette().background.base.text.scale_alpha(0.55))
-        }),
+        text(sample)
+            .size(tokens::TEXT_MICRO)
+            .style(|theme: &Theme| {
+                kit::color_style(theme.palette().background.base.text.scale_alpha(0.55))
+            }),
     ]
     .spacing(tokens::GAP_CONTROL)
     .align_y(iced::Center);

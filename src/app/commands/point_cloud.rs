@@ -120,7 +120,8 @@ impl DraftFlowCAD {
         let Some(points) = crate::scene::model::point_cloud::load(&placement.path) else {
             self.command_line
                 .push_error(crate::t!("All scans are not found or invalid.").as_ref());
-            self.command_line.push_error(crate::t!("Attach point cloud failed").as_ref());
+            self.command_line
+                .push_error(crate::t!("Attach point cloud failed").as_ref());
             return;
         };
         let path = placement.path.to_string_lossy().into_owned();
@@ -223,7 +224,8 @@ impl DraftFlowCAD {
                     data.reactor_handle = reactor;
                 }
             }
-            self.command_line.push_output(crate::t!("1 point cloud attached").as_ref());
+            self.command_line
+                .push_output(crate::t!("1 point cloud attached").as_ref());
             if relative_later {
                 self.tabs[i].xref_relative_on_save.insert(format!(
                     "{}{:X}",

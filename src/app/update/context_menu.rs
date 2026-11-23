@@ -4,7 +4,7 @@
 //! The rows themselves are built by `ui::popup::context_menu` (a pure model);
 //! this module is the glue between that model and the app's messages.
 
-use crate::app::{ArrowKey, ContextMenuNav, Message, DraftFlowCAD};
+use crate::app::{ArrowKey, ContextMenuNav, DraftFlowCAD, Message};
 use crate::command::StepInput;
 use crate::scene::pick::grip::GripEditMode;
 use crate::ui::popup::context_menu::{
@@ -102,11 +102,7 @@ impl DraftFlowCAD {
         if opening {
             // Only an expansion replays: collapsing must not queue an entrance
             // for the next submenu that happens to open later.
-            crate::ui::motion::replay(
-                crate::ui::motion::MENU_SUB,
-                1.0,
-                crate::ui::motion::HOVER,
-            );
+            crate::ui::motion::replay(crate::ui::motion::MENU_SUB, 1.0, crate::ui::motion::HOVER);
         }
         // Keep the keyboard highlight on the header that was toggled.
         let menu = self.current_context_menu();

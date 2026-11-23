@@ -626,10 +626,7 @@ impl ViewCubeText {
         let scale = cube_px as f32 * VIEWCUBE_SCALE;
         let inset = cube_half * NAV_INSET_F;
         let (hw, hh) = (vw * 0.5, vh * 0.5);
-        let (cx, cy) = (
-            hw - inset - VIEWCUBE_PAD,
-            hh - inset - VIEWCUBE_PAD,
-        );
+        let (cx, cy) = (hw - inset - VIEWCUBE_PAD, hh - inset - VIEWCUBE_PAD);
         // Screen-space (origin top-left, y down) centre used by the 2D labels.
         let cx_px = vw - inset - VIEWCUBE_PAD;
         let cy_px = inset + VIEWCUBE_PAD;
@@ -702,13 +699,7 @@ impl ViewCubeText {
                 colors.ink
             };
             let height = FACE_LABEL_PX * (0.80 + 0.20 * facing.min(1.0));
-            push_label(
-                &mut verts,
-                [sx, sy],
-                height,
-                self.tiles[index],
-                label_color,
-            );
+            push_label(&mut verts, [sx, sy], height, self.tiles[index], label_color);
         }
 
         // ── Compass cardinals (N / E / S / W) ──────────────────────────────
@@ -1087,7 +1078,7 @@ fn region_outline_lines(vertices: &[CubeVertex], indices: &[u32]) -> Vec<LineVer
 
     let mut edges: HashMap<EdgeKey, ([f32; 3], [f32; 3], Vec<(FaceKey, [f32; 3])>)> =
         HashMap::new();
-    for triangle in indices.chunks_exact(3) {
+    for triangle in indices.as_chunks::<3>().0 {
         let head = vertices[triangle[0] as usize];
         let face = (head.region_f.to_bits(), normal_key(head.normal));
         for (a_index, b_index) in [
@@ -1826,7 +1817,7 @@ fn create_resolve_texture(
 
 fn round_up_viewcube_texture(value: u32) -> u32 {
     const GRID: u32 = 128;
-    ((value.max(1) + GRID - 1) / GRID) * GRID
+    value.max(1).div_ceil(GRID) * GRID
 }
 
 // ── Hit test ──────────────────────────────────────────────────────────────
@@ -1984,8 +1975,13 @@ mod label_layout_tests {
     /// actually verified on screen.
     #[test]
     fn viewcube_labels_keep_their_legibility_floor() {
-        assert!(FACE_LABEL_PX >= 18.0, "face label {FACE_LABEL_PX}");
-        assert!(CARDINAL_LABEL_PX >= 16.0, "cardinal label {CARDINAL_LABEL_PX}");
+        const { assert!(FACE_LABEL_PX >= 18.0, "face label below the 18 px floor") };
+        const {
+            assert!(
+                CARDINAL_LABEL_PX >= 16.0,
+                "cardinal label below the 16 px floor"
+            )
+        };
     }
 
     /// A cardinal rides the same axis as a nudge triangle. If the letter's

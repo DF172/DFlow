@@ -211,7 +211,7 @@ pub fn rasterize_bytes_pages(bytes: Arc<Vec<u8>>, dpi: f32, max_pages: usize) ->
 }
 
 fn unpremultiply(pixels: &mut [u8]) {
-    for px in pixels.chunks_exact_mut(4) {
+    for px in pixels.as_chunks_mut::<4>().0 {
         let a = px[3] as u32;
         if a != 0 && a != 255 {
             for c in &mut px[..3] {
@@ -378,7 +378,7 @@ pub fn adjusted_pixels(
         return hit;
     }
     let mut pixels = raster.pixels.as_ref().clone();
-    for px in pixels.chunks_exact_mut(4) {
+    for px in pixels.as_chunks_mut::<4>().0 {
         if px[3] == 0 {
             continue;
         }

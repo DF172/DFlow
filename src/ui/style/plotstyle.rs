@@ -1,10 +1,10 @@
 //! Plot Style Table Editor window — fills the entire OS window.
 
-use crate::ui::style::tokens;
 use crate::app::Message;
 use crate::t;
-use crate::ui::kit::muted_style;
 use crate::ui::kit;
+use crate::ui::kit::muted_style;
+use crate::ui::style::tokens;
 use iced::widget::{column, container, row, text, text_input, Space};
 use iced::Element;
 use std::borrow::Cow;
@@ -220,7 +220,10 @@ pub fn view_window<'a>(
                     .size(tokens::TEXT_MICRO)
                     .style(muted_style)
                     .width(iced::Length::Fill),
-                text(t!("Layers")).size(tokens::TEXT_MICRO).style(muted_style).width(42),
+                text(t!("Layers"))
+                    .size(tokens::TEXT_MICRO)
+                    .style(muted_style)
+                    .width(42),
             ]
             .align_y(iced::Center),
             // `.spacing(1)` is the seam between two rows, not hairline air: the
@@ -232,10 +235,10 @@ pub fn view_window<'a>(
             // eight screens hand-typing it, and `tokens::control_plate(Weak)`
             // equals `palette.background.weak` by definition (decision A, pinned
             // over 26 themes x 7 rungs), so the fold paints the same.
-            container(crate::ui::kit::themed_scrollable(
-                column(aci_items).spacing(tokens::GAP_SEAM),
+            container(
+                crate::ui::kit::themed_scrollable(column(aci_items).spacing(tokens::GAP_SEAM),)
+                    .height(sizing.height)
             )
-            .height(sizing.height))
             .style(kit::pane_plate_style)
             .width(sizing.width)
             .height(sizing.height)
@@ -298,7 +301,10 @@ pub fn view_window<'a>(
     let edit_panel = container(
         column![
             row![
-                text(t!("ACI:")).size(tokens::TEXT_LABEL).style(muted_style).width(100),
+                text(t!("ACI:"))
+                    .size(tokens::TEXT_LABEL)
+                    .style(muted_style)
+                    .width(100),
                 text(format!("{selected_aci}")).size(tokens::TEXT_LABEL),
             ]
             .spacing(tokens::GAP_ROW)
@@ -404,7 +410,9 @@ pub fn view_window<'a>(
                 .padding(kit::Size::Compact.padding()),
             Space::new().height(tokens::GAP_ROW),
             // ── Current values ───────────────────────────────────────────────
-            text(t!("Current values:")).size(tokens::TEXT_MICRO).style(muted_style),
+            text(t!("Current values:"))
+                .size(tokens::TEXT_MICRO)
+                .style(muted_style),
             text(t!("  Color: %{cur_color}", cur_color = cur_color)).size(tokens::TEXT_MICRO),
             text(t!("  Lineweight: %{cur_lw}", cur_lw = cur_lw)).size(tokens::TEXT_MICRO),
             text(t!("  Screening: %{cur_scr}", cur_scr = cur_scr)).size(tokens::TEXT_MICRO),
@@ -415,7 +423,8 @@ pub fn view_window<'a>(
                 container(
                     column![
                         row![
-                            text(crate::tf!("Layers using ACI {selected_aci}")).size(tokens::TEXT_LABEL),
+                            text(crate::tf!("Layers using ACI {selected_aci}"))
+                                .size(tokens::TEXT_LABEL),
                             Space::new().width(iced::Length::Fill),
                             text(format!(
                                 "{} {}",
@@ -438,7 +447,9 @@ pub fn view_window<'a>(
                             column(
                                 selected_layers
                                     .iter()
-                                    .map(|name| text(format!("• {name}")).size(tokens::TEXT_MICRO).into())
+                                    .map(|name| {
+                                        text(format!("• {name}")).size(tokens::TEXT_MICRO).into()
+                                    })
                                     .collect::<Vec<Element<'_, Message>>>(),
                             )
                             .spacing(tokens::GAP_TIGHT)

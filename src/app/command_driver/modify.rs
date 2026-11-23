@@ -259,7 +259,8 @@ impl DraftFlowCAD {
                     self.tabs[i].snap_result = None;
                     self.tabs[i].scene.clear_preview_wire();
                     self.restore_pre_cmd_tangent();
-                    self.command_line.push_output(crate::t!("BREAK: no geometry changed.").as_ref());
+                    self.command_line
+                        .push_output(crate::t!("BREAK: no geometry changed.").as_ref());
                     return Some(Task::none());
                 }
                 let label = self.history_label_from_active_cmd(i, "BREAK");
@@ -371,8 +372,9 @@ impl DraftFlowCAD {
                 };
                 self.tabs[i].active_cmd = None;
                 if references.is_empty() {
-                    self.command_line
-                        .push_info(crate::t!("HATCHEDIT: no associated boundary objects.").as_ref());
+                    self.command_line.push_info(
+                        crate::t!("HATCHEDIT: no associated boundary objects.").as_ref(),
+                    );
                     return Some(Task::none());
                 }
                 self.tabs[i].scene.deselect_all();
@@ -417,7 +419,8 @@ impl DraftFlowCAD {
                         .is_some_and(|name| self.tabs[i].scene.document.layers.get(name).is_none())
                     {
                         self.discard_last_undo_entry(i);
-                        self.command_line.push_error(crate::t!("HATCHEDIT: layer not found.").as_ref());
+                        self.command_line
+                            .push_error(crate::t!("HATCHEDIT: layer not found.").as_ref());
                         return Some(Task::none());
                     }
                     if let Some(entity) = self.tabs[i].scene.document.get_entity_mut(handle) {
@@ -450,8 +453,9 @@ impl DraftFlowCAD {
                         if let Some((x, y)) = origin {
                             if !self.tabs[i].scene.document.set_hatch_origin([x, y]) {
                                 self.discard_last_undo_entry(i);
-                                self.command_line
-                                    .push_error(crate::t!("HATCHEDIT: cannot store default origin.").as_ref());
+                                self.command_line.push_error(
+                                    crate::t!("HATCHEDIT: cannot store default origin.").as_ref(),
+                                );
                                 return Some(Task::none());
                             }
                         }
@@ -553,8 +557,10 @@ impl DraftFlowCAD {
                         })
                     {
                         self.discard_last_undo_entry(i);
-                        self.command_line
-                            .push_error(crate::t!("HATCHEDIT: associated boundary is no longer available.").as_ref());
+                        self.command_line.push_error(
+                            crate::t!("HATCHEDIT: associated boundary is no longer available.")
+                                .as_ref(),
+                        );
                         return Some(Task::none());
                     }
                     self.tabs[i].scene.replace_hatch_association(handle, paths);
@@ -584,8 +590,9 @@ impl DraftFlowCAD {
                                 !loops.is_empty() && loops.iter().all(|ring| !ring.is_empty())
                             }) else {
                                 self.discard_last_undo_entry(i);
-                                self.command_line
-                                    .push_error(crate::t!("HATCHEDIT: boundary cannot form a region.").as_ref());
+                                self.command_line.push_error(
+                                    crate::t!("HATCHEDIT: boundary cannot form a region.").as_ref(),
+                                );
                                 return Some(Task::none());
                             };
                             let contained = loops
@@ -637,8 +644,9 @@ impl DraftFlowCAD {
                                 .collect::<Option<Vec<_>>>();
                             let Some(entities) = entities else {
                                 self.discard_last_undo_entry(i);
-                                self.command_line
-                                    .push_error(crate::t!("HATCHEDIT: boundary cannot form a region.").as_ref());
+                                self.command_line.push_error(
+                                    crate::t!("HATCHEDIT: boundary cannot form a region.").as_ref(),
+                                );
                                 return Some(Task::none());
                             };
                             (entities, groups)
@@ -646,15 +654,19 @@ impl DraftFlowCAD {
                             let rings = crate::scene::hatch_boundary_rings(&source);
                             if rings.len() != source.paths.len() {
                                 self.discard_last_undo_entry(i);
-                                self.command_line
-                                    .push_error(crate::t!("HATCHEDIT: boundary cannot form a polyline.").as_ref());
+                                self.command_line.push_error(
+                                    crate::t!("HATCHEDIT: boundary cannot form a polyline.")
+                                        .as_ref(),
+                                );
                                 return Some(Task::none());
                             }
                             let entities = crate::scene::boundary_entities(&rings, plane);
                             if entities.len() != source.paths.len() {
                                 self.discard_last_undo_entry(i);
-                                self.command_line
-                                    .push_error(crate::t!("HATCHEDIT: boundary cannot form a polyline.").as_ref());
+                                self.command_line.push_error(
+                                    crate::t!("HATCHEDIT: boundary cannot form a polyline.")
+                                        .as_ref(),
+                                );
                                 return Some(Task::none());
                             }
                             let groups = (0..entities.len()).map(|index| vec![index]).collect();
@@ -888,7 +900,8 @@ impl DraftFlowCAD {
                     self.tabs[tab].dirty = true;
                     self.refresh_properties();
                 } else {
-                    self.command_line.push_error(crate::t!("PEDIT: invalid vertex range.").as_ref());
+                    self.command_line
+                        .push_error(crate::t!("PEDIT: invalid vertex range.").as_ref());
                 }
             }
             PeditOp::ConvertToPolyline => {

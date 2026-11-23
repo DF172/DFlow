@@ -33,8 +33,8 @@ use codec::entities::EntityType;
 // The path-based readers are native-only; web parsing runs through the
 // parse worker / the xref bytes registry instead.
 use codec::io::dwg::DwgReader;
-use codec::{DwgReadOptions, DxfReader, DxfReaderConfiguration};
 use codec::{CadDocument, DwgWriter, DxfWriter};
+use codec::{DwgReadOptions, DxfReader, DxfReaderConfiguration};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU16, AtomicU32, AtomicU8, Ordering};
 use std::sync::Arc;
@@ -165,19 +165,13 @@ impl From<&str> for OpenLoadError {
 #[derive(Debug, Clone)]
 pub enum OpenPick {
     /// A path was chosen and its size read.
-    Picked {
-        path: PathBuf,
-        size_bytes: u64,
-    },
+    Picked { path: PathBuf, size_bytes: u64 },
     /// The dialog was closed without a choice.
     Cancelled,
     /// A path was chosen but `std::fs::metadata` failed. `reason` carries the
     /// OS text: a deleted file, a refused permission and an unreachable
     /// network share are three different situations on the user's machine.
-    Unreadable {
-        path: PathBuf,
-        reason: String,
-    },
+    Unreadable { path: PathBuf, reason: String },
 }
 
 /// Show the file picker and report what came back: a path with its size, a
@@ -250,18 +244,21 @@ pub async fn pick_layer_mapping_path(save: bool) -> Option<PathBuf> {
             })
             .as_ref(),
         )
-        .add_filter(crate::t!("Layer mappings").as_ref(), &["draftflowlmap", "ocslmap"])
+        .add_filter(
+            crate::t!("Layer mappings").as_ref(),
+            &["draftflowlmap", "ocslmap"],
+        )
         .add_filter(crate::t!("All Files").as_ref(), &["*"]);
     let handle = if save {
-        dialog.set_file_name("layers.draftflowlmap").save_file().await?
+        dialog
+            .set_file_name("layers.draftflowlmap")
+            .save_file()
+            .await?
     } else {
         dialog.pick_file().await?
     };
     Some(crate::sys::handle_path(&handle))
 }
-
-
-
 
 /// Load a CAD file from a known path. Parsing and cache building run on a
 /// dedicated OS thread so the async executor stays free for rendering during
@@ -275,7 +272,6 @@ pub async fn open_path_with_phase(
 ) -> Result<(String, PathBuf, CadDocument, DerivedCaches), OpenLoadError> {
     open_path_with_phase_attempt(path, progress, model_bg, OpenAttempt::Strict).await
 }
-
 
 pub async fn recover_path_with_phase(
     path: PathBuf,
@@ -529,18 +525,6 @@ fn panic_message(payload: &(dyn std::any::Any + Send)) -> String {
     message.chars().take(500).collect()
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
 /// Parse a drawing from bytes using its name or recovery-file signature.
 pub fn load_bytes(name: &str, bytes: Vec<u8>) -> Result<CadDocument, String> {
     use std::io::Cursor;
@@ -616,7 +600,6 @@ fn sniff_dwg_or_dxf_bytes(bytes: &[u8]) -> &'static str {
 pub fn load_file(path: &Path) -> Result<CadDocument, String> {
     load_file_with_progress(path, None).map(|outcome| outcome.document)
 }
-
 
 /// Path-based reader with progress — native-only: on the web xrefs resolve
 /// from the bytes registry (`io::xref::read_registered_outcome`), never a
@@ -763,7 +746,6 @@ fn merge_read_diagnostics(target: &mut codec::ReadStats, source: codec::ReadStat
     }
 }
 
-
 fn read_file_attempt(
     path: &Path,
     progress: Option<Arc<dyn Fn(u16) + Send + Sync>>,
@@ -826,7 +808,7 @@ fn read_dwg_path(
     // Reject absurdly large files up front instead of letting the decoder
     // allocate unboundedly from a malicious or corrupt header.
     const MAX_DRAWING_BYTES: u64 = 512 * 1024 * 1024;
-    if std::fs::metadata(path).map_or(false, |meta| meta.len() > MAX_DRAWING_BYTES) {
+    if std::fs::metadata(path).is_ok_and(|meta| meta.len() > MAX_DRAWING_BYTES) {
         return Err(ReaderFailure::terminal(format!(
             "drawing is too large to open ({} MiB limit)",
             MAX_DRAWING_BYTES / (1024 * 1024)
@@ -841,24 +823,19 @@ fn read_dwg_path(
         // fault — or refuses to open under a third-party lock — falls back
         // to one in-memory snapshot read below.
         if !cloud_placeholder(path) {
-            match DwgReader::from_mmap(path) {
-                Ok(mut reader) => {
-                    reader.options = options.clone();
-                    if let Some(progress) = &progress {
-                        reader.set_progress_callback(progress.clone());
-                    }
-                    match reader.read_with_stats() {
-                        Ok(outcome) => return Ok(outcome),
-                        // The file shrank or became unreadable mid-parse;
-                        // retry from a snapshot instead of reporting a bare
-                        // I/O error.
-                        Err(codec::DxfError::Io(_)) => {}
-                        Err(error) => return Err(ReaderFailure::from_reader(error)),
-                    }
+            if let Ok(mut reader) = DwgReader::from_mmap(path) {
+                reader.options = options.clone();
+                if let Some(progress) = &progress {
+                    reader.set_progress_callback(progress.clone());
                 }
-                // Locked or unmappable: the snapshot read surfaces the real
-                // error when the file genuinely cannot be read.
-                Err(_) => {}
+                match reader.read_with_stats() {
+                    Ok(outcome) => return Ok(outcome),
+                    // The file shrank or became unreadable mid-parse;
+                    // retry from a snapshot instead of reporting a bare
+                    // I/O error.
+                    Err(codec::DxfError::Io(_)) => {}
+                    Err(error) => return Err(ReaderFailure::from_reader(error)),
+                }
             }
         }
         let bytes = read_drawing_snapshot(path).map_err(|error| {
@@ -1145,7 +1122,7 @@ pub(crate) fn resolve_image_file(raw: &str, base_dir: Option<&Path>) -> Option<S
     if joined.is_file() {
         return Some(joined.to_string_lossy().into_owned());
     }
-    let name = raw.rsplit(|c| c == '/' || c == '\\').next().unwrap_or(raw);
+    let name = raw.rsplit(['/', '\\']).next().unwrap_or(raw);
     let cand = base_dir.join(name);
     if cand.is_file() {
         return Some(cand.to_string_lossy().into_owned());
@@ -1377,8 +1354,7 @@ pub fn write_backup(path: &std::path::Path) {
 #[cfg(test)]
 pub(crate) fn backup_fault_slot_lock() -> std::sync::MutexGuard<'static, ()> {
     static LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
-    LOCK.lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner())
+    LOCK.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
 }
 
 #[cfg(test)]
@@ -1396,7 +1372,7 @@ mod backup_fault_tests {
                 .as_nanos(),
             name
         ));
-        std::fs::write(&path.with_extension("dwg"), b"previous version").unwrap();
+        std::fs::write(path.with_extension("dwg"), b"previous version").unwrap();
         path.with_extension("dwg")
     }
 
@@ -1680,8 +1656,7 @@ pub async fn pick_plot_style() -> Result<Option<plot_style::PlotStyleTable>, Str
     {
         let path = crate::sys::handle_path(&handle);
         let table = plot_style::PlotStyleTable::load(&path)?;
-        if let (Ok(dir), Some(file_name)) =
-            (plot_style::ensure_plot_styles_dir(), path.file_name())
+        if let (Ok(dir), Some(file_name)) = (plot_style::ensure_plot_styles_dir(), path.file_name())
         {
             let destination = dir.join(file_name);
             let same_place = path.parent().is_some_and(|parent| {
@@ -2025,7 +2000,6 @@ pub fn prepare_document_for_save(mut doc: CadDocument, version: codec::DxfVersio
     }
     doc
 }
-
 
 // ── Post-load fixups ──────────────────────────────────────────────────────
 
@@ -2489,11 +2463,8 @@ fn fix_viewport_status_flags(doc: &mut CadDocument) {
 /// reader, so arms for them here would convert twice.
 fn fix_dxf_dimension_rotations(doc: &mut CadDocument) {
     for entity in doc.entities_mut() {
-        match entity {
-            EntityType::Shape(s) => {
-                s.rotation = s.rotation.to_radians();
-            }
-            _ => {}
+        if let EntityType::Shape(s) = entity {
+            s.rotation = s.rotation.to_radians();
         }
     }
 }
@@ -2664,8 +2635,8 @@ mod dimension_arrow_save_tests {
                 "{ext}"
             );
 
-            let path =
-                std::env::temp_dir().join(format!("draftflow_dim_arrows_{}.{ext}", std::process::id()));
+            let path = std::env::temp_dir()
+                .join(format!("draftflow_dim_arrows_{}.{ext}", std::process::id()));
             save_as_version(&doc, &path, codec::DxfVersion::AC1032).unwrap();
             let loaded = load_file(&path).unwrap();
             std::fs::remove_file(&path).unwrap();
@@ -2819,8 +2790,10 @@ mod corrupt_guard_tests {
         assert_eq!(spline.degree, 1);
         assert_eq!(spline.knots, vec![0.0, 0.0, 1.0, 1.0]);
 
-        let path =
-            std::env::temp_dir().join(format!("draftflow_knotless_spline_{}.dwg", std::process::id()));
+        let path = std::env::temp_dir().join(format!(
+            "draftflow_knotless_spline_{}.dwg",
+            std::process::id()
+        ));
         save_as_version(&doc, &path, codec::DxfVersion::AC1032).expect("save");
         let _ = std::fs::remove_file(&path);
     }
@@ -2833,8 +2806,14 @@ mod corrupt_guard_tests {
             "0\nSECTION\n2\nENTITIES\n0\nSPLINE\n8\n0\n70\n0\n71\n3\n72\n0\n73\n2\n74\n0\n\
 10\n0\n20\n0\n30\n0\n10\n1\n20\n1\n30\n0\n0\nENDSEC\n0\nEOF\n";
         let dir = std::env::temp_dir();
-        let source = dir.join(format!("draftflow_knotless_load_{}.dxf", std::process::id()));
-        let target = dir.join(format!("draftflow_knotless_load_{}.dwg", std::process::id()));
+        let source = dir.join(format!(
+            "draftflow_knotless_load_{}.dxf",
+            std::process::id()
+        ));
+        let target = dir.join(format!(
+            "draftflow_knotless_load_{}.dwg",
+            std::process::id()
+        ));
         std::fs::write(&source, DXF).unwrap();
         let doc = load_file(&source).expect("load");
         let _ = std::fs::remove_file(&source);
@@ -3157,10 +3136,8 @@ mod prepare_save_tests {
     fn prepare_bakes_missing_dimension_blocks() {
         let mut doc = CadDocument::new();
         crate::io::linetypes::populate_document(&mut doc);
-        let mut dim = DimensionLinear::new(
-            Vector3::new(0.0, 0.0, 0.0),
-            Vector3::new(10.0, 0.0, 0.0),
-        );
+        let mut dim =
+            DimensionLinear::new(Vector3::new(0.0, 0.0, 0.0), Vector3::new(10.0, 0.0, 0.0));
         dim.definition_point = Vector3::new(5.0, 7.0, 0.0);
         dim.base.definition_point = Vector3::ZERO;
         dim.base.common.handle = doc.allocate_handle();
@@ -3169,8 +3146,7 @@ mod prepare_save_tests {
             .unwrap();
 
         let prepared = prepare_document_for_save(doc.clone(), doc.version);
-        let EntityType::Dimension(Dimension::Linear(linear)) =
-            prepared.get_entity(handle).unwrap()
+        let EntityType::Dimension(Dimension::Linear(linear)) = prepared.get_entity(handle).unwrap()
         else {
             panic!("dimension missing from prepared clone");
         };
@@ -3179,13 +3155,14 @@ mod prepare_save_tests {
             "anonymous dimension block not baked: {}",
             linear.base.block_name
         );
-        assert!(prepared.block_records.get(&linear.base.block_name).is_some());
+        assert!(prepared
+            .block_records
+            .get(&linear.base.block_name)
+            .is_some());
         assert_eq!(linear.base.definition_point, linear.definition_point);
 
         // The live document is untouched: no block name, stale group-10.
-        let EntityType::Dimension(Dimension::Linear(live)) =
-            doc.get_entity(handle).unwrap()
-        else {
+        let EntityType::Dimension(Dimension::Linear(live)) = doc.get_entity(handle).unwrap() else {
             panic!("dimension missing from live document");
         };
         assert!(live.base.block_name.is_empty());
@@ -3199,10 +3176,8 @@ mod prepare_save_tests {
     fn save_to_bytes_equals_prepare_then_shared_serialize() {
         let mut doc = CadDocument::new();
         crate::io::linetypes::populate_document(&mut doc);
-        let mut dim = DimensionLinear::new(
-            Vector3::new(0.0, 0.0, 0.0),
-            Vector3::new(10.0, 0.0, 0.0),
-        );
+        let mut dim =
+            DimensionLinear::new(Vector3::new(0.0, 0.0, 0.0), Vector3::new(10.0, 0.0, 0.0));
         dim.base.common.handle = doc.allocate_handle();
         doc.add_entity(EntityType::Dimension(Dimension::Linear(dim)))
             .unwrap();
@@ -3210,7 +3185,10 @@ mod prepare_save_tests {
             let inline = save_to_bytes(&doc, ext, codec::DxfVersion::AC1032).expect("inline");
             let prepared = prepare_document_for_save(doc.clone(), codec::DxfVersion::AC1032);
             let shared = draftflow_save::serialize_document(&prepared, ext).expect("shared");
-            assert_eq!(inline, shared, "inline and shared serialize diverge for {ext}");
+            assert_eq!(
+                inline, shared,
+                "inline and shared serialize diverge for {ext}"
+            );
         }
     }
 }

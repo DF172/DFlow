@@ -6,7 +6,7 @@ use super::{format_size, VIEWCUBE_HIT_SIZE};
 use crate::app::helpers::{
     parse_coord, polar_constrain_near, ucs_rotate_vec, ucs_to_wcs, ucs_z_axis, CoordKind,
 };
-use crate::app::{Message, DraftFlowCAD, POLY_START_DELAY_MS};
+use crate::app::{DraftFlowCAD, Message, POLY_START_DELAY_MS};
 use crate::modules::ModuleEvent;
 use crate::scene::model::object::GripApply;
 use crate::scene::pick::grip::{find_hit_grip, find_hit_grip_paper, find_hit_grip_rte, GripEdit};
@@ -480,8 +480,10 @@ mod plot_owner_aci_tests {
             .add_entity(codec::EntityType::Insert(insert))
             .expect("insert must be added");
 
-        let mut wire = crate::scene::WireModel::default();
-        wire.name = insert_handle.value().to_string();
+        let mut wire = crate::scene::WireModel {
+            name: insert_handle.value().to_string(),
+            ..Default::default()
+        };
 
         // Pretend BlockCache resolved the layer-0 child to indexed color 5.
         // The plot preparation step must preserve it instead of replacing it
@@ -511,9 +513,11 @@ mod plot_owner_aci_tests {
             .add_entity(codec::EntityType::Line(line))
             .expect("line must be added");
 
-        let mut wire = crate::scene::WireModel::default();
-        wire.name = line_handle.value().to_string();
-        wire.aci = 5;
+        let mut wire = crate::scene::WireModel {
+            name: line_handle.value().to_string(),
+            aci: 5,
+            ..Default::default()
+        };
 
         plot_owner_aci(&scene, &mut wire);
 
@@ -679,7 +683,9 @@ impl DraftFlowCAD {
                     return Vec::new();
                 };
                 mesh.edge_verts
-                    .chunks_exact(2)
+                    .as_chunks::<2>()
+                    .0
+                    .iter()
                     .enumerate()
                     .map(|(index, points)| {
                         let first_low = mesh
@@ -1021,7 +1027,7 @@ impl DraftFlowCAD {
                 .iter()
                 .map(|(k, v)| (k.clone(), *v))
                 .collect();
-            items.sort_by(|a, b| b.1.cmp(&a.1));
+            items.sort_by_key(|item| std::cmp::Reverse(item.1));
             items.truncate(200);
             self.block_freq = items.into_iter().collect();
         }
@@ -1284,7 +1290,8 @@ impl DraftFlowCAD {
         self.show_graphic_attributes = cfg.show_graphic_attributes;
         self.graphic_attributes.fill_on_current_layer = cfg.graphic_fills_on_current_layer;
         if self.show_graphic_attributes {
-            self.dock.dock_below_properties(crate::ui::dock::PanelId::GraphicAttributes);
+            self.dock
+                .dock_below_properties(crate::ui::dock::PanelId::GraphicAttributes);
         }
         self.ribbon
             .set_graphic_attributes(self.show_graphic_attributes);
@@ -1391,8 +1398,6 @@ impl DraftFlowCAD {
         }
     }
 
-
-
     pub(in crate::app) fn next_open_id(&mut self) -> u64 {
         self.open_job_serial = self.open_job_serial.wrapping_add(1).max(1);
         self.open_job_serial
@@ -1406,7 +1411,6 @@ impl DraftFlowCAD {
     /// resolved (deleted since) matches nothing and falls through to the normal
     /// open, which reports the miss.
     pub(in crate::app) fn tab_showing(&self, path: &std::path::Path) -> Option<usize> {
-
         {
             let want = std::fs::canonicalize(path).ok()?;
             self.tabs.iter().position(|t| {
@@ -1488,8 +1492,7 @@ impl DraftFlowCAD {
         // `File::open` — the part of `capture` that fails while another
         // process holds the drawing — is exactly when the comparison below
         // has to run, so it must not depend on opening the path again.
-        let current_fingerprint = self
-            .tabs[i]
+        let current_fingerprint = self.tabs[i]
             .edit_lease
             .as_mut()
             .and_then(|lease| lease.fingerprint().ok().flatten())
@@ -1557,8 +1560,7 @@ impl DraftFlowCAD {
             }
             None => self.install_native_edit_guard(i, path, None),
         }
-        self.tabs[i].disk_fingerprint = self
-            .tabs[i]
+        self.tabs[i].disk_fingerprint = self.tabs[i]
             .edit_lease
             .as_mut()
             .and_then(|lease| lease.fingerprint().ok().flatten())
@@ -2066,6 +2068,16 @@ impl DraftFlowCAD {
                 .set(crate::app::OPEN_PHASE_FINALIZING, 10000, 1, 1);
         }
         self.opening.take();
+        // Item 38: a large drawing uncovers in a spatial sweep instead of
+        // snapping in whole. Small files skip it — a sweep over a sketch
+        // would read as a glitch, not as the file finishing.
+        if entity_count >= crate::ui::motion::REVEAL_MIN_ENTITIES {
+            crate::ui::motion::replay(
+                crate::ui::motion::REVEAL,
+                1.0,
+                crate::ui::motion::REVEAL_TIME,
+            );
+        }
         // The tab list just changed (and the active tab with it): remember
         // it for the next boot's restore flow (web session memory).
         let pending_open_task = if let Some(report) = recovery_report {
@@ -2135,7 +2147,10 @@ impl DraftFlowCAD {
                     let document = if worker_name == "*" {
                         crate::modules::insert::wblock::extract_entities_to_doc(&document, &handles)
                     } else {
-                        crate::modules::insert::wblock::extract_block_to_doc(&document, &worker_name)
+                        crate::modules::insert::wblock::extract_block_to_doc(
+                            &document,
+                            &worker_name,
+                        )
                     }
                     .map_err(|e| e.to_string())?;
                     crate::io::save(&document, &worker_path).map_err(|e| e.to_string())
@@ -2144,9 +2159,6 @@ impl DraftFlowCAD {
             )
         }
     }
-
-
-
 
     pub(super) fn on_stl_export_path_some(&mut self, path: std::path::PathBuf) -> Task<Message> {
         // Re-build STL bytes (we can't easily pass them through the message).
@@ -2285,7 +2297,6 @@ impl DraftFlowCAD {
         Ok((expected, reader))
     }
 
-
     pub(super) fn on_thumbnail_capture_frame(&mut self) -> Task<Message> {
         let Some(pending) = self.pending_native_thumbnail_save.take() else {
             return Task::none();
@@ -2304,11 +2315,6 @@ impl DraftFlowCAD {
             pending.check_external_change,
         )
     }
-
-
-
-
-
 
     pub(in crate::app) fn queue_native_save(
         &mut self,
@@ -3134,8 +3140,6 @@ impl DraftFlowCAD {
         // showSaveFilePicker pick, or the legacy download.
     }
 
-
-
     /// Native: a destination path came back from the OS save dialog — write the
     /// file there in the chosen version. `None` means the user cancelled.
     pub(super) fn on_save_dialog_path_picked(
@@ -3247,7 +3251,6 @@ impl DraftFlowCAD {
         }
     }
 
-
     /// Periodic autosave (SAVETIME): write a `.sv$` recovery copy for every
     /// dirty tab — beside the file if it's saved, else under the temp dir — at
     /// the document's own DWG version. Best-effort and non-destructive: it never
@@ -3273,18 +3276,6 @@ impl DraftFlowCAD {
         }
         Task::batch(tasks)
     }
-
-
-
-
-
-
-
-
-
-
-
-
 
     /// Delete the `.sv$` autosave recovery files for all open drawings. They
     /// exist only to survive a crash, so a clean save or exit removes them.
@@ -4240,9 +4231,9 @@ impl DraftFlowCAD {
             background_task(
                 crate::t!("Print to printer"),
                 move || {
-                    iced::futures::executor::block_on(crate::io::print_to_printer::print_wires_with(
-                        page, options,
-                    ))
+                    iced::futures::executor::block_on(
+                        crate::io::print_to_printer::print_wires_with(page, options),
+                    )
                 },
                 Message::PrintResult,
             )
@@ -4525,11 +4516,9 @@ impl DraftFlowCAD {
             self.plot_dialog.scale_lw = false;
         }
         // A model-space plot cannot use the paper-only Layout area.
-        if cur == "Model" {
-            if self.plot_dialog.area == "Layout" {
-                self.plot_dialog.area = "Window".into();
-                self.normalize_common_plot_dialog();
-            }
+        if cur == "Model" && self.plot_dialog.area == "Layout" {
+            self.plot_dialog.area = "Window".into();
+            self.normalize_common_plot_dialog();
         }
         self.open_modal(crate::app::ModalKind::Plot);
         // Loading printer capabilities is informational when Plot merely
@@ -5994,7 +5983,7 @@ impl DraftFlowCAD {
 
 #[cfg(test)]
 mod plot_paper_tests {
-    use crate::app::{Message, DraftFlowCAD};
+    use crate::app::{DraftFlowCAD, Message};
     use crate::ui::window::plot::PlotDlgMsg;
 
     /// A drawing on `Layout1` whose page setup names its sheet the way a
@@ -6384,10 +6373,7 @@ mod plot_paper_tests {
             assert_eq!(d.area, "Layout");
             assert_eq!(d.scale, "1:1", "{layout}: a 1:1 plot in either paper unit");
             assert_eq!(d.to_file, pdf, "{layout}");
-            assert_eq!(
-                super::plot_dialog_sheet_mm(d).0 > super::plot_dialog_sheet_mm(d).1,
-                true
-            );
+            assert!(super::plot_dialog_sheet_mm(d).0 > super::plot_dialog_sheet_mm(d).1);
             assert!(
                 d.lineweights && d.apply_plot_styles && d.paperspace_last,
                 "{layout}"
@@ -6731,7 +6717,10 @@ mod plot_paper_tests {
         // and PDF drivers, so an SVG plot stores the PDF driver spelling.
         let _ = app.on_plot_dlg(PlotDlgMsg::Printer(crate::ui::window::plot::OUT_SVG.into()));
         let _ = app.on_plot_dlg(PlotDlgMsg::SetCurrent);
-        let ps = app.tabs[app.active_tab].scene.plot_settings_for("Layout1").unwrap();
+        let ps = app.tabs[app.active_tab]
+            .scene
+            .plot_settings_for("Layout1")
+            .unwrap();
         assert_eq!(ps.printer_name, "DWG To PDF.pc3");
     }
 
@@ -6819,7 +6808,10 @@ mod plot_paper_tests {
         assert_eq!(ps.printer_name, "DraftFlow Test Printer");
         // Reopening resolves the stored name back to the same printer.
         let _ = app.on_plot_dialog_open();
-        assert_eq!(app.plot_dialog.printer.as_deref(), Some("DraftFlow Test Printer"));
+        assert_eq!(
+            app.plot_dialog.printer.as_deref(),
+            Some("DraftFlow Test Printer")
+        );
         // A media answer for a printer that is no longer selected is ignored.
         let _ = app.on_plot_dlg(PlotDlgMsg::Printer(crate::ui::window::plot::OUT_PDF.into()));
         let caps = std::sync::Arc::new(crate::io::plot_device::PrinterCapabilities::default());
@@ -7069,10 +7061,13 @@ mod plot_device_persistence_tests {
     /// page setup used to reset the choice to the system default on every
     /// open.
     #[test]
+    #[allow(clippy::field_reassign_with_default)] // PlotSettings.cached_scale is private
     fn reopening_the_plot_dialog_keeps_the_chosen_printer() {
         let mut app = DraftFlowCAD::new_for_test();
         // A real drawing's layout carries plot settings with no device; the
         // auto-applied setup used to reset the choice to the default.
+        // PlotSettings.cached_scale is private, so struct-update syntax is
+        // unavailable here; keep the default-then-assign form.
         let mut ps = codec::objects::PlotSettings::default();
         ps.printer_name = String::new();
         let layout = app.tabs[app.active_tab].scene.current_layout.clone();
@@ -7365,9 +7360,12 @@ mod plot_device_persistence_tests {
     /// A layout whose plot settings name an explicit device wins over the
     /// saved preference: selecting its setup is an explicit device choice.
     #[test]
+    #[allow(clippy::field_reassign_with_default)] // PlotSettings.cached_scale is private
     fn layout_device_overrides_the_saved_preference() {
         let mut app = DraftFlowCAD::new_for_test();
         app.plot_dialog.printer = Some("Brother DCP-L2520D series".into());
+        // PlotSettings.cached_scale is private, so struct-update syntax is
+        // unavailable here; keep the default-then-assign form.
         let mut ps = codec::objects::PlotSettings::default();
         ps.printer_name = "Godex G500".into();
         app.load_plotsettings_into_dialog(&ps);
@@ -7391,8 +7389,11 @@ mod plot_device_persistence_tests {
     /// A window freshly loaded from a layout's plot settings is mirrored into
     /// the dialog so it persists with the next config save.
     #[test]
+    #[allow(clippy::field_reassign_with_default)] // PlotSettings.cached_scale is private
     fn layout_window_is_mirrored_into_the_dialog() {
         let mut app = DraftFlowCAD::new_for_test();
+        // PlotSettings.cached_scale is private, so struct-update syntax is
+        // unavailable here; keep the default-then-assign form.
         let mut ps = codec::objects::PlotSettings::default();
         ps.plot_type = codec::objects::PlotType::Window;
         ps.set_plot_window(1.0, 2.0, 3.0, 4.0);
@@ -7403,9 +7404,12 @@ mod plot_device_persistence_tests {
 
     /// A layout pointing at a PDF device switches the dialog to file output.
     #[test]
+    #[allow(clippy::field_reassign_with_default)] // PlotSettings.cached_scale is private
     fn pdf_device_switches_to_file_output() {
         let mut app = DraftFlowCAD::new_for_test();
         app.plot_dialog.printer = Some("Brother DCP-L2520D series".into());
+        // PlotSettings.cached_scale is private, so struct-update syntax is
+        // unavailable here; keep the default-then-assign form.
         let mut ps = codec::objects::PlotSettings::default();
         ps.printer_name = "Microsoft Print to PDF".into();
         app.load_plotsettings_into_dialog(&ps);
@@ -7417,7 +7421,7 @@ mod plot_device_persistence_tests {
 #[cfg(test)]
 mod background_task_tests {
     use super::background_task;
-    use crate::app::{Message, DraftFlowCAD};
+    use crate::app::{DraftFlowCAD, Message};
     use iced::futures::StreamExt;
     use iced::Task;
 
@@ -7471,8 +7475,7 @@ mod background_task_tests {
     }
 }
 
-impl DraftFlowCAD {
-}
+impl DraftFlowCAD {}
 
 /// B1: the open picker hands the app three states, not `Option`. These guard
 /// the receiving side (`Message::OpenPathPicked`), one test per state, plus a
@@ -7610,7 +7613,11 @@ mod open_pick_round_trip_tests {
             body.contains("size_bytes: meta.len()"),
             "the only size the picker may hand on is the one metadata reported, got:\n{body}"
         );
-        for state in ["OpenPick::Cancelled", "OpenPick::Unreadable", "OpenPick::Picked"] {
+        for state in [
+            "OpenPick::Cancelled",
+            "OpenPick::Unreadable",
+            "OpenPick::Picked",
+        ] {
             assert!(
                 body.contains(state),
                 "pick_open_path must still produce {state:?}, got:\n{body}"
@@ -7634,7 +7641,10 @@ mod recovery_retry_size_tests {
             .duration_since(std::time::UNIX_EPOCH)
             .map(|elapsed| elapsed.as_nanos())
             .unwrap_or(0);
-        std::env::temp_dir().join(format!("draftflow-b8-{name}-{}-{nanos}", std::process::id()))
+        std::env::temp_dir().join(format!(
+            "draftflow-b8-{name}-{}-{nanos}",
+            std::process::id()
+        ))
     }
 
     #[test]
@@ -7659,9 +7669,8 @@ mod recovery_retry_size_tests {
                 .expect("a picked path must start the loading overlay");
             assert_eq!(opening.size_bytes, measured);
             // The state this branch reacts to: the disk moved under the read.
-            opening.fingerprint = Some(
-                FileFingerprint::capture(&path).expect("fingerprint of the scratch file"),
-            );
+            opening.fingerprint =
+                Some(FileFingerprint::capture(&path).expect("fingerprint of the scratch file"));
         }
         // Now the file is unreachable, so both the fingerprint and the re-stat
         // inside the branch fail — the exact case that used to write 0.
@@ -7698,9 +7707,8 @@ mod recovery_retry_size_tests {
                 .opening
                 .as_mut()
                 .expect("a picked path must start the loading overlay");
-            opening.fingerprint = Some(
-                FileFingerprint::capture(&path).expect("fingerprint of the scratch file"),
-            );
+            opening.fingerprint =
+                Some(FileFingerprint::capture(&path).expect("fingerprint of the scratch file"));
         }
         let bigger = b"DWG followed by a lot more bytes than before";
         std::fs::write(&path, bigger).expect("grow the scratch file");
@@ -7754,9 +7762,8 @@ mod autosave_discard_tests {
     #[cfg(windows)]
     fn refuse_unlink(path: &std::path::Path) -> std::fs::File {
         use std::os::windows::fs::OpenOptionsExt;
-        const SHARE_WITHOUT_DELETE: u32 =
-            windows_sys::Win32::Storage::FileSystem::FILE_SHARE_READ
-                | windows_sys::Win32::Storage::FileSystem::FILE_SHARE_WRITE;
+        const SHARE_WITHOUT_DELETE: u32 = windows_sys::Win32::Storage::FileSystem::FILE_SHARE_READ
+            | windows_sys::Win32::Storage::FileSystem::FILE_SHARE_WRITE;
         std::fs::OpenOptions::new()
             .read(true)
             .write(true)

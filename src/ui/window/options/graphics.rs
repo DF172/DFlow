@@ -6,9 +6,9 @@
 
 use crate::app::Message;
 use crate::gpu_backend::{ActiveGpu, BackendChoice, GraphicsPrefs};
+use crate::ui::style::tokens;
 use iced::widget::{checkbox, column, row, text, Space};
 use iced::{Element, Fill};
-use crate::ui::style::tokens;
 
 fn current_row(label: std::borrow::Cow<'static, str>, value: String) -> Element<'static, Message> {
     row![
@@ -77,7 +77,9 @@ pub(crate) fn view(prefs: GraphicsPrefs, active: ActiveGpu) -> Element<'static, 
         text(crate::t!("Next launch")).size(tokens::TEXT_META),
         Space::new().height(8),
         row![
-            text(crate::t!("Graphics backend")).size(tokens::TEXT_BODY).width(150),
+            text(crate::t!("Graphics backend"))
+                .size(tokens::TEXT_BODY)
+                .width(150),
             backend
         ]
         .spacing(tokens::GAP_FIELD)

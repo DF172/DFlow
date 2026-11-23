@@ -523,8 +523,7 @@ mod tests {
         };
         for language in Language::ALL.into_iter().filter(|l| *l != Language::System) {
             let resource =
-                Localizations::get(&format!("{}/draftflow.ftl", language.requested()[0]))
-                    .unwrap();
+                Localizations::get(&format!("{}/draftflow.ftl", language.requested()[0])).unwrap();
             let text = std::str::from_utf8(&resource.data).unwrap();
             if let Err((_, errors)) = fluent_syntax::parser::parse(text) {
                 panic!("Invalid Fluent syntax in {language:?}: {errors:?}");
@@ -819,14 +818,15 @@ mod tests {
         fn item_labels(item: &crate::modules::RibbonItem, out: &mut Vec<(&'static str, String)>) {
             use crate::modules::RibbonItem as I;
             match item {
-                I::Tool(t) | I::LabeledTool(t) | I::LargeTool(t) => out.push((t.label, "tool".into())),
+                I::Tool(t) | I::LabeledTool(t) | I::LargeTool(t) => {
+                    out.push((t.label, "tool".into()))
+                }
                 I::Dropdown { items, .. } => out.extend(
                     items
                         .iter()
                         .map(|(_, label, _)| (*label, "dropdown item".to_string())),
                 ),
-                I::LabeledDropdown { label, items, .. }
-                | I::LargeDropdown { label, items, .. } => {
+                I::LabeledDropdown { label, items, .. } | I::LargeDropdown { label, items, .. } => {
                     // An empty face label shows the chosen item's name instead.
                     if !label.is_empty() {
                         out.push((*label, "dropdown face".into()));
@@ -890,7 +890,6 @@ mod tests {
         );
     }
 
-
     /// Sinks whose argument is drawn on screen: the command line, a widget, or a display-named field.
     /// Whitespace between the token and `format!(` is ignored by the scanner, so no entry ends in a
     /// space; the char before a match has to be a real boundary.
@@ -941,7 +940,9 @@ mod tests {
         // fixtures before the tree: a broken scanner and a clean tree both report zero, so the firing
         // has to be shown here.
         assert_eq!(
-            bare_format_at_display_sink("self.command_line.push_info(&format!(\"Kicked {} objects\", n));"),
+            bare_format_at_display_sink(
+                "self.command_line.push_info(&format!(\"Kicked {} objects\", n));"
+            ),
             vec![(1, "Kicked {} objects".to_string())]
         );
         assert_eq!(
@@ -949,11 +950,15 @@ mod tests {
             vec![(2, "Done {} times".to_string())]
         );
         // the sink in front is what makes it a screen; without one the same template is internal data
-        assert!(bare_format_at_display_sink("let s = format!(\"Kicked {} objects\", n);").is_empty());
+        assert!(
+            bare_format_at_display_sink("let s = format!(\"Kicked {} objects\", n);").is_empty()
+        );
         // a sink whose template holds nothing prose-shaped
         assert!(bare_format_at_display_sink("text(format!(\"{} / {}\", a, b));").is_empty());
         // the exemption list is consulted, and a comment is not a call site
-        assert!(bare_format_at_display_sink("// text(format!(\"Kicked {} objects\", n));").is_empty());
+        assert!(
+            bare_format_at_display_sink("// text(format!(\"Kicked {} objects\", n));").is_empty()
+        );
         assert!(bare_format_at_display_sink("text(format!(\"{} px\", w));").is_empty());
 
         let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src");
@@ -988,10 +993,16 @@ mod tests {
                     }
                     continue;
                 }
-                hits.push(format!("{}:{line}: format!(\"{template}\")", file.display()));
+                hits.push(format!(
+                    "{}:{line}: format!(\"{template}\")",
+                    file.display()
+                ));
             }
         }
-        assert!(scanned > 500, "only {scanned} source files were walked, so the scan is broken");
+        assert!(
+            scanned > 500,
+            "only {scanned} source files were walked, so the scan is broken"
+        );
         assert!(
             excluded > 0,
             "the dual-use exclusion branch never fired, so DUAL_USE_SITES is stale"
@@ -1011,10 +1022,13 @@ mod tests {
     #[test]
     fn every_constraint_kind_label_is_a_catalog_entry() {
         assert_eq!(
-            label_fn_returns("pub const fn label(self) -> &'static str {\n        Self::A => \"Alpha\",\n    }"),
+            label_fn_returns(
+                "pub const fn label(self) -> &'static str {\n        Self::A => \"Alpha\",\n    }"
+            ),
             vec![(2, "Alpha".to_string())]
         );
-        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src/scene/parametric_constraints.rs");
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("src/scene/parametric_constraints.rs");
         let text = std::fs::read_to_string(&path).expect("constraint source must be readable");
         let labels = label_fn_returns(&text);
         assert!(
@@ -1043,7 +1057,11 @@ mod tests {
     fn catalog_has_no_duplicate_literal_arms() {
         let fixture = "\"a\" => Some((\"p\", \"x\")),\n\"a\" => Some((\"q\", \"y\")),\n";
         let arms = catalog_literal_arms(fixture);
-        assert_eq!(arms.len(), 2, "fixture arms parsed: the extractor stopped seeing arms");
+        assert_eq!(
+            arms.len(),
+            2,
+            "fixture arms parsed: the extractor stopped seeing arms"
+        );
         assert_eq!(arms[1], (2, "a".to_string()), "fixture line numbering");
         let fired = duplicate_literal_arms(fixture);
         assert_eq!(fired.len(), 1, "the duplicate branch never opened fire");
@@ -1168,8 +1186,12 @@ mod tests {
             pairs.len()
         );
 
-        let (count, fixture) = locale_slots("annotate =\n    .slot-a = one\n.slot-b = two\n   .slot-c = three\n");
-        assert_eq!(count, 3, "attributes at 0, 3 and 4 spaces must all attach to their message");
+        let (count, fixture) =
+            locale_slots("annotate =\n    .slot-a = one\n.slot-b = two\n   .slot-c = three\n");
+        assert_eq!(
+            count, 3,
+            "attributes at 0, 3 and 4 spaces must all attach to their message"
+        );
         for slug in ["slot-a", "slot-b", "slot-c"] {
             assert!(
                 fixture.contains(&format!("annotate.{slug}")),
@@ -1187,8 +1209,12 @@ mod tests {
         let mut offenders = Vec::new();
         let mut attributes = 0;
         for path in &paths {
-            let locale = path.file_name().and_then(|name| name.to_str()).unwrap_or("?");
-            let text = std::fs::read_to_string(path.join("draftflow.ftl")).expect("locale must be readable");
+            let locale = path
+                .file_name()
+                .and_then(|name| name.to_str())
+                .unwrap_or("?");
+            let text = std::fs::read_to_string(path.join("draftflow.ftl"))
+                .expect("locale must be readable");
             let (count, have) = locale_slots(&text);
             attributes += count;
             offenders.extend(
@@ -1254,7 +1280,10 @@ mod tests {
 
         let mut offenders = Vec::new();
         for path in &paths {
-            let locale = path.file_name().and_then(|name| name.to_str()).unwrap_or("?");
+            let locale = path
+                .file_name()
+                .and_then(|name| name.to_str())
+                .unwrap_or("?");
             let text = std::fs::read_to_string(path.join("draftflow.ftl"))
                 .expect("locale must be readable");
             let slots = attribute_values(&text, "splash");
@@ -1307,7 +1336,10 @@ mod tests {
             "found {calls} call(s) over {} key(s), so this guard read the wrong shape",
             keys.len()
         );
-        assert!(keys.contains("downloading"), "a multi-line tr! call was missed");
+        assert!(
+            keys.contains("downloading"),
+            "a multi-line tr! call was missed"
+        );
 
         let dir = root.join("locales");
         let mut paths: Vec<_> = std::fs::read_dir(&dir)
@@ -1339,7 +1371,10 @@ mod tests {
         let mut offenders = Vec::new();
         let mut slots = 0;
         for path in &paths {
-            let locale = path.file_name().and_then(|name| name.to_str()).unwrap_or("?");
+            let locale = path
+                .file_name()
+                .and_then(|name| name.to_str())
+                .unwrap_or("?");
             let text = std::fs::read_to_string(path.join("draftflow.ftl"))
                 .expect("locale must be readable");
             let values = attribute_values(&text, MESSAGE);
@@ -1349,9 +1384,8 @@ mod tests {
                         slots += 1;
                         for placeholder in &required[key] {
                             if !value.contains(&format!("${placeholder}")) {
-                                offenders.push(format!(
-                                    "{locale}: {MESSAGE}.{key} lost ${placeholder}"
-                                ));
+                                offenders
+                                    .push(format!("{locale}: {MESSAGE}.{key} lost ${placeholder}"));
                             }
                         }
                     }
@@ -1643,7 +1677,10 @@ mod tests {
             let has_word = prose.as_bytes().windows(2).any(|w| {
                 (w[0] as char).is_ascii_alphabetic() && (w[1] as char).is_ascii_alphabetic()
             });
-            if !has_word || STAYS_ENGLISH.contains(&template.as_str()) || template.starts_with("SETVAR: ") {
+            if !has_word
+                || STAYS_ENGLISH.contains(&template.as_str())
+                || template.starts_with("SETVAR: ")
+            {
                 continue;
             }
             out.push((line, template));
@@ -1681,7 +1718,9 @@ mod tests {
         let mut out = Vec::new();
         for (index, line) in text.lines().enumerate() {
             let prefix = format!("{field}: ");
-            let Some(at) = line.find(&prefix) else { continue };
+            let Some(at) = line.find(&prefix) else {
+                continue;
+            };
             let rest = &line[at + prefix.len()..];
             let Some(body) = rest.strip_prefix('"') else {
                 assert!(
@@ -1734,7 +1773,10 @@ mod tests {
         let mut line = 1_usize;
         let mut walked = 0_usize;
         while index + 4 <= chars.len() {
-            let long = chars[index] == 't' && chars[index + 1] == 'f' && chars[index + 2] == '!' && chars[index + 3] == '(';
+            let long = chars[index] == 't'
+                && chars[index + 1] == 'f'
+                && chars[index + 2] == '!'
+                && chars[index + 3] == '(';
             let short = chars[index] == 't' && chars[index + 1] == '!' && chars[index + 2] == '(';
             if !(long || short) {
                 index += 1;
@@ -1826,7 +1868,10 @@ mod tests {
         let end = rest.iter().position(|&c| c == '}').unwrap_or(0);
         let digits: String = rest[1..end].iter().collect();
         let used = end + 1;
-        match u32::from_str_radix(&digits, 16).ok().and_then(char::from_u32) {
+        match u32::from_str_radix(&digits, 16)
+            .ok()
+            .and_then(char::from_u32)
+        {
             Some(decoded) => (decoded, used),
             None => ('u', 0),
         }
@@ -1968,8 +2013,7 @@ mod tests {
         );
 
         let body = std::fs::read_to_string(
-            std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-                .join("src/app/commands/mod.rs"),
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src/app/commands/mod.rs"),
         )
         .expect("dispatch file must be readable");
         let at = body
@@ -2035,7 +2079,10 @@ mod tests {
     fn every_cmd_option_label_is_decided() {
         let wrapped = "CmdOption::new(\"A \\\n                B\", \"X\")";
         let quote_at = wrapped[..wrapped.find("\"A").unwrap()].chars().count();
-        assert_eq!(cmd_option_labels(wrapped), vec![(1, quote_at, "A B".to_string())]);
+        assert_eq!(
+            cmd_option_labels(wrapped),
+            vec![(1, quote_at, "A B".to_string())]
+        );
         assert!(
             cmd_option_labels("CmdOption::new(name, \"X\")").is_empty(),
             "a variable label is not measurable here"
@@ -2049,7 +2096,9 @@ mod tests {
         for file in &files {
             let text = std::fs::read_to_string(file).expect("source file must be readable");
             // A label after `#[cfg(test)]` is an assert fixture, not ink on the screen.
-            let tests_at = text.find("#[cfg(test)]").map(|byte| text[..byte].chars().count());
+            let tests_at = text
+                .find("#[cfg(test)]")
+                .map(|byte| text[..byte].chars().count());
             for (line, offset, label) in cmd_option_labels(&text) {
                 if tests_at.is_some_and(|at| offset >= at) {
                     continue;
@@ -2110,9 +2159,10 @@ mod tests {
     /// words. `"{:.4}"` and `"CCW"` fail it and are not ink the chairman reads as untranslated.
     fn is_prompt_prose(value: &str) -> bool {
         value.chars().any(|c| c.is_whitespace())
-            && value.as_bytes().windows(3).any(|w| {
-                w.iter().all(|b| (*b as char).is_ascii_alphabetic())
-            })
+            && value
+                .as_bytes()
+                .windows(3)
+                .any(|w| w.iter().all(|b| (*b as char).is_ascii_alphabetic()))
             && (value.contains(':') || value.split_whitespace().count() >= 3)
     }
 
@@ -2134,9 +2184,11 @@ mod tests {
                 _ => {}
             }
         }
-        residue
-            .split_whitespace()
-            .all(|tok| tok.chars().filter(|c| c.is_alphabetic()).all(|c| !c.is_lowercase()))
+        residue.split_whitespace().all(|tok| {
+            tok.chars()
+                .filter(|c| c.is_alphabetic())
+                .all(|c| !c.is_lowercase())
+        })
     }
 
     /// Braces the sink cannot fill. `%{name}` belongs to `t!`/`translate_args`, which substitutes
@@ -2329,7 +2381,8 @@ mod tests {
         let mut i = from;
         while i < to {
             let c = chars[i];
-            if c == '/' || c == '"' || c == '\'' || (c == 'r' && raw_string_at(chars, i).is_some()) {
+            if c == '/' || c == '"' || c == '\'' || (c == 'r' && raw_string_at(chars, i).is_some())
+            {
                 i = skip_trivia(chars, i);
                 continue;
             }
@@ -2369,7 +2422,10 @@ mod tests {
             // to the initializer's `=`, then to its `;` at bracket depth zero
             let mut k = j;
             while k < limit {
-                if chars[k] == '=' && chars.get(k + 1) != Some(&'=') && !matches!(chars[k - 1], '=' | '!' | '<' | '>') {
+                if chars[k] == '='
+                    && chars.get(k + 1) != Some(&'=')
+                    && !matches!(chars[k - 1], '=' | '!' | '<' | '>')
+                {
                     break;
                 }
                 if chars[k] == ';' {
@@ -2439,7 +2495,12 @@ mod tests {
     fn const_text(consts: &[(String, ConstInit)], name: &str) -> Option<String> {
         let mut current = name.to_string();
         for _ in 0..5 {
-            match consts.iter().find(|(found, _)| found == &current)?.1.clone() {
+            match consts
+                .iter()
+                .find(|(found, _)| found == &current)?
+                .1
+                .clone()
+            {
                 ConstInit::Literal(value) => return Some(value),
                 ConstInit::Alias(next) => current = next,
             }
@@ -2615,7 +2676,8 @@ mod tests {
     /// the entry exists, because the sink receives the finished string with the values baked in.
     #[test]
     fn every_prompt_literal_is_a_catalog_entry() {
-        let sample = "const MODES_PROMPT: &str =\n    \"Enter an option [Invisible/Constant] <done>:\";\n\
+        let sample =
+            "const MODES_PROMPT: &str =\n    \"Enter an option [Invisible/Constant] <done>:\";\n\
             fn prompt(&self) -> String { format!(\"Pick {} corners\", n) }\n\
             fn width_prompt() -> String { MODES_PROMPT.to_string() }\n\
             fn unrelated() -> String { \"Nothing measured here\".to_string() }\n";
@@ -2701,7 +2763,9 @@ mod tests {
             "#[cfg(test)]\nmod checks {\n    fn prompt() -> String { \"Only In A Test Here:\".to_string() }\n}\nfn prompt(&self) -> String { \"Specify the second corner:\".to_string() }\n",
         );
         assert_eq!(
-            late.iter().map(|site| site.value.as_str()).collect::<Vec<_>>(),
+            late.iter()
+                .map(|site| site.value.as_str())
+                .collect::<Vec<_>>(),
             vec!["Specify the second corner:"],
             "the test exclusion must cover the marked item only, not the rest of the file"
         );
@@ -2726,7 +2790,9 @@ mod tests {
                     placeholder_skips += 1;
                     continue;
                 }
-                if STAYS_ENGLISH.contains(&site.value.as_str()) || site.value.starts_with("SETVAR: ") {
+                if STAYS_ENGLISH.contains(&site.value.as_str())
+                    || site.value.starts_with("SETVAR: ")
+                {
                     exempt_hits += 1;
                     continue;
                 }
@@ -2756,7 +2822,11 @@ mod tests {
             bare.len(),
             files.len()
         );
-        let esc = |s: &String| s.replace('\\', "\\\\").replace('\n', "\\n").replace('\t', "\\t");
+        let esc = |s: &String| {
+            s.replace('\\', "\\\\")
+                .replace('\n', "\\n")
+                .replace('\t', "\\t")
+        };
         for line in &missing {
             // Escaped so one hit stays one line: 8 of the batch prompts carry a real newline and the
             // harvest below is read back line by line.
@@ -2834,7 +2904,10 @@ mod tests {
         let mut dead = Vec::new();
         for file in &files {
             let text = std::fs::read_to_string(file).expect("source file must be readable");
-            for hit in templates.iter().filter(|needle| text.contains(needle.as_str())) {
+            for hit in templates
+                .iter()
+                .filter(|needle| text.contains(needle.as_str()))
+            {
                 dead.push((file.display().to_string(), hit.clone()));
             }
         }

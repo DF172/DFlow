@@ -14,10 +14,10 @@
 //! what lets a panel dissolve in on boot without each call site re-inventing
 //! the alpha math.
 
+use super::label::Tone;
 use crate::ui::motion;
 use crate::ui::style::draftflow_theme::draftflow_colors;
 use crate::ui::style::tokens;
-use super::label::Tone;
 use iced::widget::{button, column, container, text, Column, Container, Row, Space};
 use iced::{Background, Border, Color, Element, Fill, Length, Theme};
 
@@ -184,7 +184,6 @@ impl Tier {
 /// which is what a flush container actually shows — so a band or a chip can say
 /// `kit::plane(theme, kit::Tier::Card)` and hand the solve the ground it will
 /// really sit on rather than a set of grounds it might.
-#[must_use]
 pub fn plane(theme: &Theme, tier: Tier) -> Color {
     tier.paint(theme)
         .unwrap_or_else(|| theme.palette().background.base.color)
@@ -373,15 +372,17 @@ fn tint_style_solve(tint: Tint, theme: &Theme, track: &'static str) -> container
         // DraftFlow spends `active` here; the strength constants stay the
         // vendor ladder's answer so other themes do not move.
         Tint::Dropped => container::Style {
-            background: Some(Background::Color({
-                let fill = tokens::selection_press_fill(theme);
-                if crate::ui::style::draftflow_theme::draftflow_colors(theme).is_some() {
-                    fill
-                } else {
-                    palette.primary.weak.color.scale_alpha(TINT_DROPPED)
+            background: Some(Background::Color(
+                {
+                    let fill = tokens::selection_press_fill(theme);
+                    if crate::ui::style::draftflow_theme::draftflow_colors(theme).is_some() {
+                        fill
+                    } else {
+                        palette.primary.weak.color.scale_alpha(TINT_DROPPED)
+                    }
                 }
-            }
-            .scale_alpha(p))),
+                .scale_alpha(p),
+            )),
             border: flush,
             shadow: iced::Shadow::default(),
             text_color: None,
@@ -392,14 +393,13 @@ fn tint_style_solve(tint: Tint, theme: &Theme, track: &'static str) -> container
         // sheet lifts it as paper on paper: a surface fill and a strong line,
         // never a coloured glow.
         Tint::Ghost => {
-            let (fill, ring) =
-                match crate::ui::style::draftflow_theme::draftflow_colors(theme) {
-                    Some(colors) => (colors.surface, colors.line_strong),
-                    None => (
-                        palette.primary.base.color.scale_alpha(TINT_GHOST),
-                        palette.primary.base.color,
-                    ),
-                };
+            let (fill, ring) = match crate::ui::style::draftflow_theme::draftflow_colors(theme) {
+                Some(colors) => (colors.surface, colors.line_strong),
+                None => (
+                    palette.primary.base.color.scale_alpha(TINT_GHOST),
+                    palette.primary.base.color,
+                ),
+            };
             container::Style {
                 background: Some(Background::Color(fill.scale_alpha(p))),
                 border: Border {
@@ -424,10 +424,12 @@ fn tint_style_solve(tint: Tint, theme: &Theme, track: &'static str) -> container
             snap: true,
         },
         Tint::Hero => container::Style {
-            background: Some(match crate::ui::style::draftflow_theme::draftflow_colors(theme) {
-                Some(colors) => Background::Color(colors.panel2.scale_alpha(p)),
-                None => tokens::aurora_gradient(theme, TINT_HERO * p),
-            }),
+            background: Some(
+                match crate::ui::style::draftflow_theme::draftflow_colors(theme) {
+                    Some(colors) => Background::Color(colors.panel2.scale_alpha(p)),
+                    None => tokens::aurora_gradient(theme, TINT_HERO * p),
+                },
+            ),
             border: Border {
                 color: tokens::edge(theme).scale_alpha(p),
                 width: 1.0,
@@ -661,7 +663,6 @@ fn swatch_border(theme: &Theme, selected: bool, hovered: bool) -> Border {
 /// The fill passes through untouched. No tier, no wash, no theme mixing: the
 /// colour *is* the information, and a palette cell that greys out on hover stops
 /// being a colour sample.
-#[must_use]
 pub fn swatch_button_style(
     fill: Color,
     selected: bool,
@@ -683,7 +684,6 @@ pub fn swatch_button_style(
 ///
 /// It cannot hover, so it never claims a hover edge — that absence is the whole
 /// difference from the button form, not a second design.
-#[must_use]
 pub fn swatch_plate_style(fill: Color, selected: bool) -> impl Fn(&Theme) -> container::Style {
     move |theme: &Theme| container::Style {
         background: Some(Background::Color(fill)),
@@ -709,7 +709,6 @@ pub fn swatch_plate_style(fill: Color, selected: bool) -> impl Fn(&Theme) -> con
 /// this cell call `legible_on` changes ink on shipped swatch labels, which is a
 /// sample-on-screen decision for #48, not a fold. Recorded here so the next reader
 /// does not "simplify" the two into one and move pixels silently.
-#[must_use]
 pub fn swatch_edit_ink(fill: Color) -> Color {
     if fill.r * 0.299 + fill.g * 0.587 + fill.b * 0.114 > 0.55 {
         Color::BLACK
@@ -728,7 +727,6 @@ pub fn swatch_edit_ink(fill: Color) -> Color {
 /// cell must outshine the others — it is a field that opens a colour window. And
 /// it supplies ink, because the label drawn over a user's colour is the one place
 /// where the kit must decide readability *for* data it does not own.
-#[must_use]
 pub fn swatch_edit_style(fill: Color) -> impl Fn(&Theme, button::Status) -> button::Style {
     move |theme: &Theme, status| {
         let hovered = matches!(status, button::Status::Hovered | button::Status::Pressed);
@@ -760,13 +758,9 @@ pub fn swatch_edit_style(fill: Color) -> impl Fn(&Theme, button::Status) -> butt
 /// opening it never makes the panel change brightness. Only the edge answers the
 /// open state, and it answers with the brand hairline at the width the page edge
 /// already uses — the same fact a focused panel border carries below.
-#[must_use]
-pub fn picker_trigger_style(
-    engaged: bool,
-) -> impl Fn(&Theme, button::Status) -> button::Style {
+pub fn picker_trigger_style(engaged: bool) -> impl Fn(&Theme, button::Status) -> button::Style {
     move |theme: &Theme, status| {
-        let lifted = engaged
-            || matches!(status, button::Status::Hovered | button::Status::Pressed);
+        let lifted = engaged || matches!(status, button::Status::Hovered | button::Status::Pressed);
         button::Style {
             background: Some(Background::Color(theme.palette().background.base.color)),
             text_color: theme.palette().background.base.text,
@@ -807,12 +801,7 @@ pub fn picker_trigger_style(
 /// [`crate::ui::theme_accessibility_tests`] holds all four states to AA on every
 /// theme. Deleting the arm would be deleting tested behaviour to make a fold look
 /// cheaper.
-#[must_use]
-pub fn picker_tile_colors(
-    theme: &Theme,
-    engaged: bool,
-    status: button::Status,
-) -> (Color, Color) {
+pub fn picker_tile_colors(theme: &Theme, engaged: bool, status: button::Status) -> (Color, Color) {
     let palette = theme.palette();
     if engaged {
         (palette.primary.base.color, palette.primary.base.text)
@@ -829,7 +818,6 @@ pub fn picker_tile_colors(
 
 /// The line around a [tile](picker_tile_colors): the brand while it is armed, the
 /// theme's own hairline otherwise.
-#[must_use]
 pub fn picker_tile_border(theme: &Theme, engaged: bool) -> Color {
     if engaged {
         theme.palette().primary.base.color
@@ -844,11 +832,7 @@ pub fn picker_tile_border(theme: &Theme, engaged: bool) -> Color {
 /// that is what the screen was doing; a tile that grew an elevation would be a
 /// plate decision, and plate decisions are [#48]'s, not a refactor leg's.
 #[must_use]
-pub fn picker_tile_style(
-    theme: &Theme,
-    engaged: bool,
-    status: button::Status,
-) -> container::Style {
+pub fn picker_tile_style(theme: &Theme, engaged: bool, status: button::Status) -> container::Style {
     let (fill, ink) = picker_tile_colors(theme, engaged, status);
     container::Style {
         background: Some(Background::Color(fill)),
@@ -979,7 +963,6 @@ pub fn sheet_style(theme: &Theme, track: &'static str) -> container::Style {
 /// card. Asking the ladder for that colour at the call site would name the
 /// floating rung outside the kit, which the census forbids — so the kit hands
 /// the colour out by name and keeps the rung to itself.
-#[must_use]
 pub fn sheet_ground(theme: &Theme) -> Color {
     Tier::Float
         .paint(theme)
@@ -1233,9 +1216,9 @@ pub fn card_plate_style(theme: &Theme) -> container::Style {
 ///     [`tokens::TINT_SELECTED`] (0.12), so the page shows through the row.
 ///   * [`swatch_plate_style`] adds an accent ring when picked, which a row already
 ///     inside a panel implies.
-/// This one is the accent's own colour at full alpha with the accent's own ink:
-/// opaque, because the row it paints is a configuration row whose text has to stay
-/// readable *over* the plate rather than through it.
+///     This one is the accent's own colour at full alpha with the accent's own ink:
+///     opaque, because the row it paints is a configuration row whose text has to stay
+///     readable *over* the plate rather than through it.
 ///
 /// Deliberately not what `ui/node_graph.rs` does with the same two fields: a node
 /// header paints `primary.weak` **unconditionally**, so it is a heading wearing the
@@ -1244,8 +1227,8 @@ pub fn card_plate_style(theme: &Theme) -> container::Style {
 pub fn row_selection_plate_style(theme: &Theme, selected: bool) -> container::Style {
     let palette = theme.palette();
     container::Style {
-        background: selected.then(|| Background::Color(palette.primary.weak.color)),
-        text_color: selected.then(|| palette.primary.weak.text),
+        background: selected.then_some(Background::Color(palette.primary.weak.color)),
+        text_color: selected.then_some(palette.primary.weak.text),
         ..Default::default()
     }
 }
@@ -1295,6 +1278,29 @@ pub fn accent_plate_style(theme: &Theme) -> container::Style {
         background: Some(Background::Color(palette.primary.base.color)),
         text_color: Some(palette.primary.base.text),
         ..Default::default()
+    }
+}
+
+/// [`accent_plate_style`] under a fade, for a drop ghost that is still arriving.
+///
+/// The ghost's head is an accent plate; while the drop preview eases in, the
+/// plate and the ink on it both scale by the same `alpha`, so the bar and its
+/// label cross-fade as one object rather than the plate leading the text.
+#[must_use]
+pub fn drop_ghost_head_style(theme: &Theme, alpha: f32) -> container::Style {
+    let plate = accent_plate_style(theme);
+    let alpha = if alpha.is_finite() {
+        alpha.clamp(0.0, 1.0)
+    } else {
+        0.0
+    };
+    container::Style {
+        background: plate.background.map(|background| match background {
+            Background::Color(color) => Background::Color(color.scale_alpha(alpha)),
+            gradient => gradient,
+        }),
+        text_color: plate.text_color.map(|ink| ink.scale_alpha(alpha)),
+        ..plate
     }
 }
 
@@ -1354,7 +1360,7 @@ pub fn marker_ring_style(edge: Color) -> container::Style {
 #[must_use]
 pub fn option_row_style(theme: &Theme, highlighted: bool, selected: bool) -> container::Style {
     let palette = theme.palette();
-    let background = highlighted.then(|| Background::Color(palette.background.strong.color));
+    let background = highlighted.then_some(Background::Color(palette.background.strong.color));
     let text_color = if highlighted || selected {
         palette.background.strong.text
     } else {
@@ -1425,11 +1431,30 @@ pub fn port_dot_style(theme: &Theme, linked: bool) -> container::Style {
         None => tokens::aurora_hi(theme),
     };
     container::Style {
-        background: linked.then(|| Background::Color(ring)),
+        background: linked.then_some(Background::Color(ring)),
         border: Border {
             color: ring,
             width: tokens::EDGE_RING,
             radius: tokens::RADIUS_FIELD.into(),
+        },
+        ..Default::default()
+    }
+}
+
+/// The plate under a severed association (item 18). A broken / unresolved
+/// reference keeps a faint warning tint at rest (0.10) so the row still reads
+/// as a warning after the flash; `pulse` (0..1) lifts it toward 0.40 while
+/// `motion::ASSOC_BREAK` runs its one-shot 100 ms beat, then it settles back.
+/// Lives here, not at the call site, so the ratchet keeps the literal in kit.
+#[must_use]
+pub fn assoc_plate_style(theme: &Theme, pulse: f32) -> container::Style {
+    let mut color = theme.palette().warning.base.color;
+    color.a = (0.10 + 0.30 * pulse.clamp(0.0, 1.0)).clamp(0.0, 1.0);
+    container::Style {
+        background: Some(Background::Color(color)),
+        border: Border {
+            radius: tokens::RADIUS_FIELD.into(),
+            ..Default::default()
         },
         ..Default::default()
     }
@@ -1503,7 +1528,6 @@ pub fn dialog_body_style(theme: &Theme) -> container::Style {
 /// against this plane and re-types `tokens::control_plate(theme, Control::Weak)`
 /// is a second definition of the body, and the two drift the first time the rung
 /// moves. A verdict band sitting in a dialog solves its hairline against *this*.
-#[must_use]
 pub fn dialog_body_plate(theme: &Theme) -> Color {
     tokens::control_plate(theme, tokens::Control::Weak)
 }
@@ -1791,8 +1815,8 @@ pub fn seam_style(theme: &Theme, track: &'static str) -> container::Style {
 /// above it.
 #[must_use]
 pub fn brand_rule<'a, M: 'a>(track: &'static str) -> Container<'a, M> {
-    container(Space::new().width(Length::Fill).height(tokens::RULE_BRAND))
-        .style(move |theme: &Theme| container::Style {
+    container(Space::new().width(Length::Fill).height(tokens::RULE_BRAND)).style(
+        move |theme: &Theme| container::Style {
             background: Some(match draftflow_colors(theme) {
                 // The sheet signs a floating panel with its rule, not with a
                 // brand hue: the highest surface on screen still gets one line.
@@ -1800,7 +1824,8 @@ pub fn brand_rule<'a, M: 'a>(track: &'static str) -> Container<'a, M> {
                 None => tokens::aurora_gradient(theme, tokens::AURORA_RULE * fade(track)),
             }),
             ..Default::default()
-        })
+        },
+    )
 }
 
 /// Stacked chrome: the tab bar, the status bar, the command line.
@@ -1924,7 +1949,7 @@ pub fn sheet_flat_style(fallback: Tier, theme: &Theme, track: &'static str) -> c
 /// the selection it is supposed to sit underneath.
 #[must_use]
 pub fn stripe_style(theme: &Theme, index: usize, track: &'static str) -> container::Style {
-    let tier = if index % 2 == 0 {
+    let tier = if index.is_multiple_of(2) {
         Tier::Sink
     } else {
         Tier::Well
@@ -1945,9 +1970,25 @@ pub fn stripe_style(theme: &Theme, index: usize, track: &'static str) -> contain
 /// its plate and keeps the page's ink is the defect this replaces: the lit
 /// status-bar pill was inked with `primary.weak.text`, the foreground of a
 /// `primary.weak` plate the kit stopped painting.
+/// The lit endpoint of a pill's ink walk, shared by [`pill_ink_at`] and the
+/// batch 3 item 25 toggle pulse so the two can never disagree about what
+/// "fully lit" means.
+fn pill_lit(theme: &Theme) -> Color {
+    if let Some(colors) = draftflow_colors(theme) {
+        colors.ink
+    } else {
+        tokens::control_ink(theme, tokens::Control::Strong)
+    }
+}
+
+/// How far the batch 3 item 25 toggle pulse walks the ink toward lit at its
+/// peak. Deliberately small: F8 / F3 are hammered while drafting, so the bump
+/// must read as a quiet confirmation, never as a flash.
+const MODE_PULSE_BLEND: f32 = 0.22;
+
 fn pill_ink_at(theme: &Theme, engage: f32, hover: f32) -> Color {
     let engage = engage.clamp(0.0, 1.0);
-    let (rest, lit) = if let Some(colors) = draftflow_colors(theme) {
+    let rest = if let Some(colors) = draftflow_colors(theme) {
         // Under the sheet a pill carries no plate at all: it is a word on the
         // bar with a rule under it, so its ink is the page's own body ink.
         // `control_ink(Strong)` is the ink for the `strong` background rung,
@@ -1955,29 +1996,32 @@ fn pill_ink_at(theme: &Theme, engage: f32, hover: f32) -> Color {
         // it painted the icon onto itself and the whole pill read as a solid
         // black rectangle. Resting is the faint rung; the pointer walks it up
         // to body ink.
-        (motion::mix(colors.faint, colors.ink, hover), colors.ink)
+        motion::mix(colors.faint, colors.ink, hover)
     } else {
         // The resting plate is the weakest→weak step, so its ink is that step's
         // own text, walked on the same pointer channel as the plate. Taking
         // `base.text` here would be the page ink again.
-        (
-            motion::mix(
-                tokens::control_ink(theme, tokens::Control::Weakest),
-                tokens::control_ink(theme, tokens::Control::Weak),
-                hover,
-            ),
-            tokens::control_ink(theme, tokens::Control::Strong),
+        motion::mix(
+            tokens::control_ink(theme, tokens::Control::Weakest),
+            tokens::control_ink(theme, tokens::Control::Weak),
+            hover,
         )
     };
-    motion::mix(rest, lit, engage)
+    motion::mix(rest, pill_lit(theme), engage)
 }
 
 /// [`pill_ink_at`] for a caller that has an id but no hover value yet — the
 /// pill's icon, which is built before any style closure runs.
-#[must_use]
 pub fn pill_ink(id: &'static str, active: bool, theme: &Theme, track: &'static str) -> Color {
     let engage = motion::engage(motion::state_key(id), active);
-    pill_ink_at(theme, engage, pill_hover(id)).scale_alpha(fade(track))
+    let mut ink = pill_ink_at(theme, engage, pill_hover(id)).scale_alpha(fade(track));
+    // Batch 3 item 25: the one-shot toggle bump rides the same ink the icon
+    // already reads, so the pulse lands on icon and label alike.
+    let bump = motion::value_or(motion::pulse_key(id), 0.0);
+    if bump > 0.0 {
+        ink = motion::mix(ink, pill_lit(theme), MODE_PULSE_BLEND * bump);
+    }
+    ink
 }
 
 /// The pointer channel of a pill: its own hover track, clamped the way every
@@ -2009,7 +2053,7 @@ pub fn pill_style(
     track: &'static str,
 ) -> container::Style {
     let engage = motion::engage(motion::state_key(id), active);
-    let (background, border, ink) = pill_parts(theme, engage, pill_hover(id), track);
+    let (background, border, ink) = pill_parts(id, theme, engage, pill_hover(id), track);
     container::Style {
         background,
         border,
@@ -2035,7 +2079,7 @@ pub fn pill_button_style(
     let pressed = matches!(status, button::Status::Pressed);
     let hover = if pressed { 1.0 } else { pill_hover(id) };
     let engage = motion::engage(motion::state_key(id), active);
-    let (background, border, text_color) = pill_parts(theme, engage, hover, track);
+    let (background, border, text_color) = pill_parts(id, theme, engage, hover, track);
     button::Style {
         background,
         border,
@@ -2055,6 +2099,7 @@ pub fn pill_button_style(
 /// shapes of status-bar pill disagree about what "lit" means, and what let the
 /// resting half be spelled a third way by hand at the call site.
 fn pill_parts(
+    id: &'static str,
     theme: &Theme,
     engage: f32,
     hover: f32,
@@ -2062,7 +2107,12 @@ fn pill_parts(
 ) -> (Option<Background>, Border, Color) {
     let p = fade(track);
     let engage = engage.clamp(0.0, 1.0);
-    let ink = pill_ink_at(theme, engage, hover).scale_alpha(p);
+    let mut ink = pill_ink_at(theme, engage, hover).scale_alpha(p);
+    // Batch 3 item 25: same bump as [`pill_ink`], on the plate adapters' ink.
+    let bump = motion::value_or(motion::pulse_key(id), 0.0);
+    if bump > 0.0 {
+        ink = motion::mix(ink, pill_lit(theme), MODE_PULSE_BLEND * bump);
+    }
     // Under the sheet a pill is a word on the bar, not a plate: the lit rung is
     // carried by the ink and by the rule L3 draws over or under it
     // ([`crate::ui::kit::rule_under`]), and resting pills only gain a hover
@@ -2156,18 +2206,17 @@ pub fn pill<'a, M: 'a>(
 /// Under the sheet the slat is ink, not a hue: it reads as the nib touching
 /// paper, which is the whole mark. Vendor themes keep the aurora.
 pub fn tick<'a, M: 'a>(track: &'static str) -> Container<'a, M> {
-    container(Space::new().width(2).height(10))
-        .style(move |theme: &Theme| container::Style {
-            background: Some(Background::Color(match draftflow_colors(theme) {
-                Some(colors) => colors.ink.scale_alpha(fade(track)),
-                None => tokens::aurora_edge(theme).scale_alpha(0.85 * fade(track)),
-            })),
-            border: Border {
-                radius: 1.0.into(),
-                ..Default::default()
-            },
+    container(Space::new().width(2).height(10)).style(move |theme: &Theme| container::Style {
+        background: Some(Background::Color(match draftflow_colors(theme) {
+            Some(colors) => colors.ink.scale_alpha(fade(track)),
+            None => tokens::aurora_edge(theme).scale_alpha(0.85 * fade(track)),
+        })),
+        border: Border {
+            radius: 1.0.into(),
             ..Default::default()
-        })
+        },
+        ..Default::default()
+    })
 }
 
 /// A 1px hairline across the available width.
@@ -2208,13 +2257,12 @@ pub fn sheet_rule_v<'a, M: 'a>() -> Element<'a, M> {
 
 /// A 1px hairline tall enough to separate two groups in a row.
 pub fn rule_v<'a, M: 'a>(height: f32, track: &'static str) -> Container<'a, M> {
-    container(Space::new().width(1.0).height(height))
-        .style(move |theme: &Theme| container::Style {
-            background: Some(Background::Color(
-                tokens::edge(theme).scale_alpha(fade(track)),
-            )),
-            ..Default::default()
-        })
+    container(Space::new().width(1.0).height(height)).style(move |theme: &Theme| container::Style {
+        background: Some(Background::Color(
+            tokens::edge(theme).scale_alpha(fade(track)),
+        )),
+        ..Default::default()
+    })
 }
 
 // ── The two dividers `form` shipped ───────────────────────────────────────
@@ -2250,8 +2298,11 @@ pub fn section_head<'a, M: 'a>(
     trailing: Vec<Element<'a, M>>,
     track: &'static str,
 ) -> Column<'a, M> {
-    let mut children: Vec<Element<'a, M>> =
-        vec![tick(track).into(), title.into(), Space::new().width(Fill).into()];
+    let mut children: Vec<Element<'a, M>> = vec![
+        tick(track).into(),
+        title.into(),
+        Space::new().width(Fill).into(),
+    ];
     children.extend(trailing);
     let head: Row<'a, M> = Row::with_children(children)
         .spacing(tokens::GAP_ROW)
@@ -2398,7 +2449,7 @@ pub fn selected_row_wash_style(theme: &Theme, selected: bool) -> container::Styl
             Some(colors) => Background::Color(colors.selected_row),
             None => tokens::aurora_gradient(theme, tokens::WASH_ROW),
         }),
-        text_color: selected.then(|| match colors {
+        text_color: selected.then_some(match colors {
             Some(colors) => colors.ink,
             None => palette.primary.weak.text,
         }),

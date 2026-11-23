@@ -140,6 +140,12 @@ impl EllipseCommand {
     }
 }
 
+impl Default for EllipseCommand {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CadCommand for EllipseCommand {
     fn set_working_plane(&mut self, plane: WorkingPlane) {
         self.plane = plane;
@@ -283,6 +289,12 @@ impl EllipseAxisCommand {
     }
 }
 
+impl Default for EllipseAxisCommand {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CadCommand for EllipseAxisCommand {
     fn set_working_plane(&mut self, plane: WorkingPlane) {
         self.plane = plane;
@@ -423,6 +435,12 @@ impl EllipseArcCommand {
             cw: false,
             plane: WorkingPlane::default(),
         }
+    }
+}
+
+impl Default for EllipseArcCommand {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

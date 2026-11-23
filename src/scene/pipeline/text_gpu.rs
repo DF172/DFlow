@@ -475,7 +475,7 @@ pub fn upload_block_vertices(
     depth_map: &rustc_hash::FxHashMap<u64, [f32; 2]>,
 ) -> Vec<BlockTextGpu> {
     let refs: Vec<&crate::scene::model::wire_model::WireModel> = wires.iter().collect();
-    upload_block_vertex_refs(device, queue, &refs, depth_map, None)
+    upload_block_vertex_refs(device, queue, &refs, depth_map, None, 1.0)
 }
 
 pub fn upload_block_vertex_refs(
@@ -484,6 +484,7 @@ pub fn upload_block_vertex_refs(
     wires: &[&crate::scene::model::wire_model::WireModel],
     depth_map: &rustc_hash::FxHashMap<u64, [f32; 2]>,
     tint: Option<[f32; 4]>,
+    tint_strength: f32,
 ) -> Vec<BlockTextGpu> {
     let mut slots = rustc_hash::FxHashMap::default();
     let mut groups: Vec<Vec<&crate::scene::model::wire_model::WireModel>> = Vec::new();
@@ -517,9 +518,13 @@ pub fn upload_block_vertex_refs(
             tinted = source
                 .text_verts
                 .iter()
-                .map(|vertex| TextVertex {
-                    color: [tint[0], tint[1], tint[2], vertex.color[3]],
-                    ..*vertex
+                .map(|vertex| {
+                    let mixed =
+                        super::wire_gpu::mix_highlight_tint(vertex.color, tint, tint_strength);
+                    TextVertex {
+                        color: [mixed[0], mixed[1], mixed[2], vertex.color[3]],
+                        ..*vertex
+                    }
                 })
                 .collect::<Vec<_>>();
             tinted.as_slice()

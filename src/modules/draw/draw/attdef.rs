@@ -582,11 +582,14 @@ impl CadCommand for AttdefCommand {
             }
             Step::JustifiedPoint => self.spec.justify.point_prompt().to_string(),
             Step::SecondPoint => "Specify second endpoint of text baseline:".to_string(),
-            Step::Height | Step::MHeight => crate::tf!("Specify height <{:.4}>:", self.spec.height).into_owned(),
+            Step::Height | Step::MHeight => {
+                crate::tf!("Specify height <{:.4}>:", self.spec.height).into_owned()
+            }
             Step::Rotation => crate::tf!(
                 "Specify rotation angle of text <{}>:",
                 short(self.spec.rotation.to_degrees())
-            ).into_owned(),
+            )
+            .into_owned(),
             Step::Location => "Specify location of multiline attribute:".to_string(),
             Step::Corner => {
                 "Specify opposite corner or [Height/Justify/Line spacing/Rotation/Style/Width]:"
@@ -599,11 +602,13 @@ impl CadCommand for AttdefCommand {
             Step::MSpacing => crate::tf!(
                 "Enter line spacing factor or distance <{}x>:",
                 short(self.spec.line_spacing)
-            ).into_owned(),
+            )
+            .into_owned(),
             Step::MRotation => crate::tf!(
                 "Specify rotation angle <{}>:",
                 short(self.spec.rotation.to_degrees())
-            ).into_owned(),
+            )
+            .into_owned(),
             Step::MWidth => "Specify width:".to_string(),
         }
     }
@@ -1197,7 +1202,8 @@ impl CadCommand for AttdispCommand {
         crate::tf!(
             "Enter attribute visibility setting [Normal/ON/OFF] <{}>:",
             self.current
-        ).into_owned()
+        )
+        .into_owned()
     }
 
     fn input_kind(&self) -> InputKind {

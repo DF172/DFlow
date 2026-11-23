@@ -27,7 +27,6 @@ pub(crate) fn temp_pdf_path(kind: &str) -> std::path::PathBuf {
     ))
 }
 
-
 /// Extra options for a print job. On CUPS (Linux/macOS) these map to `lp`
 /// flags / `-o` options. On Windows the generated PDF already carries render
 /// options. Windows queues repeated jobs when more than one copy is requested;
@@ -50,10 +49,6 @@ pub struct PrintOptions {
     #[cfg_attr(target_os = "windows", allow(dead_code))]
     pub driver_options: Vec<(String, String)>,
 }
-
-
-
-
 
 /// Enumerate installed printers. Linux/macOS query CUPS via `lpstat -e`;
 /// Windows queries the spooler's cached local and connected printer list.
@@ -164,8 +159,6 @@ pub fn printer_media_report(printer: &str) -> Vec<String> {
     }
     lines
 }
-
-
 
 /// The Windows default printer, as the spooler names it.
 #[cfg(target_os = "windows")]
@@ -541,7 +534,6 @@ pub fn open_printer_properties(printer: Option<&str>) -> Result<(), String> {
         .map(|_| ())
         .map_err(|error| format!("Could not open printer properties: {error}"))
 }
-
 
 /// Render a page and send it to the selected printer.
 pub async fn print_wires_with(
@@ -971,7 +963,7 @@ fn gdi_raster_print(
 
         // BGRA, top-down — what StretchDIBits expects for BI_RGB 32bpp.
         let mut bgra = page.pixels.as_ref().clone();
-        for px in bgra.chunks_exact_mut(4) {
+        for px in bgra.as_chunks_mut::<4>().0 {
             px.swap(0, 2);
         }
 
@@ -1017,7 +1009,7 @@ fn gdi_raster_print(
             }));
         }
         unsafe { SetStretchBltMode(hdc, COLORONCOLOR) };
-        let mut bmi = BITMAPINFO {
+        let bmi = BITMAPINFO {
             bmiHeader: BITMAPINFOHEADER {
                 biSize: std::mem::size_of::<BITMAPINFOHEADER>() as u32,
                 biWidth: src_w as i32,
@@ -1051,7 +1043,7 @@ fn gdi_raster_print(
                     src_w as i32,
                     src_h as i32,
                     bgra.as_ptr().cast(),
-                    &mut bmi,
+                    &bmi,
                     DIB_RGB_COLORS,
                     SRCCOPY,
                 )
@@ -1252,8 +1244,6 @@ pub fn preview_page_pdf(
     }
 }
 
-
-
 /// Dispatch a PDF to a specific printer with [`PrintOptions`].
 fn dispatch_to_printer_opts(path: &std::path::Path, opts: &PrintOptions) -> Result<String, String> {
     #[cfg(target_os = "windows")]
@@ -1391,7 +1381,9 @@ mod printer_properties_tests {
 
     #[cfg(target_os = "windows")]
     fn hold_spooler() -> std::sync::MutexGuard<'static, ()> {
-        SPOOL_LOCK.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
+        SPOOL_LOCK
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
     }
 
     /// The GDI fallback rasterises the plot PDF in-process; prove the 300 DPI
@@ -1481,16 +1473,15 @@ mod printer_properties_tests {
         use printpdf::{Color, Mm, PdfDocument, PdfPage as OutputPage, PdfSaveOptions, Rgb};
 
         let mut document = PdfDocument::new("gdi ink test");
-        let mut ops = Vec::new();
         // A big black block in the middle of an A4 page.
-        ops.push(printpdf::Op::SetFillColor {
+        let mut ops = vec![printpdf::Op::SetFillColor {
             col: Color::Rgb(Rgb {
                 r: 0.0,
                 g: 0.0,
                 b: 0.0,
                 icc_profile: None,
             }),
-        });
+        }];
         // printpdf 0.9's DrawRectangle never paints (its serializer always
         // ends the path with `n`), so the ink must be a filled polygon — the
         // same op the plot pipeline draws hatches with.
@@ -1561,7 +1552,9 @@ mod printer_properties_tests {
         .expect("spooled output should rasterise");
         let dark = page
             .pixels
-            .chunks_exact(4)
+            .as_chunks::<4>()
+            .0
+            .iter()
             .filter(|px| px[0] < 100 && px[1] < 100 && px[2] < 100)
             .count();
         std::fs::remove_file(&plot).ok();
@@ -1582,15 +1575,14 @@ mod printer_properties_tests {
         use printpdf::{Color, Mm, PdfDocument, PdfPage as OutputPage, PdfSaveOptions, Rgb};
 
         let mut document = PdfDocument::new("gdi orientation test");
-        let mut ops = Vec::new();
-        ops.push(printpdf::Op::SetFillColor {
+        let mut ops = vec![printpdf::Op::SetFillColor {
             col: Color::Rgb(Rgb {
                 r: 0.0,
                 g: 0.0,
                 b: 0.0,
                 icc_profile: None,
             }),
-        });
+        }];
         ops.push(printpdf::Op::DrawPolygon {
             polygon: printpdf::Polygon {
                 rings: vec![printpdf::PolygonRing {

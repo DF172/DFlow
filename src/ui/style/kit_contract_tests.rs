@@ -1050,34 +1050,34 @@ const BASELINE_SIZE_BOX: usize = 0;
 ///     L0's surface ladder: its plate source was iced's palette pair (printed as
 ///     `Control` since decision A took that ramp over), which is decision A's gap,
 ///     not this fold's.
-/// The 15 needed no new L1 API. `Tier::style` is already documented as the sheet
-/// for a call site that holds its own `Container`, and ten L3 files already spell
-/// `.style(|theme: &Theme| kit::Tier::Float.style(theme, ""))`; the empty track is
-/// the resting fade, which is what these hosts had before.
-/// Scope proof: `D:\tmp\fold-d-rows.csv` (15 `replace` rows over 10 files) against
-/// `D:\tmp\t82-d-backup.tar`, and `container::bordered_box` now reads zero outside
-/// the whitelist. The remaining 9 rows are 4 `container::rounded_box`, 2
-/// `button::warning`, 2 `button::success`, 1 `checkbox::primary`.
-/// The fourth freeze (2026-10-17 16:1x): **9 -> 5**. Decision E folded the 4
-/// `container::rounded_box` rows, and it was a copy, not a mapping, which is why it
-/// is the second zero-pixel run of this column. `rounded_box` fills with
-/// `palette.background.weak` and inks with `weak.text`; decision A (15:1x) had made
-/// those two values *definitionally* the `Control::Weak` rung of L0's plate ladder, so
-/// the kit could hand back the same struct. `kit::dialog_body_style` is that sheet —
-/// plate and ink read from `tokens::control_plate` / `control_ink`, the border built by
-/// the vendor's own `iced::border::rounded(tokens::RADIUS_MARK)`, and `shadow`/`snap`
-/// taken from `..container::Style::default()` exactly as the vendor takes them. That
-/// last point is the whole risk of the run: every other container style in
-/// `kit::surface` writes `snap: true`, while the vendor's default `snap` is
-/// `renderer::CRISP` (off in this manifest), so spelling it the kit way would have
-/// moved pixels while every colour and corner still matched. The whole struct is
-/// compared per theme by `the_vendor_equivalents_are_exact`, whose container arm now
-/// runs alongside the button arm.
-/// Scope proof: `D:\tmp\fold-e-rows.csv` (4 `replace` rows over 4 files) against
-/// `D:\tmp\t90-backup.tar`; `container::rounded_box` reads zero outside the whitelist.
-/// The remaining **5** rows are 2 `button::warning`, 2 `button::success`, 1
-/// `checkbox::primary` — decision C and decision F, both explicitly parked by the user
-/// on 2026-10-17 ("先做 E，剩下几个先放后面").
+///     The 15 needed no new L1 API. `Tier::style` is already documented as the sheet
+///     for a call site that holds its own `Container`, and ten L3 files already spell
+///     `.style(|theme: &Theme| kit::Tier::Float.style(theme, ""))`; the empty track is
+///     the resting fade, which is what these hosts had before.
+///     Scope proof: `D:\tmp\fold-d-rows.csv` (15 `replace` rows over 10 files) against
+///     `D:\tmp\t82-d-backup.tar`, and `container::bordered_box` now reads zero outside
+///     the whitelist. The remaining 9 rows are 4 `container::rounded_box`, 2
+///     `button::warning`, 2 `button::success`, 1 `checkbox::primary`.
+///     The fourth freeze (2026-10-17 16:1x): **9 -> 5**. Decision E folded the 4
+///     `container::rounded_box` rows, and it was a copy, not a mapping, which is why it
+///     is the second zero-pixel run of this column. `rounded_box` fills with
+///     `palette.background.weak` and inks with `weak.text`; decision A (15:1x) had made
+///     those two values *definitionally* the `Control::Weak` rung of L0's plate ladder, so
+///     the kit could hand back the same struct. `kit::dialog_body_style` is that sheet —
+///     plate and ink read from `tokens::control_plate` / `control_ink`, the border built by
+///     the vendor's own `iced::border::rounded(tokens::RADIUS_MARK)`, and `shadow`/`snap`
+///     taken from `..container::Style::default()` exactly as the vendor takes them. That
+///     last point is the whole risk of the run: every other container style in
+///     `kit::surface` writes `snap: true`, while the vendor's default `snap` is
+///     `renderer::CRISP` (off in this manifest), so spelling it the kit way would have
+///     moved pixels while every colour and corner still matched. The whole struct is
+///     compared per theme by `the_vendor_equivalents_are_exact`, whose container arm now
+///     runs alongside the button arm.
+///     Scope proof: `D:\tmp\fold-e-rows.csv` (4 `replace` rows over 4 files) against
+///     `D:\tmp\t90-backup.tar`; `container::rounded_box` reads zero outside the whitelist.
+///     The remaining **5** rows are 2 `button::warning`, 2 `button::success`, 1
+///     `checkbox::primary` — decision C and decision F, both explicitly parked by the user
+///     on 2026-10-17 ("先做 E，剩下几个先放后面").
 ///
 /// The fifth freeze (2026-10-21, decision C): **5 -> 1**. The four signal-button
 /// rows left iced's sheets for `kit::signal_button_style`, each with the ground
@@ -1090,29 +1090,29 @@ const BASELINE_SIZE_BOX: usize = 0;
 ///     accept check): `Tone::Success` on `Tier::Flush`, because both guards build
 ///     on `kit::ground_style` and `Tier::Flush` *is* that pixel (`paint()` answers
 ///     `None` and `plane()` falls back to the theme base, `surface.rs:172-175`).
-/// The fold is not free, and it is not a copy: the plate, the ink and the edge are
-/// the signal chip's own rule (`painted(tone, SIGNAL_DIP_REST)` plus
-/// `resolve_edge`), not iced's palette pair. Measured on the grounds the sites
-/// actually sit on (`D:\tmp\s82c-guard2.log`, 26 themes, against
-/// `button::warning` / `button::success` at rest):
+///     The fold is not free, and it is not a copy: the plate, the ink and the edge are
+///     the signal chip's own rule (`painted(tone, SIGNAL_DIP_REST)` plus
+///     `resolve_edge`), not iced's palette pair. Measured on the grounds the sites
+///     actually sit on (`D:\tmp\s82c-guard2.log`, 26 themes, against
+///     `button::warning` / `button::success` at rest):
 ///   * warning on `Tier::Card`: |ΔL*| 0.79 / 5.73 / 7.14 (min / median / max),
 ///     ink differs 26/26, corner 0/26, frame 26/26.
 ///   * success on `Tier::Flush`: |ΔL*| 0.15 / 5.12 / 6.64, ink 26/26, corner 0/26,
 ///     frame 26/26.
-/// The corner is untouched because the iced button sheet and this one both use
-/// `RADIUS_CONTROL`; the frame moves because iced draws no border at all where the
-/// chip solves one against its plane. AA is not a threshold this fold chases: the
-/// same painter's plate/ink/edge law is swept on all seven grounds by
-/// `theme_accessibility_tests::the_signal_chip_carries_its_own_words`
-/// (`D:\tmp\s82c-guard1.log`: 1456 chip/plane pairings, 0 failures).
-/// `dialog_button_styled`/`dialog_button_styled_opt` and `modal.rs`'s local
-/// `dialog_button` now take `impl Fn` instead of a fn pointer, because a
-/// `signal_button_style(tone, ground)` result carries both decisions in its
-/// environment; every pre-existing fn-pointer call site still compiles unchanged.
-/// The column reached zero in the 35th freeze: `ui/window/plot.rs`'s
-/// `checkbox::primary` became `kit::checkbox_style`, an L1 fn that keeps iced's
-/// plate and frame untouched and dims only the tick and the label when the box
-/// cannot be picked (decision F). The neutral-plate follow-up stays on #63.
+///     The corner is untouched because the iced button sheet and this one both use
+///     `RADIUS_CONTROL`; the frame moves because iced draws no border at all where the
+///     chip solves one against its plane. AA is not a threshold this fold chases: the
+///     same painter's plate/ink/edge law is swept on all seven grounds by
+///     `theme_accessibility_tests::the_signal_chip_carries_its_own_words`
+///     (`D:\tmp\s82c-guard1.log`: 1456 chip/plane pairings, 0 failures).
+///     `dialog_button_styled`/`dialog_button_styled_opt` and `modal.rs`'s local
+///     `dialog_button` now take `impl Fn` instead of a fn pointer, because a
+///     `signal_button_style(tone, ground)` result carries both decisions in its
+///     environment; every pre-existing fn-pointer call site still compiles unchanged.
+///     The column reached zero in the 35th freeze: `ui/window/plot.rs`'s
+///     `checkbox::primary` became `kit::checkbox_style`, an L1 fn that keeps iced's
+///     plate and frame untouched and dims only the tick and the label when the box
+///     cannot be picked (decision F). The neutral-plate follow-up stays on #63.
 const BASELINE_BUILTIN_STYLE_CALL: usize = 0;
 
 /// (f) `.padding(<literal>)` — the inner padding a screen decides for itself
@@ -1279,7 +1279,7 @@ const BASELINE_BUILTIN_STYLE_CALL: usize = 0;
 /// the 0 px `PAD_PLATE` — every other `text_input` in the same dialog was already
 /// on the field rung. Measured now: 444 rows over 67 files, **411** bracket-form
 /// + **33** scalar-form, with the five heads above unchanged (this run took nine
-/// rows out of a file that is not among them).
+///   rows out of a file that is not among them).
 ///
 /// Re-frozen at **409** by #42's fifth screen (`ui/window/sheet_set.rs`, 35 rows,
 /// 34 of them a real move and one `PAD_CARD` rename at 0 px). The planner priced
@@ -1512,7 +1512,6 @@ const BASELINE_BUILTIN_STYLE_CALL: usize = 0;
 /// sides still hand-typed at L3 are in the same custody. Priced on
 /// `D:\tmp\s42-b032c-ledger.tsv`: 3 board rows and 7 lines the board cannot count
 /// (6 new L0 rungs, which price sites but draw none, and 1 export-list change).
-
 const BASELINE_OFF_TOKEN_PADDING: usize = 0;
 
 /// (g) `.text_size(<literal>)` — the point size of a widget's **own label**.
@@ -1664,7 +1663,6 @@ const BASELINE_OFF_TOKEN_TEXT_SIZE: usize = 0;
 /// those runs' own boards of 31 and 330 and are left as their records rather than
 /// re-pointed, because rewriting a finished run's arithmetic is how a chain stops being
 /// evidence.
-
 /// The chain of earlier totals below is no longer prose
 /// carried from one freeze to the next: every number is the guarded row count of that screen's
 /// own pre-batch snapshot (`D:\tmp\pre-s42-*.csv`), read by this freeze, and the freeze refuses
@@ -2141,7 +2139,6 @@ struct Counts {
     size_unexpected_hosts: Vec<String>,
     builtin_style_call: usize,
     vendor_style_fns: usize,
-    vendor_text_size_fns: usize,
 }
 
 fn collect_rs_files(dir: &Path, out: &mut Vec<PathBuf>) {
@@ -2163,7 +2160,7 @@ fn is_word_char(c: char) -> bool {
 }
 
 fn strip_leading_spaces_tabs(s: &str) -> &str {
-    s.trim_start_matches(|c: char| c == ' ' || c == '\t')
+    s.trim_start_matches([' ', '\t'])
 }
 
 fn starts_with_ascii_digit(s: &str) -> bool {
@@ -2179,6 +2176,11 @@ fn style_struct_literal(line: &str, needle: &str) -> bool {
         from = at + needle.len();
         if at > 0 && is_word_char(line[..at].chars().next_back().unwrap_or(' ')) {
             continue; // e.g. `my_button::Style` — not one of ours
+        }
+        // `-> iced::widget::text_input::Style {` is a return type, not a
+        // hand-written struct literal.
+        if line[..at].trim_end().ends_with("->") {
+            continue;
         }
         if strip_leading_spaces_tabs(&line[from..]).starts_with('{') {
             return true;
@@ -2229,7 +2231,9 @@ fn is_pad_literal_element(raw: &str) -> bool {
     };
     if let Some(c) = cast {
         if c.is_empty()
-            || !c.chars().all(|ch| ch.is_ascii_lowercase() || ch.is_ascii_digit())
+            || !c
+                .chars()
+                .all(|ch| ch.is_ascii_lowercase() || ch.is_ascii_digit())
         {
             return false;
         }
@@ -2279,8 +2283,7 @@ fn padding_off_ladder(line: &str) -> bool {
         inner.push(ch);
     }
     inner
-        .replace('[', " ")
-        .replace(']', " ")
+        .replace(['[', ']'], " ")
         .split(',')
         .any(is_pad_literal_element)
 }
@@ -2367,8 +2370,6 @@ fn blank_literals(src: &str) -> Vec<char> {
                 }
                 blank(&mut c, i, e.min(n));
                 i = e.min(n);
-            } else if ch == 'b' && i + 1 < n && c[i + 1] == '\'' {
-                i += 1;
             } else {
                 i += 1;
             }
@@ -2538,9 +2539,10 @@ fn scan_src() -> Counts {
     let style_fns = vendor_style_fns();
     let text_size_fns = vendor_text_size_fns();
 
-    let mut c = Counts::default();
-    c.vendor_style_fns = style_fns.len();
-    c.vendor_text_size_fns = text_size_fns.len();
+    let mut c = Counts {
+        vendor_style_fns: style_fns.len(),
+        ..Default::default()
+    };
     for path in files {
         let rel = match path.strip_prefix(&root) {
             Ok(r) => r.to_string_lossy().replace('\\', "/"),
@@ -2624,10 +2626,7 @@ fn scan_src() -> Counts {
                     c.radius_out_of_ui_scope += 1;
                 }
             }
-            if CORNER_FIELDS
-                .iter()
-                .any(|f| numeric_follows(line, f))
-            {
+            if CORNER_FIELDS.iter().any(|f| numeric_follows(line, f)) {
                 c.off_token_corner_radius += 1;
             }
             if numeric_follows(line, ".spacing(") {
@@ -2653,12 +2652,7 @@ const STYLE_WIDGETS: [&str; 3] = ["container::Style", "button::Style", "text_inp
 /// asymmetric corners spell the number out under four *other* names. Measured
 /// 2026-10-16: 12 such lines, in `xref_manager.rs` (8, the split-button halves)
 /// and `drafting_settings.rs` (4, the tab shape).
-const CORNER_FIELDS: [&str; 4] = [
-    "top_left:",
-    "top_right:",
-    "bottom_left:",
-    "bottom_right:",
-];
+const CORNER_FIELDS: [&str; 4] = ["top_left:", "top_right:", "bottom_left:", "bottom_right:"];
 
 /// The surface of iced's own "ready-made look" functions, read out of the vendored
 /// fork **at scan time** instead of typed into this file.
@@ -2689,7 +2683,9 @@ fn vendor_style_fns() -> Vec<String> {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("vendor/iced/widget/src");
     let mut out = Vec::new();
     for dir in top_level_and_nested(&root) {
-        let Ok(entries) = fs::read_dir(&dir) else { continue };
+        let Ok(entries) = fs::read_dir(&dir) else {
+            continue;
+        };
         for entry in entries.flatten() {
             let path = entry.path();
             if path.is_dir() || path.extension().and_then(|e| e.to_str()) != Some("rs") {
@@ -2703,10 +2699,14 @@ fn vendor_style_fns() -> Vec<String> {
             if stem.is_empty() || stem == "mod" {
                 continue;
             }
-            let Ok(text) = fs::read_to_string(&path) else { continue };
+            let Ok(text) = fs::read_to_string(&path) else {
+                continue;
+            };
             let lines: Vec<&str> = text.lines().collect();
             for (i, raw) in lines.iter().enumerate() {
-                let Some(rest) = raw.strip_prefix("pub fn ") else { continue };
+                let Some(rest) = raw.strip_prefix("pub fn ") else {
+                    continue;
+                };
                 let name = rest.split('(').next().unwrap_or("").trim().to_string();
                 // `container::transparent<Theme>` is a generic fn; the call site
                 // writes `container::transparent`, so the type parameters are cut.
@@ -2776,19 +2776,25 @@ fn vendor_text_size_fns() -> Vec<String> {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("vendor/iced/widget/src");
     let mut out = Vec::new();
     for dir in top_level_and_nested(&root) {
-        let Ok(entries) = fs::read_dir(&dir) else { continue };
+        let Ok(entries) = fs::read_dir(&dir) else {
+            continue;
+        };
         for entry in entries.flatten() {
             let path = entry.path();
             if path.is_dir() || path.extension().and_then(|e| e.to_str()) != Some("rs") {
                 continue;
             }
-            let Ok(text) = fs::read_to_string(&path) else { continue };
+            let Ok(text) = fs::read_to_string(&path) else {
+                continue;
+            };
             for raw in text.lines() {
                 // `trim_start`, unlike the (e) derivation: these setters are
                 // *builder methods*, so they live inside an `impl` block four
                 // spaces in. A non-indented-only rule would find nothing here and
                 // the column would read 0 while looking green.
-                let Some(rest) = raw.trim_start().strip_prefix("pub fn ") else { continue };
+                let Some(rest) = raw.trim_start().strip_prefix("pub fn ") else {
+                    continue;
+                };
                 let name = rest
                     .split('(')
                     .next()
@@ -2910,8 +2916,7 @@ fn style_literals_shrink_from_baseline() {
     } else {
         println!(
             "KIT-CONTRACT: hand-written style literals flat at {} (frozen {}).",
-            c.style_literal,
-            BASELINE_FROZEN
+            c.style_literal, BASELINE_FROZEN
         );
     }
 }
@@ -2958,8 +2963,7 @@ fn text_style_literals_shrink_from_baseline() {
     } else {
         println!(
             "KIT-CONTRACT: hand-written text::Style literals flat at {} (frozen {}).",
-            c.text_style_literal,
-            BASELINE_FROZEN
+            c.text_style_literal, BASELINE_FROZEN
         );
     }
 }
@@ -3159,7 +3163,9 @@ fn padding_comes_from_the_size_ladder() {
     assert!(padding_off_ladder("    c.padding(12)"));
     assert!(padding_off_ladder("    c.padding([4, 10])"));
     assert!(padding_off_ladder("    c.padding([COMBO_PAD_V, 6.0])"));
-    assert!(padding_off_ladder("    c.padding([MENU_PAD_TOP as u16, 0])"));
+    assert!(padding_off_ladder(
+        "    c.padding([MENU_PAD_TOP as u16, 0])"
+    ));
     assert!(!padding_off_ladder("    c.padding(tokens::GAP_ROW)"));
     assert!(
         !padding_off_ladder("    c.padding([tokens::GAP_HAIRLINE, tokens::GAP_ROW])"),
@@ -3232,7 +3238,9 @@ fn padding_comes_from_the_size_ladder() {
         if rel == "ui/style/kit_contract_tests.rs" {
             continue;
         }
-        let Ok(text) = fs::read_to_string(path) else { continue };
+        let Ok(text) = fs::read_to_string(path) else {
+            continue;
+        };
         for line in text.lines() {
             let t = line.trim_start();
             // Comment lines are prose about the pair, not uses of it; tokens.rs
@@ -3312,7 +3320,8 @@ fn a_rebuilt_screen_never_takes_a_literal_again() {
     // makes it a `GAP_*` rung, the snapping planner stops seeing it as an
     // exception and the 69 rows become resize candidates again.
     assert_ne!(
-        tokens::PAD_FIELD_Y, tokens::GAP_CONTROL,
+        tokens::PAD_FIELD_Y,
+        tokens::GAP_CONTROL,
         "`PAD_FIELD` is an asymmetric pair by decision; making both sides equal \
          folds it back into the ladder and re-opens finding F1"
     );
@@ -3324,11 +3333,23 @@ fn a_rebuilt_screen_never_takes_a_literal_again() {
     // screen that took the rung silently resizes — which no board column can see,
     // because the call sites still name a rung.
     let well = crate::ui::kit::PAD_WELL;
-    assert_eq!((well.top, well.right), (tokens::GAP_CONTROL, tokens::GAP_ROW), "PAD_WELL no longer is the [6, 8] inset the page-setup empty state renamed to");
+    assert_eq!(
+        (well.top, well.right),
+        (tokens::GAP_CONTROL, tokens::GAP_ROW),
+        "PAD_WELL no longer is the [6, 8] inset the page-setup empty state renamed to"
+    );
     let band = crate::ui::kit::PAD_BAND;
-    assert_eq!((band.top, band.right), (tokens::GAP_TIGHT, tokens::GAP_FIELD), "PAD_BAND no longer is the [4, 10] inset the plot footer renamed to");
+    assert_eq!(
+        (band.top, band.right),
+        (tokens::GAP_TIGHT, tokens::GAP_FIELD),
+        "PAD_BAND no longer is the [4, 10] inset the plot footer renamed to"
+    );
     let card = crate::ui::kit::PAD_CARD;
-    assert_eq!((card.top, card.right), (tokens::GAP_FIELD, tokens::GAP_SECTION), "PAD_CARD no longer is the [10, 12] inset five dialog bodies now wrap themselves in");
+    assert_eq!(
+        (card.top, card.right),
+        (tokens::GAP_FIELD, tokens::GAP_SECTION),
+        "PAD_CARD no longer is the [10, 12] inset five dialog bodies now wrap themselves in"
+    );
     // The thirteenth screen landed three insets L1 had never carried (PAD_TAB,
     // PAD_GLYPH, PAD_CELL) and turned the prose on `elevation` into four named
     // steps. A screen that wears a name cannot show a value change on the board —
@@ -3405,7 +3426,12 @@ fn a_rebuilt_screen_never_takes_a_literal_again() {
         "ghost_style is no longer the same ink as role_style(Role::Ghost), so the eleven unframed popup lines this screen folded changed colour under a rename"
     );
     assert_eq!(
-        (tokens::LIFT_FLUSH, tokens::LIFT_REST, tokens::LIFT_HOVER, tokens::LIFT_FLOAT),
+        (
+            tokens::LIFT_FLUSH,
+            tokens::LIFT_REST,
+            tokens::LIFT_HOVER,
+            tokens::LIFT_FLOAT
+        ),
         (0.0, 1.0, 2.0, 3.0),
         "the elevation step constants no longer match the four steps elevation's own doc names"
     );
@@ -3450,7 +3476,11 @@ fn a_rebuilt_screen_never_takes_a_literal_again() {
         };
         for name in ["labeled_checkbox", "static_checkbox"] {
             let body = body_of(name);
-            for rung in ["tokens::MARK_SQUARE", "tokens::TEXT_LABEL", "tokens::GAP_CONTROL"] {
+            for rung in [
+                "tokens::MARK_SQUARE",
+                "tokens::TEXT_LABEL",
+                "tokens::GAP_CONTROL",
+            ] {
                 assert!(
                     body.contains(rung),
                     "`{name}` no longer wears {rung}, so it is a different plate from its sibling and the readouts in `drafting_settings.rs` silently change height"
@@ -4200,8 +4230,16 @@ fn the_plates_cut_at_the_fourteenth_screen_are_pinned() {
     // converge, one of the two schemes has been repainted by the other's reading.
     let dark_rim = tokens::glass_edge(&dark);
     let light_rim = tokens::glass_edge(&light);
-    assert_eq!(dark_rim, iced::Color::WHITE.scale_alpha(0.12), "the dark rim is no longer 0.12");
-    assert_eq!(light_rim, iced::Color::WHITE.scale_alpha(0.20), "the light rim is no longer 0.20");
+    assert_eq!(
+        dark_rim,
+        iced::Color::WHITE.scale_alpha(0.12),
+        "the dark rim is no longer 0.12"
+    );
+    assert_eq!(
+        light_rim,
+        iced::Color::WHITE.scale_alpha(0.20),
+        "the light rim is no longer 0.20"
+    );
     assert!(
         light_rim.a > dark_rim.a,
         "the light rim no longer out-reads the dark one; light glass loses its edge against a bright canvas"
@@ -4229,16 +4267,22 @@ fn the_plates_cut_at_the_fourteenth_screen_are_pinned() {
     // The corner. Two rungs, popped above flat, and neither is a control corner —
     // a tree-wide substitution that handed glass the field or control radius would
     // round every floating pane to a button.
-    assert!(
+    const {
+        assert!(
         tokens::RADIUS_GLASS < tokens::RADIUS_GLASS_RAISED,
         "a popped pane no longer has a larger corner than a flat one, so `raised` stopped meaning anything"
-    );
+    )
+    };
     for radius in [tokens::RADIUS_GLASS, tokens::RADIUS_GLASS_RAISED] {
         assert_ne!(
             radius, tokens::RADIUS_CONTROL,
             "a glass corner was set to the control corner; a pane is not a button and a tree-wide rename would have done this on purpose"
         );
-        assert_ne!(radius, tokens::RADIUS_FIELD, "a glass corner was set to the field corner");
+        assert_ne!(
+            radius,
+            tokens::RADIUS_FIELD,
+            "a glass corner was set to the field corner"
+        );
     }
 
     // The trigger: the edge answers the open state, the ground never does, and the
@@ -4248,7 +4292,11 @@ fn the_plates_cut_at_the_fourteenth_screen_are_pinned() {
     let rest = crate::ui::kit::picker_trigger_style(false)(&dark, button::Status::Active);
     let hovered = crate::ui::kit::picker_trigger_style(false)(&dark, button::Status::Hovered);
     let open = crate::ui::kit::picker_trigger_style(true)(&dark, button::Status::Active);
-    assert_eq!(rest.border.color, tokens::edge(&dark), "a closed trigger no longer rests on the page edge");
+    assert_eq!(
+        rest.border.color,
+        tokens::edge(&dark),
+        "a closed trigger no longer rests on the page edge"
+    );
     assert_eq!(
         hovered.border.color,
         dark.palette().primary.base.color,
@@ -4268,7 +4316,11 @@ fn the_plates_cut_at_the_fourteenth_screen_are_pinned() {
         dark.palette().background.base.text,
         "picker_trigger_style no longer sets the page ink — this is the assertion that keeps the dark-scheme black-on-black defect from coming back"
     );
-    assert_eq!(rest.border.radius, tokens::RADIUS_MARK.into(), "the trigger's corner is no longer the mark corner");
+    assert_eq!(
+        rest.border.radius,
+        tokens::RADIUS_MARK.into(),
+        "the trigger's corner is no longer the mark corner"
+    );
 
     // A colour cell's ink stays one of two extremes on purpose. The kit has a
     // WCAG-solving helper (tokens::legible_on) and it is deliberately NOT used
@@ -4314,7 +4366,9 @@ fn the_guard_plate_cut_at_the_fifteenth_screen_is_pinned() {
     let guard = crate::ui::kit::guard_panel_style(&dark);
     assert_eq!(
         guard.background,
-        Some(iced::Background::Color(dark.palette().background.base.color)),
+        Some(iced::Background::Color(
+            dark.palette().background.base.color
+        )),
         "guard_panel_style no longer sits on the page ground"
     );
     assert_eq!(
@@ -4524,7 +4578,9 @@ fn the_menu_row_family_keeps_its_measured_ceiling() {
         if is_whitelisted(&rel) {
             continue;
         }
-        let Ok(text) = fs::read_to_string(path) else { continue };
+        let Ok(text) = fs::read_to_string(path) else {
+            continue;
+        };
         for (i, line) in text.lines().enumerate() {
             let t = line.trim_start();
             if t.starts_with("//") {
@@ -4596,8 +4652,16 @@ fn label_text_size_comes_from_the_type_ladder() {
         .cloned()
         .collect();
     let count = |src: &str| text_size_off_ladder(&blank_literals(src), &needles);
-    assert_eq!(count("cb.text_size(11)"), 1, "a literal label size is a row");
-    assert_eq!(count("cb.text_size(11.0)"), 1, "a float literal is the same row");
+    assert_eq!(
+        count("cb.text_size(11)"),
+        1,
+        "a literal label size is a row"
+    );
+    assert_eq!(
+        count("cb.text_size(11.0)"),
+        1,
+        "a float literal is the same row"
+    );
     assert_eq!(
         count("cb.text_size(\n    12,\n)"),
         1,
@@ -4671,8 +4735,8 @@ fn label_text_size_comes_from_the_type_ladder() {
 use super::{common, tokens};
 use crate::app::config::all_themes;
 use crate::ui::kit::{
-    danger_style, dialog_body_style, dialog_danger_style, label::Tone, pill_style,
-    primary_style, signal_button_style, style_for, subtle_style, surface::Tier, text_style, Role,
+    danger_style, dialog_body_style, dialog_danger_style, label::Tone, pill_style, primary_style,
+    signal_button_style, style_for, subtle_style, surface::Tier, text_style, Role,
 };
 use crate::ui::style::draftflow_theme::{draftflow_colors, draftflow_themes};
 use iced::widget::{button, container};
@@ -4724,15 +4788,14 @@ fn surface_tiers_separate_in_every_theme() {
         let page = common::lstar(base);
 
         let surfaces: [Color; 4] = RANKS.map(|rank| tokens::surface(&theme, rank));
-        let rungs: [f32; 4] = surfaces.map(|c| common::lstar(c));
+        let rungs: [f32; 4] = surfaces.map(common::lstar);
 
         // DraftFlow's two schemes carry an explicit sheet whose rungs answer
         // different questions (panel, inner plate, paper, file card), so the
         // vendor ladder law does not describe them. Their measured relations
         // are pinned by `brand_ladder_has_measurable_steps`; the AA bar in (2)
         // still applies to every theme.
-        let explicit_sheet =
-            crate::ui::style::draftflow_theme::draftflow_colors(&theme).is_some();
+        let explicit_sheet = crate::ui::style::draftflow_theme::draftflow_colors(&theme).is_some();
 
         // (1) Monotonic ladder with a real, scale-relative step between rungs.
         if !explicit_sheet {
@@ -4742,8 +4805,7 @@ fn surface_tiers_separate_in_every_theme() {
                 s
             };
             let diffs: [f32; 4] = std::array::from_fn(|i| seq[i + 1] - seq[i]);
-            let monotonic =
-                diffs.iter().all(|d| *d > 0.0) || diffs.iter().all(|d| *d < 0.0);
+            let monotonic = diffs.iter().all(|d| *d > 0.0) || diffs.iter().all(|d| *d < 0.0);
             if !monotonic {
                 failures.push(format!(
                     "{theme}: ladder not strictly monotonic in L* (page {page:.2}, rungs [{:.2}, {:.2}, {:.2}, {:.2}], diffs [{:.2}, {:.2}, {:.2}, {:.2}])",
@@ -4831,10 +4893,7 @@ fn brand_ladder_has_measurable_steps() {
         };
         let diffs: [f32; 4] = std::array::from_fn(|i| seq[i + 1] - seq[i]);
         for (i, (rank, l)) in rungs.iter().enumerate() {
-            println!(
-                "   {rank:<6?} {l:>6.2}   gap {:+.2} L*",
-                diffs[i],
-            );
+            println!("   {rank:<6?} {l:>6.2}   gap {:+.2} L*", diffs[i],);
         }
         let lo = seq.iter().cloned().fold(f32::MAX, f32::min);
         let hi = seq.iter().cloned().fold(f32::MIN, f32::max);
@@ -4855,7 +4914,10 @@ fn brand_ladder_has_measurable_steps() {
                     "{theme}: {rank:?} is {:.3} L* from the plane beneath it, below the 0.5 \
                      collapse floor (sheet L* page {page:.2} then [{:.2}, {:.2}, {:.2}, {:.2}])",
                     (*l - prev).abs(),
-                    seq[1], seq[2], seq[3], seq[4],
+                    seq[1],
+                    seq[2],
+                    seq[3],
+                    seq[4],
                 );
             }
         }
@@ -4867,18 +4929,20 @@ fn brand_ladder_has_measurable_steps() {
             seq[1], seq[2], seq[3], seq[4],
         );
         assert!(
-            spread >= 1.0 && spread <= 25.0,
+            (1.0..=25.0).contains(&spread),
             "{theme}: total plane spread {spread:.2} L* is outside the 1–25 window",
         );
 
         let colors = crate::ui::style::draftflow_theme::draftflow_colors(&theme)
             .expect("draftflow_themes() yields only the two explicit sheets");
         assert_eq!(
-            tokens::inset(&theme), colors.surface,
+            tokens::inset(&theme),
+            colors.surface,
             "{theme}: `inset` left the paper plane"
         );
         assert_eq!(
-            tokens::sunk(&theme), colors.shell,
+            tokens::sunk(&theme),
+            colors.shell,
             "{theme}: `sunk` left the shell plane"
         );
     }
@@ -5148,20 +5212,50 @@ fn rounded_box_over_dialog_body(theme: &iced::Theme) -> (Paint, Option<Paint>) {
 /// [`the_vendor_equivalents_are_exact`], which walks the container sheets too.
 const FOLD_BUCKETS: usize = 9;
 const FOLDS: [(&str, &str, usize, Fold); FOLD_BUCKETS] = [
-    ("button::subtle", "kit::subtle_style", 0, subtle_over_standard),
+    (
+        "button::subtle",
+        "kit::subtle_style",
+        0,
+        subtle_over_standard,
+    ),
     ("button::text", "kit::text_style", 0, text_over_ghost),
     ("button::danger", "kit::danger_style", 0, danger_over_role),
-    ("container::bordered_box", "Tier::Float", 0, bordered_box_over_float),
-    ("container::bordered_box", "Tier::Well", 0, bordered_box_over_well),
-    ("container::bordered_box", "pill resting", 0, bordered_box_over_pill),
+    (
+        "container::bordered_box",
+        "Tier::Float",
+        0,
+        bordered_box_over_float,
+    ),
+    (
+        "container::bordered_box",
+        "Tier::Well",
+        0,
+        bordered_box_over_well,
+    ),
+    (
+        "container::bordered_box",
+        "pill resting",
+        0,
+        bordered_box_over_pill,
+    ),
     (
         "container::rounded_box",
         "kit::dialog_body_style",
         0,
         rounded_box_over_dialog_body,
     ),
-    ("button::warning", "signal_button_style", 0, warning_over_signal),
-    ("button::success", "signal_button_style", 0, success_over_signal),
+    (
+        "button::warning",
+        "signal_button_style",
+        0,
+        warning_over_signal,
+    ),
+    (
+        "button::success",
+        "signal_button_style",
+        0,
+        success_over_signal,
+    ),
 ];
 
 /// `checkbox::primary` no longer has a call site: the 35th freeze routed the plot
@@ -5207,7 +5301,12 @@ const CONTROL_RUNGS: [tokens::Control; 7] = [
     tokens::Control::Strongest,
 ];
 
-const SOURCES: [Source; 4] = [Source::Ladder, Source::Control, Source::Semantic, Source::Nowhere];
+const SOURCES: [Source; 4] = [
+    Source::Ladder,
+    Source::Control,
+    Source::Semantic,
+    Source::Nowhere,
+];
 
 impl Source {
     /// The single source that can produce `plate` under `theme`, or `Nowhere`.
@@ -5222,7 +5321,7 @@ impl Source {
             tokens::sunk(theme),
         ];
         ladder.extend(RANKS.iter().map(|rank| tokens::surface(theme, *rank)));
-        if ladder.iter().any(|rung| *rung == plate) {
+        if ladder.contains(&plate) {
             return Source::Ladder;
         }
         if CONTROL_RUNGS
@@ -5293,7 +5392,8 @@ impl Source {
 #[test]
 fn folding_the_builtin_styles_into_the_kit_is_measured_not_assumed() {
     let c = scan_src();
-    let tabled: usize = FOLDS.iter().map(|(_, _, rows, _)| *rows).sum::<usize>() + CHECKBOX_PRIMARY_ROWS;
+    let tabled: usize =
+        FOLDS.iter().map(|(_, _, rows, _)| *rows).sum::<usize>() + CHECKBOX_PRIMARY_ROWS;
     assert_eq!(
         tabled, c.builtin_style_call,
         "the (e) fold ledger covers {tabled} call sites but the ratchet measures {}; \
@@ -5334,7 +5434,9 @@ fn folding_the_builtin_styles_into_the_kit_is_measured_not_assumed() {
     for theme in themes.iter() {
         for (i, (name, dest, _, fold)) in FOLDS.iter().enumerate() {
             let (iced_today, kit_instead) = fold(theme);
-            let Some(candidate) = kit_instead else { continue };
+            let Some(candidate) = kit_instead else {
+                continue;
+            };
             match candidate.plate {
                 // A plate no L0 or L1 path can produce is the only genuine
                 // violation: it means the kit is handing out a pixel it cannot
@@ -5428,7 +5530,11 @@ fn folding_the_builtin_styles_into_the_kit_is_measured_not_assumed() {
         } else {
             let mut sorted = real.clone();
             sorted.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
-            (sorted[0], sorted[sorted.len() / 2], sorted[sorted.len() - 1])
+            (
+                sorted[0],
+                sorted[sorted.len() / 2],
+                sorted[sorted.len() - 1],
+            )
         };
         let plate = identical[i] + both_unset[i];
         let invisible = if transparent[i] > 0 {
@@ -5795,7 +5901,9 @@ fn vendor_deviate_steps() -> Vec<(String, f32)> {
         .unwrap_or_else(|e| panic!("A's replica check needs {}: {e}", path.display()));
     let open = src
         .find("pub fn new(base: Color, text: Color) -> Self {")
-        .expect("`Background::new` no longer spells its signature the way A's replica check expects");
+        .expect(
+            "`Background::new` no longer spells its signature the way A's replica check expects",
+        );
     let body = &src[open..src[open..]
         .find("\n    }")
         .expect("unterminated `Background::new`")
@@ -5928,10 +6036,8 @@ fn decision_a_priced_the_two_forms_of_a_control_plate_ladder() {
                 // the palette's own `base.text`. If it does not, A owns the plate
                 // and the ink stays where it is; that is a measured boundary, not a
                 // convenience.
-                let replica_pair = iced::theme::palette::Pair::new(
-                    replica,
-                    theme.palette().background.base.text,
-                );
+                let replica_pair =
+                    iced::theme::palette::Pair::new(replica, theme.palette().background.base.text);
                 if replica_pair.text == slot_ink(theme, name) {
                     exact_ink_replica[i] += 1;
                 }
@@ -5991,7 +6097,10 @@ fn decision_a_priced_the_two_forms_of_a_control_plate_ladder() {
     for (i, name) in names.iter().enumerate() {
         let mut m = magnitude[i].clone();
         let mut g = nearest_l0[i].clone();
-        m.sort_by(|a, b| a.partial_cmp(b).expect("finite magnitudes were asserted above"));
+        m.sort_by(|a, b| {
+            a.partial_cmp(b)
+                .expect("finite magnitudes were asserted above")
+        });
         g.sort_by(|a, b| a.partial_cmp(b).expect("finite gaps were asserted above"));
         assert_eq!(m.len(), themes.len(), "slot `{name}` is under-measured");
         println!(
@@ -6054,13 +6163,13 @@ fn decision_a_priced_the_two_forms_of_a_control_plate_ladder() {
             theme.to_string(),
             (common::lstar(slot_plate(theme, "weak"))
                 - common::lstar(tokens::surface(theme, card)))
-                .abs(),
+            .abs(),
         ));
         press_gap.push((
             theme.to_string(),
             (common::lstar(slot_plate(theme, "strong"))
                 - common::lstar(tokens::surface(theme, float)))
-                .abs(),
+            .abs(),
         ));
     }
     let describe = |mut v: Vec<(String, f32)>| {
@@ -6092,7 +6201,6 @@ fn decision_a_priced_the_two_forms_of_a_control_plate_ladder() {
         NAMES[float.rung() + 1],
         describe(press_gap),
     );
-
 
     println!(
         "KIT-CONTRACT:   A ramp monotonicity: {} of {} themes do NOT order the derived slots by \
@@ -6246,7 +6354,8 @@ fn the_control_plate_ladder_is_exact() {
             }
             // The limit, printed rather than asserted: what it would cost to OWN the
             // ink instead of reading it.
-            let re_solved = iced::theme::palette::Pair::new(plate, theme.palette().background.base.text).text;
+            let re_solved =
+                iced::theme::palette::Pair::new(plate, theme.palette().background.base.text).text;
             if re_solved != slot_ink(theme, slot) {
                 ink_miss += 1;
                 ink_miss_worst = ink_miss_worst
@@ -6365,7 +6474,10 @@ fn one_screen_label_is_kept_in_this_doc() {
             let lower = line.to_lowercase();
             for digit in '0'..='9' {
                 if lower.contains(&format!("the screen {digit}")) {
-                    problems.push(format!("{file}:{}: article before a screen number", idx + 1));
+                    problems.push(format!(
+                        "{file}:{}: article before a screen number",
+                        idx + 1
+                    ));
                 }
             }
             for ordinal in RETIRED_ORDINALS {
@@ -6385,9 +6497,7 @@ fn one_screen_label_is_kept_in_this_doc() {
             if let Some(rest) = line.trim_start().strip_prefix("// Screen ") {
                 let digits: String = rest.chars().take_while(char::is_ascii_digit).collect();
                 if !digits.is_empty() && rest[digits.len()..].starts_with(" (") {
-                    let n: u32 = digits
-                        .parse()
-                        .expect("a header screen number should parse");
+                    let n: u32 = digits.parse().expect("a header screen number should parse");
                     if headers.contains(&n) {
                         problems.push(format!("{file}:{}: duplicate `Screen {n}` header", idx + 1));
                     }
@@ -6545,7 +6655,9 @@ fn no_surface_outside_the_kit_asks_for_the_float_rung() {
         if is_whitelisted(&rel) {
             continue;
         }
-        let Ok(text) = fs::read_to_string(path) else { continue };
+        let Ok(text) = fs::read_to_string(path) else {
+            continue;
+        };
         for (i, line) in text.lines().enumerate() {
             let t = line.trim_start();
             if t.starts_with("//") {
@@ -6576,7 +6688,10 @@ fn no_surface_outside_the_kit_asks_for_the_float_rung() {
 #[test]
 fn the_sheet_ground_is_the_colour_the_sheet_paints() {
     let themes = all_themes();
-    assert!(!themes.is_empty(), "all_themes() returned no theme to measure");
+    assert!(
+        !themes.is_empty(),
+        "all_themes() returned no theme to measure"
+    );
     for theme in themes.iter() {
         let painted = read_container(crate::ui::kit::sheet_style(theme, "")).plate;
         assert_eq!(
@@ -6595,9 +6710,7 @@ fn the_sheet_ground_is_the_colour_the_sheet_paints() {
 #[test]
 fn the_chip_strip_fades_into_the_kits_sheet_ground() {
     let source = include_str!("../command_line.rs");
-    let start = source
-        .find("fn chip_strip<'a>(")
-        .expect("the chip strip");
+    let start = source.find("fn chip_strip<'a>(").expect("the chip strip");
     let body = &source[start..];
     let end = body
         .find("\n/// Command names matching")
@@ -6637,7 +6750,9 @@ fn no_surface_outside_the_kit_calls_the_opaque_floating_plate() {
         if is_whitelisted(&rel) {
             continue;
         }
-        let Ok(text) = fs::read_to_string(path) else { continue };
+        let Ok(text) = fs::read_to_string(path) else {
+            continue;
+        };
         for (i, line) in text.lines().enumerate() {
             let t = line.trim_start();
             if t.starts_with("//") || !float_call(t) {
@@ -6707,8 +6822,7 @@ fn the_glass_rollout_keeps_its_measured_floor() {
     let root = src_root();
     let mut files = Vec::new();
     collect_rs_files(&root, &mut files);
-    let mut per_file: std::collections::BTreeMap<String, usize> =
-        std::collections::BTreeMap::new();
+    let mut per_file: std::collections::BTreeMap<String, usize> = std::collections::BTreeMap::new();
     let mut sites = 0usize;
     for path in files {
         let rel = match path.strip_prefix(&root) {
@@ -6718,7 +6832,9 @@ fn the_glass_rollout_keeps_its_measured_floor() {
         if is_whitelisted(&rel) {
             continue;
         }
-        let Ok(text) = fs::read_to_string(path) else { continue };
+        let Ok(text) = fs::read_to_string(path) else {
+            continue;
+        };
         for line in text.lines() {
             let t = line.trim_start();
             if t.starts_with("//") || !glass_site(t) {
@@ -6779,7 +6895,9 @@ fn the_brand_hairline_plate_is_not_renamed_back_into_the_tree() {
             Ok(r) => r.to_string_lossy().replace('\\', "/"),
             Err(_) => continue,
         };
-        let Ok(text) = fs::read_to_string(path) else { continue };
+        let Ok(text) = fs::read_to_string(path) else {
+            continue;
+        };
         for (i, line) in text.lines().enumerate() {
             let t = line.trim_start();
             if t.starts_with("//") {
@@ -6797,8 +6915,6 @@ fn the_brand_hairline_plate_is_not_renamed_back_into_the_tree() {
          the kit exports, and it is an alert, not a selection.",
     );
 }
-
-
 
 /// The dialog footer's destructive action wears the same capsule as the
 /// primary and secondary actions beside it on both DraftFlow schemes — a
@@ -6820,8 +6936,14 @@ fn the_dialog_danger_action_matches_its_footer() {
             let dialog = dialog_danger_style(&theme, status);
             let danger = danger_style(&theme, status);
             let primary = primary_style(&theme, status);
-            assert_eq!(dialog.background, danger.background, "{theme:?} {status:?}: plate moved");
-            assert_eq!(dialog.text_color, danger.text_color, "{theme:?} {status:?}: ink moved");
+            assert_eq!(
+                dialog.background, danger.background,
+                "{theme:?} {status:?}: plate moved"
+            );
+            assert_eq!(
+                dialog.text_color, danger.text_color,
+                "{theme:?} {status:?}: ink moved"
+            );
             assert_eq!(
                 dialog.border.radius,
                 tokens::RADIUS_PILL.into(),
@@ -6838,7 +6960,10 @@ fn the_dialog_danger_action_matches_its_footer() {
         .into_iter()
         .filter(|theme| draftflow_colors(theme).is_none())
         .collect();
-    assert!(!vendor.is_empty(), "all_themes() offered no vendor scheme to check");
+    assert!(
+        !vendor.is_empty(),
+        "all_themes() offered no vendor scheme to check"
+    );
     for theme in vendor {
         for status in STATUSES {
             assert_eq!(

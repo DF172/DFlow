@@ -187,9 +187,6 @@ fn take_parsed(key: &str) -> Option<codec::ReadOutcome> {
         .remove(key)
 }
 
-
-
-
 /// Scan `doc` for XREF block-records, resolve their paths relative to
 /// `base_dir`, and populate each xref block with entities from the
 /// referenced file.
@@ -491,7 +488,7 @@ struct LayerLook {
 impl LayerLook {
     fn of(layer: &codec::tables::Layer) -> Self {
         Self {
-            color: layer.color.clone(),
+            color: layer.color,
             line_type: layer.line_type.to_uppercase(),
             line_weight: layer.line_weight,
             off: layer.flags.off,
@@ -551,7 +548,6 @@ pub fn layer_overrides(doc: &CadDocument, name: &str, raw_path: &str, base_dir: 
         here != *original
     })
 }
-
 
 /// Try to build an absolute path from a raw xref path string.
 /// Handles absolute paths, relative paths, and Windows-style separators.
@@ -2378,15 +2374,15 @@ fn restore_dependent_layers(
         let (Some(cur), Some(old)) = (doc.layers.get_mut(&n), kept.get(&n.to_uppercase())) else {
             continue;
         };
-        cur.flags = old.flags.clone();
-        cur.color = old.color.clone();
+        cur.flags = old.flags;
+        cur.color = old.color;
         cur.color_name = old.color_name.clone();
         cur.book_name = old.book_name.clone();
         cur.line_type = old.line_type.clone();
-        cur.line_weight = old.line_weight.clone();
+        cur.line_weight = old.line_weight;
         cur.plot_style = old.plot_style.clone();
         cur.is_plottable = old.is_plottable;
-        cur.transparency = old.transparency.clone();
+        cur.transparency = old.transparency;
     }
 }
 

@@ -124,9 +124,8 @@ impl UiThemeConfig {
         } else if self.name.eq_ignore_ascii_case("System") {
             resolve_system_theme()
         } else {
-            builtin_theme(&self.name).unwrap_or_else(|| {
-                crate::ui::style::draftflow_theme::draftflow_dark()
-            })
+            builtin_theme(&self.name)
+                .unwrap_or_else(crate::ui::style::draftflow_theme::draftflow_dark)
         }
     }
 }
@@ -511,9 +510,7 @@ pub fn parse_theme_name(s: &str) -> Option<iced::Theme> {
         "FUSIONBLACK" => Some(crate::ui::style::fusion_theme::fusion_black()),
         "FUSIONWHITE" => Some(crate::ui::style::fusion_theme::fusion_white()),
         "DRAFTFLOWDARK" | "DFDARK" => Some(crate::ui::style::draftflow_theme::draftflow_dark()),
-        "DRAFTFLOWLIGHT" | "DFLIGHT" => {
-            Some(crate::ui::style::draftflow_theme::draftflow_light())
-        }
+        "DRAFTFLOWLIGHT" | "DFLIGHT" => Some(crate::ui::style::draftflow_theme::draftflow_light()),
         _ => None,
     }
 }
@@ -563,13 +560,9 @@ pub enum SettingsFault {
         kept: Option<std::path::PathBuf>,
     },
     /// The file is there but its bytes could not be obtained at all.
-    Unreadable {
-        reason: String,
-    },
+    Unreadable { reason: String },
     /// A write did not land, so this run's changes are not persisted.
-    NotSaved {
-        reason: String,
-    },
+    NotSaved { reason: String },
 }
 
 impl SettingsFault {
@@ -657,7 +650,6 @@ impl AppConfig {
             Ok(json) => write_settings(config_path().as_deref(), &json),
         };
 
-
         fault.map_or(Ok(()), Err)
     }
 }
@@ -731,8 +723,6 @@ fn write_settings(path: Option<&std::path::Path>, json: &str) -> Option<Settings
     }
 }
 
-
-
 /// Aim the settings file at a path the caller owns. Only tests use it: without
 /// a hook, [`AppConfig::save`] can only ever write to the developer's own
 /// settings, and the branch where a write is refused stays unreachable.
@@ -754,7 +744,10 @@ mod tests {
             .duration_since(std::time::UNIX_EPOCH)
             .expect("clock")
             .as_nanos();
-        std::env::temp_dir().join(format!("draftflow_settings_{name}_{}_{nanos}", std::process::id()))
+        std::env::temp_dir().join(format!(
+            "draftflow_settings_{name}_{}_{nanos}",
+            std::process::id()
+        ))
     }
 
     /// The settings hook is one process-wide name, so the tests that aim it
@@ -807,7 +800,9 @@ mod tests {
         let on_disk = std::fs::read_to_string(&written_path)
             .expect("the retry is what puts the file on disk");
         assert!(
-            on_disk.replace(' ', "").contains("\"show_graphic_attributes\":true"),
+            on_disk
+                .replace(' ', "")
+                .contains("\"show_graphic_attributes\":true"),
             "the retried write carries the change the user made: {on_disk}"
         );
         let _: AppConfig =
@@ -908,8 +903,10 @@ mod tests {
     fn system_scheme_resolves_to_a_concrete_theme_and_keeps_its_name() {
         // Fresh configs keep the existing default; SYSTEM is opt-in.
         assert_ne!(UiThemeConfig::default().name, "System");
-        let mut cfg = UiThemeConfig::default();
-        cfg.name = "System".to_string();
+        let mut cfg = UiThemeConfig {
+            name: "System".to_string(),
+            ..Default::default()
+        };
         let resolved = cfg.to_iced();
         // Case-insensitive like the other stored names.
         cfg.name = "system".to_string();
@@ -1009,8 +1006,10 @@ mod tests {
         let missing: AppConfig = serde_json::from_str("{}").expect("deserialize old config");
         assert!(!missing.show_graphic_attributes);
 
-        let mut original = AppConfig::default();
-        original.show_graphic_attributes = true;
+        let original = AppConfig {
+            show_graphic_attributes: true,
+            ..Default::default()
+        };
         let serialized = serde_json::to_string(&original).expect("serialize config");
         let restored: AppConfig = serde_json::from_str(&serialized).expect("deserialize config");
         assert!(restored.show_graphic_attributes);

@@ -2,7 +2,7 @@
 //! UCSORTHO), named views saved with the UCS of UCSVIEW, and the per-view
 //! settings of its sEttings option.
 
-use super::super::{Message, DraftFlowCAD};
+use super::super::{DraftFlowCAD, Message};
 use crate::command::CadCommand;
 use crate::modules::view::view_cmd::{self, DashViewCommand, ViewInfo, ViewNames};
 use codec::objects::ObjectType;
@@ -37,7 +37,11 @@ impl DraftFlowCAD {
             .collect();
         let name_of = |list: &[(String, Handle)], handle: Handle| {
             (!handle.is_null())
-                .then(|| list.iter().find(|(_, h)| *h == handle).map(|(name, _)| name.clone()))
+                .then(|| {
+                    list.iter()
+                        .find(|(_, h)| *h == handle)
+                        .map(|(name, _)| name.clone())
+                })
                 .flatten()
         };
         let views = document
@@ -88,7 +92,11 @@ impl DraftFlowCAD {
                 let want = glam::Vec3::new(x, y, 1.0).normalize();
                 (18..26)
                     .map(CubeRegion::Corner)
-                    .max_by(|a, b| a.snap_direction().dot(want).total_cmp(&b.snap_direction().dot(want)))
+                    .max_by(|a, b| {
+                        a.snap_direction()
+                            .dot(want)
+                            .total_cmp(&b.snap_direction().dot(want))
+                    })
                     .expect("the cube has corners")
             }
         };
@@ -106,7 +114,8 @@ impl DraftFlowCAD {
                 self.commit_active_ucs_change(i, "-VIEW");
             }
         }
-        self.command_line.push_output(crate::t!("Regenerating model.").as_ref());
+        self.command_line
+            .push_output(crate::t!("Regenerating model.").as_ref());
         self.snap_view_preset(region)
     }
 
@@ -123,7 +132,12 @@ impl DraftFlowCAD {
             "PRESET" => return self.apply_view_preset(arg),
             "DELETE" => {
                 let doomed: Vec<String> = view_cmd::matching(
-                    self.tabs[i].scene.document.views.iter().map(|view| view.name.as_str()),
+                    self.tabs[i]
+                        .scene
+                        .document
+                        .views
+                        .iter()
+                        .map(|view| view.name.as_str()),
                     arg,
                 )
                 .into_iter()
@@ -133,7 +147,10 @@ impl DraftFlowCAD {
                     self.push_undo_snapshot(i, "-VIEW");
                     for name in &doomed {
                         self.tabs[i].scene.document.views.remove(name);
-                        self.tabs[i].scene.document.delete_layer_state(&snapshot_name(name));
+                        self.tabs[i]
+                            .scene
+                            .document
+                            .delete_layer_state(&snapshot_name(name));
                     }
                     self.tabs[i].dirty = true;
                 }
@@ -165,13 +182,16 @@ impl DraftFlowCAD {
                     self.commit_active_ucs_change(i, "-VIEW");
                 }
                 if self.tabs[i].scene.active_gaze_dir().dot(before) < 0.9999 {
-                    self.command_line.push_output(crate::t!("Regenerating model.").as_ref());
+                    self.command_line
+                        .push_output(crate::t!("Regenerating model.").as_ref());
                 }
             }
             "SAVE" => {
                 let mut view = self.tabs[i].scene.current_as_named_view(arg);
                 if view_cmd::ucs_view() {
-                    self.command_line.push_output(crate::t!("UCSVIEW = 1  UCS will be saved with view").as_ref());
+                    self.command_line.push_output(
+                        crate::t!("UCSVIEW = 1  UCS will be saved with view").as_ref(),
+                    );
                     self.store_ucs_in_view(i, &mut view);
                 }
                 self.save_named_view(i, view);
@@ -182,18 +202,32 @@ impl DraftFlowCAD {
                     let (x, y) = s.split_once(',')?;
                     Some((x.trim().parse::<f64>().ok()?, y.trim().parse::<f64>().ok()?))
                 };
-                match (parts.first(), parts.get(1).and_then(|s| corner(s)), parts.get(2).and_then(|s| corner(s))) {
+                match (
+                    parts.first(),
+                    parts.get(1).and_then(|s| corner(s)),
+                    parts.get(2).and_then(|s| corner(s)),
+                ) {
                     (Some(name), Some(a), Some(b)) if a.0 != b.0 && a.1 != b.1 => {
                         // A plan view of the window between the corners; the
                         // reference keeps no UCS with a window view.
                         let mut view = self.tabs[i].scene.current_as_named_view(name);
-                        view.target = Vector3 { x: (a.0 + b.0) / 2.0, y: (a.1 + b.1) / 2.0, z: 0.0 };
-                        view.direction = Vector3 { x: 0.0, y: 0.0, z: 1.0 };
+                        view.target = Vector3 {
+                            x: (a.0 + b.0) / 2.0,
+                            y: (a.1 + b.1) / 2.0,
+                            z: 0.0,
+                        };
+                        view.direction = Vector3 {
+                            x: 0.0,
+                            y: 0.0,
+                            z: 1.0,
+                        };
                         view.width = (b.0 - a.0).abs();
                         view.height = (b.1 - a.1).abs();
                         self.save_named_view(i, view);
                     }
-                    _ => self.command_line.push_output(crate::t!("Invalid window specification.").as_ref()),
+                    _ => self
+                        .command_line
+                        .push_output(crate::t!("Invalid window specification.").as_ref()),
                 }
             }
             "SETTINGS" => settings_again = true,
@@ -279,11 +313,15 @@ impl DraftFlowCAD {
             view.handle = document.allocate_handle();
         }
         let find = |list: Vec<(String, Handle)>| {
-            list.into_iter().find(|(entry, _)| entry.eq_ignore_ascii_case(value)).map_or(Handle::NULL, |(_, h)| h)
+            list.into_iter()
+                .find(|(entry, _)| entry.eq_ignore_ascii_case(value))
+                .map_or(Handle::NULL, |(_, h)| h)
         };
         match setting {
             "BACKGROUND" => view.background_handle = Handle::NULL,
-            "VISUALSTYLE" => view.visual_style_handle = find(crate::io::visual_styles::offered(document)),
+            "VISUALSTYLE" => {
+                view.visual_style_handle = find(crate::io::visual_styles::offered(document))
+            }
             "SECTION" => {
                 let sections: Vec<(String, Handle)> = document
                     .entities()
@@ -317,10 +355,18 @@ impl DraftFlowCAD {
                     let text = |record: &codec::objects::XRecord, code: i32| {
                         record.get_string(code).unwrap_or_default().to_string()
                     };
-                    let category = if setting == "CATEGORIZE" { value.to_string() } else { text(record, 300) };
+                    let category = if setting == "CATEGORIZE" {
+                        value.to_string()
+                    } else {
+                        text(record, 300)
+                    };
                     let layers = layer_name.unwrap_or_else(|| text(record, 302));
-                    let mut rest: Vec<_> =
-                        record.entries.iter().filter(|entry| !matches!(entry.code, 300 | 302)).cloned().collect();
+                    let mut rest: Vec<_> = record
+                        .entries
+                        .iter()
+                        .filter(|entry| !matches!(entry.code, 300 | 302))
+                        .cloned()
+                        .collect();
                     if rest.is_empty() {
                         rest = vec![
                             codec::objects::XRecordEntry::bool(293, false),

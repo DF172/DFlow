@@ -27,6 +27,12 @@ impl RayCommand {
     }
 }
 
+impl Default for RayCommand {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CadCommand for RayCommand {
     fn name(&self) -> &'static str {
         "RAY"
@@ -196,6 +202,12 @@ impl XLineCommand {
             _ => return None,
         };
         Some((base, direction.try_normalize()?))
+    }
+}
+
+impl Default for XLineCommand {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

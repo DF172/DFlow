@@ -413,8 +413,8 @@ impl MviewCommand {
         viewport.width = width;
         viewport.height = height;
         viewport.id = 2;
-        viewport.view_target = view.target.clone();
-        viewport.view_direction = view.direction.clone();
+        viewport.view_target = view.target;
+        viewport.view_direction = view.direction;
         viewport.view_height = source_height;
         viewport.custom_scale = height / source_height;
         viewport.lens_length = view.lens_length;
@@ -853,9 +853,8 @@ impl CadCommand for MviewCommand {
     fn input_kind(&self) -> InputKind {
         if self.step == Step::ClipLength
             || (self.step == Step::Polygon && (self.arc_sub.is_scalar() || self.chord_step()))
+            || self.step == Step::ChooseView
         {
-            InputKind::FreeText
-        } else if self.step == Step::ChooseView {
             InputKind::FreeText
         } else if self.step == Step::RectangleFirst
             || self.step == Step::ClipChoice

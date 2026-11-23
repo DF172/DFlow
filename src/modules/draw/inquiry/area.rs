@@ -234,6 +234,12 @@ impl AreaCommand {
     }
 }
 
+impl Default for AreaCommand {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CadCommand for AreaCommand {
     fn name(&self) -> &'static str {
         "AREA"

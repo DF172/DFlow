@@ -33,7 +33,7 @@ const TOP_RESERVE: f32 = 200.0;
 /// passes the empty track: `motion::value_or` answers with its default and the
 /// paints stay at full strength. When the canvas learns a key, this is the only
 /// place to change.
-const NO_TRACK: &'static str = "";
+const NO_TRACK: &str = "";
 
 fn icon_el(icon: IconKind) -> Element<'static, Message> {
     match icon {
@@ -81,7 +81,11 @@ pub fn view_with_active(
         // An on tool wears the aurora wash + edge; a rest tool is a plain
         // framed plate that lifts under the pointer. Both are the kit's
         // numbers, decided in `kit::style_for`.
-        let role = if active(t.id) { Role::Engaged } else { Role::Standard };
+        let role = if active(t.id) {
+            Role::Engaged
+        } else {
+            Role::Standard
+        };
         let btn = icon_btn(
             icon_el(t.icon),
             role,

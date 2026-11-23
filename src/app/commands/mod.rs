@@ -1,4 +1,4 @@
-use super::{Message, DraftFlowCAD};
+use super::{DraftFlowCAD, Message};
 use crate::command::CadCommand;
 use crate::scene::Scene;
 use iced::Task;
@@ -223,8 +223,7 @@ impl DraftFlowCAD {
                 })),
                 Err(_) => {
                     self.command_line.push_error(
-                        crate::tf!("Recent file no longer exists: {}", path.display())
-                            .as_ref(),
+                        crate::tf!("Recent file no longer exists: {}", path.display()).as_ref(),
                     );
                     Task::none()
                 }
@@ -280,12 +279,10 @@ impl DraftFlowCAD {
         // command completes on Enter (`BAC` → `BACKGROUND`). The verb's own
         // input was already cleared, so rank against `cmd` directly.
         if allow_suggest {
-            if let Some(top) = crate::ui::command_line::ranked_matches(
-                cmd,
-                &self.command_line.command_aliases,
-            )
-            .into_iter()
-            .next()
+            if let Some(top) =
+                crate::ui::command_line::ranked_matches(cmd, &self.command_line.command_aliases)
+                    .into_iter()
+                    .next()
             {
                 if !top.eq_ignore_ascii_case(cmd) {
                     return self.dispatch_command_inner(&top, false);
@@ -969,7 +966,7 @@ inventory::submit!(crate::command::CommandRegistration {
 
 #[cfg(test)]
 mod marquee_cancel_tests {
-    use crate::app::{GripPendingValue, Message, DraftFlowCAD};
+    use crate::app::{DraftFlowCAD, GripPendingValue, Message};
     use crate::scene::model::object::GripMenuAction;
     use crate::scene::pick::grip::GripEdit;
     use codec::Handle;
@@ -1216,10 +1213,8 @@ mod open_recent_pick_tests {
         let bytes = [7u8; 1234];
         std::fs::write(&path, bytes).expect("write the temp recents entry");
         let mut app = fresh();
-        let message = dispatched(
-            app.dispatch_command(&format!("OPEN_RECENT:{}", path.display())),
-        )
-        .expect("an existing recents entry must still dispatch an open");
+        let message = dispatched(app.dispatch_command(&format!("OPEN_RECENT:{}", path.display())))
+            .expect("an existing recents entry must still dispatch an open");
         match message {
             Message::OpenPathPicked(OpenPick::Picked {
                 path: chosen,
@@ -1230,7 +1225,10 @@ mod open_recent_pick_tests {
                     bytes.len() as u64,
                     "the size handed to the overlay must be the file's real length"
                 );
-                assert_eq!(chosen, path, "the entry the user clicked must be the one opened");
+                assert_eq!(
+                    chosen, path,
+                    "the entry the user clicked must be the one opened"
+                );
             }
             other => panic!("expected a picked open, got {other:?}"),
         }

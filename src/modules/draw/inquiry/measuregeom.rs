@@ -190,6 +190,12 @@ impl MeasureGeomCommand {
     }
 }
 
+impl Default for MeasureGeomCommand {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CadCommand for MeasureGeomCommand {
     fn name(&self) -> &'static str {
         "MEASUREGEOM"

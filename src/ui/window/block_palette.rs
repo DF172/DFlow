@@ -11,14 +11,13 @@ use crate::app::Message;
 use crate::modules::IconKind;
 use crate::scene::model::wire_model::WireModel;
 use crate::ui::dock::PanelId;
-use crate::ui::kit::muted_style;
 use crate::ui::kit;
+use crate::ui::kit::muted_style;
+use crate::ui::kit::plain_button;
 use iced::widget::canvas::{Frame, Path, Program, Stroke};
 use iced::widget::{
-    button, canvas, checkbox, column, container, image, mouse_area, row,
-    text, text_input, Space,
+    button, canvas, checkbox, column, container, image, mouse_area, row, text, text_input, Space,
 };
-use crate::ui::kit::plain_button;
 use iced::{Background, Color, Element, Fill, Length, Theme};
 
 const TOOL_H: f32 = 22.0;
@@ -432,9 +431,7 @@ fn thumb<'a>(palette: &'a BlockPalette, item: &Item, size: f32) -> Element<'a, M
         container(Space::new())
             .width(Fill)
             .height(Length::Fixed(size))
-            .style(|theme: &Theme| {
-                kit::document_style(kit::plane(theme, kit::Tier::Sink), "")
-            })
+            .style(|theme: &Theme| kit::document_style(kit::plane(theme, kit::Tier::Sink), ""))
             .into()
     };
     let wires = |name: &str| palette.current_entry(name).map(|e| &e.wires[..]);
@@ -496,7 +493,12 @@ fn item_menu(tab: Tab, item: Item, in_drawing: bool, external: bool) -> Element<
                 let mut s = kit::text_style(theme, status);
                 if matches!(status, button::Status::Hovered) {
                     s.background = Some(Background::Color(
-                        theme.palette().background.base.text.scale_alpha(tokens::WASH_POINTER),
+                        theme
+                            .palette()
+                            .background
+                            .base
+                            .text
+                            .scale_alpha(tokens::WASH_POINTER),
                     ));
                 }
                 s
@@ -614,7 +616,10 @@ fn item_view<'a>(palette: &'a BlockPalette, item: Item, theme: &Theme) -> Elemen
                 .align_y(iced::Center)
                 .into()
             }
-            _ => text(name.clone()).size(tokens::TEXT_LABEL).width(Fill).into(),
+            _ => text(name.clone())
+                .size(tokens::TEXT_LABEL)
+                .width(Fill)
+                .into(),
         },
     };
     let card = container(body)
@@ -624,9 +629,7 @@ fn item_view<'a>(palette: &'a BlockPalette, item: Item, theme: &Theme) -> Elemen
             tokens::PAD_FIELD_Y
         })
         .width(Fill)
-        .style(move |theme: &Theme| {
-            kit::picker_tile_style(theme, placing, button::Status::Active)
-        });
+        .style(move |theme: &Theme| kit::picker_tile_style(theme, placing, button::Status::Active));
     let area = mouse_area(card)
         .on_press(pm(BlockPaletteMsg::Press(item.clone())))
         .on_release(pm(BlockPaletteMsg::Release(item.clone())))
@@ -691,7 +694,10 @@ fn options_card<'a>(palette: &'a BlockPalette) -> Element<'a, Message> {
         ];
         let current_kind = scale_kinds[o.uniform as usize].clone();
         let uniform_label = scale_kinds[1].clone();
-        let kind = crate::ui::kit::themed_pick_list(Some(current_kind), scale_kinds, |v: &String| v.clone())
+        let kind =
+            crate::ui::kit::themed_pick_list(Some(current_kind), scale_kinds, |v: &String| {
+                v.clone()
+            })
             .on_select(move |v: String| {
                 pm(BlockPaletteMsg::Option(OptionMsg::Uniform(
                     v == uniform_label,
@@ -800,12 +806,17 @@ pub fn view<'a>(
 
     let tabs = {
         let buttons = [Tab::Current, Tab::Recent, Tab::Favorites, Tab::Libraries].map(|t| {
-            plain_button(text(crate::t!(t.label())).size(tokens::TEXT_MICRO).width(Fill).align_x(iced::Center))
-                .on_press(pm(BlockPaletteMsg::Tab(t)))
-                .style(kit::button_style(t == palette.tab))
-                .padding([tokens::GAP_TIGHT, tokens::GAP_SEAM])
-                .width(Fill)
-                .into()
+            plain_button(
+                text(crate::t!(t.label()))
+                    .size(tokens::TEXT_MICRO)
+                    .width(Fill)
+                    .align_x(iced::Center),
+            )
+            .on_press(pm(BlockPaletteMsg::Tab(t)))
+            .style(kit::button_style(t == palette.tab))
+            .padding([tokens::GAP_TIGHT, tokens::GAP_SEAM])
+            .width(Fill)
+            .into()
         });
         container(iced::widget::Row::with_children(buttons).spacing(tokens::GAP_HAIRLINE))
             .padding(tokens::GAP_HAIRLINE)

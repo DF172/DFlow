@@ -75,7 +75,7 @@
 //! - mleader arms + `apply_mleader_align`/`collect` helpers live in `mod.rs`
 //!   (router-only exception).
 
-use super::{Message, DraftFlowCAD};
+use super::{DraftFlowCAD, Message};
 use crate::command::{CmdResult, SelectionEntity, StepInput};
 use codec::Handle;
 use iced::Task;

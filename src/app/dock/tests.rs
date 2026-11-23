@@ -1,6 +1,6 @@
 //! Dock behaviour through the app: drags, hover, menus, and the real view.
 
-use crate::app::{Message, DraftFlowCAD};
+use crate::app::{DraftFlowCAD, Message};
 
 fn fresh() -> DraftFlowCAD {
     let mut app = DraftFlowCAD::new_for_test();
@@ -28,7 +28,9 @@ fn blockpalette_pin_toggles_autocollapse_and_close_hides() {
 /// One at a time: two headless renderers made in parallel crash the process.
 fn with_stack(f: impl FnOnce() + Send + 'static) {
     static REAL_VIEW: std::sync::Mutex<()> = std::sync::Mutex::new(());
-    let _one = REAL_VIEW.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+    let _one = REAL_VIEW
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
     std::thread::Builder::new()
         .stack_size(32 * 1024 * 1024)
         .spawn(f)
@@ -47,7 +49,7 @@ fn dock_app() -> DraftFlowCAD {
     app.show_block_palette = true;
     let i = app.active_tab;
     app.tabs[i].scene.selection.borrow_mut().view.vp_size = (1600.0, 900.0);
-    app.win_size = (1600.0, 900.0).into();
+    app.win_size = (1600.0, 900.0);
     app
 }
 
@@ -562,7 +564,8 @@ fn docked_title_bar_double_click_floats_the_pallet_in_the_real_view() {
     with_stack(|| {
         use crate::ui::dock::PanelId;
         let mut app = dock_app();
-        let press = iced::Event::Mouse(iced::mouse::Event::ButtonPressed(iced::mouse::Button::Left));
+        let press =
+            iced::Event::Mouse(iced::mouse::Event::ButtonPressed(iced::mouse::Button::Left));
         let release = iced::Event::Mouse(iced::mouse::Event::ButtonReleased(
             iced::mouse::Button::Left,
         ));
@@ -697,5 +700,120 @@ fn floating_menu_docks_and_allow_docking_keeps_a_drag_floating() {
     assert_eq!(
         app.dock.location(PanelId::BlockPalette).map(|(s, _)| s),
         Some(DockSide::Left)
+    );
+}
+
+/// Item 33: the drop preview fades in when the drag acquires a target, and the
+/// fade lives on a motion track so the frame loop is what paints it.
+#[test]
+fn a_drag_onto_a_drop_target_starts_the_preview_fade() {
+    use crate::app::config::DockSide;
+    use crate::ui::dock::{DropTarget, PanelId};
+    let _g = crate::ui::motion::test_gate_lock();
+    crate::ui::motion::set_enabled(true);
+    let mut app = dock_app();
+    let (_, plus_top) = app.dock_strip_layout(DockSide::Left);
+    let target = drag_panel(
+        &mut app,
+        PanelId::BlockPalette,
+        iced::Point::new(1500.0, 10.0),
+        iced::Point::new(18.0, plus_top + 10.0),
+    );
+    assert!(
+        matches!(target, Some(DropTarget::Edge { .. })),
+        "the left strip must claim this drag"
+    );
+    assert!(
+        crate::ui::motion::running(crate::ui::motion::DOCK_DROP),
+        "acquiring a drop target must start the preview fade"
+    );
+    assert!(
+        crate::ui::motion::any_active(),
+        "the preview fade must ask for frames"
+    );
+}
+
+/// Item 36: releasing a panel drag kicks the landing spring at the 3 px
+/// amplitude along the drag's dominant axis, and the spring settles back to
+/// exactly zero — the wrapper then disappears and the landed panel is
+/// pixel-identical to the plain path.
+#[test]
+fn a_released_drag_kicks_the_landing_spring_and_it_lands_at_zero() {
+    use crate::ui::dock::PanelId;
+    let _g = crate::ui::motion::test_gate_lock();
+    crate::ui::motion::set_enabled(true);
+    let mut app = dock_app();
+    let id = PanelId::BlockPalette;
+    let _ = drag_panel(
+        &mut app,
+        id,
+        iced::Point::new(1500.0, 10.0),
+        iced::Point::new(150.0, 300.0),
+    );
+    assert_eq!(
+        app.dock_land_panel,
+        Some(id),
+        "the landed panel must be remembered for the overshoot"
+    );
+    assert_eq!(
+        app.dock_land_dir,
+        iced::Vector::new(-1.0, 0.0),
+        "the overshoot must follow the drag's dominant axis"
+    );
+    assert_eq!(
+        crate::ui::motion::spring_value(crate::ui::motion::DOCK_LAND, -1.0),
+        crate::ui::motion::DOCK_LAND_AMP,
+        "the release frame must read the full landing amplitude"
+    );
+    assert!(crate::ui::motion::any_active());
+    for _ in 0..60 {
+        crate::ui::motion::tick_springs_dt(0.016);
+        if !crate::ui::motion::spring_active(crate::ui::motion::DOCK_LAND) {
+            break;
+        }
+    }
+    assert_eq!(
+        crate::ui::motion::spring_value(crate::ui::motion::DOCK_LAND, -1.0),
+        0.0,
+        "the landing must snap to exactly zero, no residual offset"
+    );
+    assert!(!crate::ui::motion::spring_active(
+        crate::ui::motion::DOCK_LAND
+    ));
+}
+
+/// Item 36: the landing offset rides `Float::translate`, whose size and
+/// layout delegate to the content — no layout metric moves, so the kit
+/// spacing contract is untouched. At rest the spring reads exactly 0 and
+/// `landed` returns the body unwrapped (pixel-identical to the plain path).
+#[test]
+fn the_landing_offset_never_moves_layout() {
+    let view = include_str!("view.rs");
+    let start = view.find("fn landed").expect("the landing wrapper");
+    let end = view[start..]
+        .find("\n    /// A pallet of the shown group")
+        .map(|offset| start + offset)
+        .expect("the end of the landing wrapper");
+    let body = &view[start..end];
+    assert!(
+        body.contains("if offset == 0.0"),
+        "at rest the wrapper must not be built at all"
+    );
+    assert!(
+        body.contains("iced::widget::Float::new(body)"),
+        "the offset must ride Float, not a layout change"
+    );
+    assert!(
+        body.contains(".translate("),
+        "the offset must be a pure visual translation"
+    );
+    let float = include_str!("../../../vendor/iced/widget/src/float.rs");
+    assert!(
+        float.contains("self.content.as_widget().size()"),
+        "Float must delegate its size to the content"
+    );
+    assert!(
+        float.contains("self.content.as_widget_mut().layout(tree, renderer, limits)"),
+        "Float must delegate its layout to the content"
     );
 }

@@ -24,7 +24,6 @@ use super::Ellipse;
 /// Below this, two directions are parallel and there is no single crossing.
 const DETERMINANT_EPSILON: f64 = 1e-10;
 
-
 /// Below this, a direction is too short to define a line at all.
 const DEGENERATE_DIRECTION: f64 = 1e-20;
 
@@ -258,11 +257,7 @@ pub fn circle_circle_points(
 /// `circle_angle` is the angle on the circle measured from its centre.
 /// `ellipse_parameter` is the ellipse's own parameter `t`, so the point on the
 /// ellipse is [`Ellipse::point_at(t)`](Ellipse::point_at).
-pub fn ellipse_circle(
-    ellipse: &Ellipse,
-    centre: [f64; 2],
-    radius: f64,
-) -> Vec<(f64, f64)> {
+pub fn ellipse_circle(ellipse: &Ellipse, centre: [f64; 2], radius: f64) -> Vec<(f64, f64)> {
     if ellipse.is_degenerate() || radius < DEGENERATE_DIRECTION {
         return Vec::new();
     }
@@ -286,7 +281,8 @@ pub fn ellipse_circle(
 
     // F(t) = distance_squared(ellipse(t), circle_centre) - radius^2
     let f = |t: f64| (a * t.cos() - u).powi(2) + (b * t.sin() - v).powi(2) - r2;
-    let df = |t: f64| (b * b - a * a) * (2.0 * t).sin() + 2.0 * a * u * t.sin() - 2.0 * b * v * t.cos();
+    let df =
+        |t: f64| (b * b - a * a) * (2.0 * t).sin() + 2.0 * a * u * t.sin() - 2.0 * b * v * t.cos();
 
     // F is measured in length², so its tangency window is the distance
     // tolerance of `line_circle` carried through d(r²) = 2r·dr.
@@ -301,7 +297,10 @@ pub fn ellipse_circle(
     let mut roots: Vec<f64> = Vec::new();
     let mut push = |t: f64| {
         let t = t.rem_euclid(TAU);
-        if !roots.iter().any(|&r| (r - t).abs() < 1e-9 || (r - t).abs() > TAU - 1e-9) {
+        if !roots
+            .iter()
+            .any(|&r| (r - t).abs() < 1e-9 || (r - t).abs() > TAU - 1e-9)
+        {
             roots.push(t);
         }
     };
@@ -608,7 +607,11 @@ mod tests {
                 assert_eq!(angles.len(), 1, "failed at angle {angle}, eps {eps}");
                 let diff = (angles[0] - angle).abs();
                 let cyclic = diff.min(TAU - diff);
-                assert!(cyclic < 1e-5, "tangent angle mismatch: got {}, expected {angle}", angles[0]);
+                assert!(
+                    cyclic < 1e-5,
+                    "tangent angle mismatch: got {}, expected {angle}",
+                    angles[0]
+                );
             }
         }
     }
@@ -636,11 +639,18 @@ mod tests {
         };
         // Circle centered at (0, 0) crossing near the tips at x = 95
         let hits = ellipse_circle(&e, [0.0, 0.0], 95.0);
-        assert_eq!(hits.len(), 4, "concentric circle of radius 95 must cross skinny ellipse at 4 points");
+        assert_eq!(
+            hits.len(),
+            4,
+            "concentric circle of radius 95 must cross skinny ellipse at 4 points"
+        );
         for (_, t) in &hits {
             let pt = e.point_at(*t);
             let d = (pt[0] * pt[0] + pt[1] * pt[1]).sqrt();
-            assert!((d - 95.0).abs() < 1e-3, "point must lie on circle of radius 95");
+            assert!(
+                (d - 95.0).abs() < 1e-3,
+                "point must lie on circle of radius 95"
+            );
         }
     }
 }

@@ -6,9 +6,9 @@
 
 use crate::app::Message;
 use crate::ui::kit;
+use crate::ui::style::tokens;
 use iced::widget::{column, container, row, text, Space};
 use iced::{Element, Fill, Length, Theme};
-use crate::ui::style::tokens;
 
 /// The prompt: the missing-font list and a close action.
 pub fn view_window<'a>(

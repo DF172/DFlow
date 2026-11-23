@@ -264,7 +264,7 @@ impl MTextEditorState {
     fn apply_globals(&self, doc: &mut MTextDocument) {
         let font = self.font.trim();
         let color = (self.color_aci != 256 && self.color_aci != 0)
-            .then(|| MTextColor::Index(self.color_aci));
+            .then_some(MTextColor::Index(self.color_aci));
         let oblique = parse_non_default(&self.oblique, 0.0);
         let width = parse_non_default(&self.width, 1.0);
         let tracking = parse_non_default(&self.char_space, 0.0);
@@ -276,7 +276,7 @@ impl MTextEditorState {
                 }
                 if p.color.is_none() && p.color_rgb.is_none() {
                     if let Some(ref c) = color {
-                        p.color = Some(c.clone());
+                        p.color = Some(*c);
                     }
                 }
                 if p.oblique_angle.is_none() {
@@ -1356,8 +1356,8 @@ impl super::DraftFlowCAD {
             let last = para_of(last_cell);
             let mut doc = cells_to_doc(&para0, &cells);
             let end = last.min(doc.paragraphs.len().saturating_sub(1));
-            for p in first..=end {
-                doc.paragraphs[p].properties.alignment = want;
+            for para in &mut doc.paragraphs[first..=end] {
+                para.properties.alignment = want;
             }
             ed.content = text_editor::Content::with_text(&doc.to_mtext_string());
             ed.caret_blink_on = true;
@@ -1376,10 +1376,7 @@ impl super::DraftFlowCAD {
         // value stays standard (#308).
         let normalized;
         let s: &str = if s.contains(['\n', '\r']) {
-            normalized = s
-                .replace("\r\n", "\\P")
-                .replace('\n', "\\P")
-                .replace('\r', "\\P");
+            normalized = s.replace("\r\n", "\\P").replace(['\n', '\r'], "\\P");
             &normalized
         } else {
             s
@@ -1607,7 +1604,7 @@ impl super::DraftFlowCAD {
                     ed.record_undo();
                     for c in &mut cells[a..b] {
                         if let Cell::Char(_, p) | Cell::Stack { props: p, .. } = c {
-                            p.color = mcolor.clone();
+                            p.color = mcolor;
                             p.color_rgb = rgb;
                         }
                     }
@@ -2090,9 +2087,11 @@ mod cell_tests {
     #[test]
     fn per_run_color_and_font_persist() {
         use codec::entities::mtext_format::{MTextColor, MTextFont};
-        let mut p = SpanProperties::default();
-        p.color = Some(MTextColor::Index(1)); // red
-        p.font = Some(MTextFont::with_flags("Arial".to_string(), true, false)); // bold Arial
+        let p = SpanProperties {
+            color: Some(MTextColor::Index(1)), // red
+            font: Some(MTextFont::with_flags("Arial".to_string(), true, false)), // bold Arial
+            ..Default::default()
+        };
         let cells = vec![Cell::Char('X', p)];
         let s = cells_to_doc(&ParagraphProperties::default(), &cells).to_mtext_string();
         let back = parse_mtext(&s, true);

@@ -154,6 +154,12 @@ impl SmoothConstraintCommand {
     }
 }
 
+impl Default for SmoothConstraintCommand {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CadCommand for SmoothConstraintCommand {
     fn name(&self) -> &'static str {
         "GCSMOOTH"

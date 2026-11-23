@@ -487,25 +487,30 @@ impl CadCommand for PdfAttachCommand {
                     UnderlayType::Dwf => "DWF",
                     UnderlayType::Dgn => "DGN",
                 }
-            ).into_owned(),
+            )
+            .into_owned(),
             Step::Page if self.kind == UnderlayType::Pdf => {
                 "Enter page number or [?] <1>:".to_string()
             }
             Step::Page => crate::tf!(
                 "Enter name of {item} or [?] <{}>:",
                 self.items.first().map_or("", |s| s)
-            ).into_owned(),
+            )
+            .into_owned(),
             Step::ListPages if self.kind == UnderlayType::Pdf => {
                 "Enter page(s) to list <*>:".to_string()
             }
             Step::ListPages => crate::tf!("Enter {item}(s) to list <*>:").into_owned(),
             Step::Conversion => "Specify conversion units [Master/Sub] <Master>:".to_string(),
             Step::Insertion => "Specify insertion point:".to_string(),
-            Step::Scale => crate::tf!("Specify scale factor or [Unit] <{}>:", self.default_scale).into_owned(),
+            Step::Scale => {
+                crate::tf!("Specify scale factor or [Unit] <{}>:", self.default_scale).into_owned()
+            }
             Step::Unit => crate::tf!(
                 "Enter unit [MM/Centimeter/Meter/Kilometer/Inch/Foot/Yard/MILe/Unitless] <{}>:",
                 UNITS[self.unit].0
-            ).into_owned(),
+            )
+            .into_owned(),
             Step::Rotation => crate::tf!("Specify rotation <{}>:", last_rotation()).into_owned(),
         }
     }

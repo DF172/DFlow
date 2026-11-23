@@ -14,13 +14,13 @@ pub mod area;
 pub mod arrangement;
 pub mod band;
 mod boundary_recovery;
-pub mod clip;
 pub mod centerline;
-pub mod containment;
-pub mod construct;
+pub mod clip;
 #[cfg(feature = "brep")]
 pub(crate) mod constrained;
 pub mod constraint_inference;
+pub mod construct;
+pub mod containment;
 pub mod cross;
 pub mod curve;
 pub mod curve_offset;
@@ -37,39 +37,37 @@ pub mod polyline;
 pub mod polyline_edit;
 pub mod snap;
 pub mod tessellate;
-pub mod triangulate;
 pub mod transform;
+pub mod triangulate;
 pub mod vec;
 
 pub use angle::{angle_within_arc, arc_parameter, arc_span, normalize_angle};
 pub use arrangement::{bounded_faces, segment_crossing, signed_area, SegmentCrossing};
-pub use band::{
-    polyline_band_boundary, BandBoundaryEdge, BandStationPiece, PolylineBandBoundary,
-};
+pub use band::{polyline_band_boundary, BandBoundaryEdge, BandStationPiece, PolylineBandBoundary};
 pub use boundary_recovery::refine_spline_boundary;
-pub use clip::{break_spans, inside_pieces, inside_spans, trim_spans};
 pub use centerline::{centerline_between, CenterLineGeometry};
-pub use containment::{closest_point, contains, distance_to, nearest_of, Closest};
+pub use clip::{break_spans, inside_pieces, inside_spans, trim_spans};
 pub use constraint_inference::{
     infer_constraints, infer_constraints_with_settings, Endpoint as ConstraintEndpoint,
     InferenceKind, InferenceSettings, InferredConstraint, ParametricPrimitive,
 };
-pub use dimension::linear_dimension_leader;
 pub use construct::{
-    arc_from_endpoints_angle, arc_from_endpoints_radius, arc_from_sagitta,
-    arc_from_start_tangent, arc_sweep_from_chord, arc_through_points, bounded_arc,
+    arc_from_endpoints_angle, arc_from_endpoints_radius, arc_from_sagitta, arc_from_start_tangent,
+    arc_sweep_from_chord, arc_through_points, bounded_arc,
 };
+pub use containment::{closest_point, contains, distance_to, nearest_of, Closest};
 pub use cross::{intersect, Crossing};
 pub use curve::{Arc, Circle, Curve, EllipseArc, Extent, Line, Ray, XLine};
 pub use curve_offset::offset_curve;
-pub use nurbs::{NurbsCurve, Parameterization};
-pub use frame::Frame;
+pub use dimension::linear_dimension_leader;
 pub use fillet::{fillet_between_rays, fillets_between, Fillet};
+pub use frame::Frame;
 pub use gradient::{gradient_frame, GradientFrame};
 pub use intersect::{
     circle_circle_angles, circle_circle_points, ellipse_circle, line_circle, line_ellipse,
     line_line,
 };
+pub use nurbs::{NurbsCurve, Parameterization};
 #[cfg(feature = "offset")]
 pub use offset::offset_polyline;
 pub use polyline::{

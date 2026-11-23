@@ -818,4 +818,3 @@ fn map_variant(discriminant: u32, named: &Named<VariantFormat>) -> EnumVariantIn
         fields,
     }
 }
-

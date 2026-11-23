@@ -97,6 +97,12 @@ impl DimJogLineCommand {
     }
 }
 
+impl Default for DimJogLineCommand {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CadCommand for DimJogLineCommand {
     fn name(&self) -> &'static str {
         "DIMJOGLINE"
@@ -235,8 +241,10 @@ impl CadCommand for DimJogLineCommand {
             0.3,
             std::f64::consts::FRAC_PI_2,
         )?;
-        let mut preview = WireModel::default();
-        preview.name = "dimjog_preview".into();
+        let mut preview = WireModel {
+            name: "dimjog_preview".into(),
+            ..Default::default()
+        };
         preview.points = points
             .into_iter()
             .map(|point| point.map(|value| value as f32))

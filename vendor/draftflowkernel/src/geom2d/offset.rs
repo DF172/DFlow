@@ -161,7 +161,8 @@ fn parallel_offset(source: &CavPolyline<f64>, signed_offset: f64) -> Vec<CavPoly
         ..Default::default()
     };
     let index = source.create_approx_aabb_index();
-    let mut raw: CavPolyline<f64> = create_raw_offset_polyline(source, signed_offset, POSITION_EPSILON);
+    let mut raw: CavPolyline<f64> =
+        create_raw_offset_polyline(source, signed_offset, POSITION_EPSILON);
     if raw.is_empty() {
         return Vec::new();
     }
@@ -282,12 +283,7 @@ fn step(index: usize, count: usize, closed: bool) -> Option<usize> {
 }
 
 /// Where the lines through `p0→p1` and `q0→q1` cross, as a point.
-fn segment_crossing(
-    p0: [f64; 2],
-    p1: [f64; 2],
-    q0: [f64; 2],
-    q1: [f64; 2],
-) -> Option<[f64; 2]> {
+fn segment_crossing(p0: [f64; 2], p1: [f64; 2], q0: [f64; 2], q1: [f64; 2]) -> Option<[f64; 2]> {
     let d = [p1[0] - p0[0], p1[1] - p0[1]];
     let e = [q1[0] - q0[0], q1[1] - q0[1]];
     let (t, _) = line_line(p0, d, q0, e)?;
@@ -417,7 +413,8 @@ mod tests {
         let out = offset_polyline(&source, 0.5, [2.0, 0.1]);
         assert!(!out.is_empty());
         assert!(
-            out.iter().any(|p| p.vertices.iter().any(|v| v.bulge.abs() > 1e-6)),
+            out.iter()
+                .any(|p| p.vertices.iter().any(|v| v.bulge.abs() > 1e-6)),
             "the arc should still be an arc after offsetting"
         );
     }

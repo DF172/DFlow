@@ -366,7 +366,10 @@ mod tests {
         ] {
             let index = dwg_code_page_index(page);
             assert_eq!(index, 30);
-            assert_eq!(encoding_from_dwg_code_page(index), encoding_rs::WINDOWS_1252);
+            assert_eq!(
+                encoding_from_dwg_code_page(index),
+                encoding_rs::WINDOWS_1252
+            );
         }
     }
 
@@ -393,7 +396,10 @@ mod tests {
         assert_eq!(decode_mif_escapes(r"\M+9BCFE"), r"\M+9BCFE");
         assert_eq!(decode_mif_escapes(r"\M+5GGGG"), r"\M+5GGGG");
         // Shift-JIS as SolidWorks writes it, mixed with literal text.
-        assert_eq!(decode_mif_escapes("\\M+18B5A术\\M+19776\\M+18B81"), "技术要求");
+        assert_eq!(
+            decode_mif_escapes("\\M+18B5A术\\M+19776\\M+18B81"),
+            "技术要求"
+        );
         // Johab has no decoder: the escape stays literal.
         assert_eq!(decode_mif_escapes("\\M+4ABCD"), "\\M+4ABCD");
     }

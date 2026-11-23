@@ -635,23 +635,27 @@ impl CadCommand for DimConstraintCommand {
             Step::First if self.axis == DimConstraintAxis::Aligned => String::from(crate::tf!(
                 "{name}  Specify first constraint point or [Object/Point & line/2Lines] <Object>:"
             )),
-            Step::First => {
-                String::from(crate::tf!("{name}  Specify first constraint point or [Object] <Object>:"))
-            }
+            Step::First => String::from(crate::tf!(
+                "{name}  Specify first constraint point or [Object] <Object>:"
+            )),
             Step::Object => String::from(crate::tf!("{name}  Select object:")),
-            Step::Second { .. } => String::from(crate::tf!("{name}  Specify second constraint point:")),
-            Step::PointLinePoint => {
-                String::from(crate::tf!("{name}  Specify constraint point or [Line] <Line>:"))
+            Step::Second { .. } => {
+                String::from(crate::tf!("{name}  Specify second constraint point:"))
             }
-            Step::PointLineLine { .. } | Step::LineFirst => String::from(crate::tf!("{name}  Select line:")),
+            Step::PointLinePoint => String::from(crate::tf!(
+                "{name}  Specify constraint point or [Line] <Line>:"
+            )),
+            Step::PointLineLine { .. } | Step::LineFirst => {
+                String::from(crate::tf!("{name}  Select line:"))
+            }
             Step::LinePoint { .. } => String::from(crate::tf!("{name}  Select constraint point:")),
             Step::TwoLinesFirst => String::from(crate::tf!("{name}  Select first line:")),
             Step::TwoLinesSecond { .. } | Step::TwoLinesParallel { .. } => {
                 String::from(crate::tf!("{name}  Select second line to make parallel:"))
             }
-            Step::AngularFirst => {
-                String::from(crate::tf!("{name}  Select first line or arc or [3Point] <3Point>:"))
-            }
+            Step::AngularFirst => String::from(crate::tf!(
+                "{name}  Select first line or arc or [3Point] <3Point>:"
+            )),
             Step::AngularSecond { .. } => String::from(crate::tf!("{name}  Select second line:")),
             Step::AngularVertex => String::from(crate::tf!("{name}  Specify angle vertex:")),
             Step::AngularPoint1 { .. } => {
@@ -668,17 +672,20 @@ impl CadCommand for DimConstraintCommand {
                 "{name}  Enter value or name and value <{}={}>:",
                 self.default_name,
                 measured_expression(measured)
-            ).into_owned(),
+            )
+            .into_owned(),
             Step::AngularValue { measured, .. } => crate::tf!(
                 "{name}  Enter value or name and value <{}={}>:",
                 self.default_name,
                 measured_expression(measured)
-            ).into_owned(),
+            )
+            .into_owned(),
             Step::Value { measured, .. } => crate::tf!(
                 "{name}  Enter value or name and value <{}={}>:",
                 self.default_name,
                 measured_expression(measured)
-            ).into_owned(),
+            )
+            .into_owned(),
         }
     }
 
@@ -1364,7 +1371,8 @@ impl CadCommand for ConstraintFormCommand {
         crate::tf!(
             "DCFORM  Enter constraint form [Annotational/Dynamic] <{}>:",
             self.current()
-        ).into_owned()
+        )
+        .into_owned()
     }
 
     fn options(&self) -> Vec<CmdOption> {
@@ -1426,8 +1434,10 @@ impl CadCommand for DimensionValueCommand {
     fn prompt(&self) -> String {
         crate::tf!(
             "DCVALUE  Enter value or name and value <{}={}>:",
-            self.name, self.current
-        ).into_owned()
+            self.name,
+            self.current
+        )
+        .into_owned()
     }
 
     fn wants_text_input(&self) -> bool {

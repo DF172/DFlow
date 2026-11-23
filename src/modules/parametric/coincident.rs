@@ -85,6 +85,12 @@ impl CoincidentConstraintCommand {
     }
 }
 
+impl Default for CoincidentConstraintCommand {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CadCommand for CoincidentConstraintCommand {
     fn name(&self) -> &'static str {
         "GCCOINCIDENT"
@@ -110,7 +116,8 @@ impl CadCommand for CoincidentConstraintCommand {
             Step::AutoConstrain { handles } => crate::tf!(
                 "COINCIDENT  Select objects ({} selected, Enter = apply):",
                 handles.len()
-            ).into_owned(),
+            )
+            .into_owned(),
         }
     }
 

@@ -84,7 +84,11 @@ pub(super) fn chamfer_prismatic(
     }
     let positions = vertices
         .iter()
-        .map(|key| body.vertices.get(*key).map(|vertex| Vec3::from(vertex.point)))
+        .map(|key| {
+            body.vertices
+                .get(*key)
+                .map(|vertex| Vec3::from(vertex.point))
+        })
         .collect::<Option<Vec<_>>>()?;
     let points = positions
         .iter()
@@ -97,8 +101,7 @@ pub(super) fn chamfer_prismatic(
     }
     for index in 0..count {
         let next = (index + 1) % count;
-        if Vec2::from(profile[index].point_at(0.0)).distance(Vec2::from(points[index]))
-            > tolerance
+        if Vec2::from(profile[index].point_at(0.0)).distance(Vec2::from(points[index])) > tolerance
             || Vec2::from(profile[index].point_at(1.0)).distance(Vec2::from(points[next]))
                 > tolerance
         {
@@ -138,8 +141,7 @@ pub(super) fn chamfer_prismatic(
             .filter(|key| {
                 body.edges.get(**key).is_some_and(|edge| {
                     (edge.start == top_vertices[index] && edge.end == top_vertices[next])
-                        || (edge.end == top_vertices[index]
-                            && edge.start == top_vertices[next])
+                        || (edge.end == top_vertices[index] && edge.start == top_vertices[next])
                 })
             })
             .copied()
@@ -212,8 +214,7 @@ pub(super) fn chamfer_prismatic(
             }
             for fraction in [0.0, 0.25, 0.5, 0.75, 1.0] {
                 let point = curve.point_at(
-                    edge.start_parameter
-                        + fraction * (edge.end_parameter - edge.start_parameter),
+                    edge.start_parameter + fraction * (edge.end_parameter - edge.start_parameter),
                 );
                 let distance = surface.distance_to(point);
                 if !distance.is_finite() || distance.abs() > tolerance {
@@ -247,8 +248,8 @@ pub(super) fn chamfer_prismatic(
         false,
     );
     Some(result.and_then(|profile| {
-        let result = super::extrude(plane, &profile, shift.to_array())
-            .ok_or(ChamferError::InvalidResult)?;
+        let result =
+            super::extrude(plane, &profile, shift.to_array()).ok_or(ChamferError::InvalidResult)?;
         if !result.validate().is_empty() || result.worst_vertex_gap() > tolerance {
             return Err(ChamferError::InvalidResult);
         }
@@ -271,8 +272,7 @@ fn translated_edge(
         (Curve3::Line(_), Curve3::Line(_)) => {}
         (Curve3::Circle(first), Curve3::Circle(second)) => {
             if (first.radius - second.radius).abs() > tolerance
-                || (bottom.end_parameter - bottom.start_parameter).abs()
-                    >= std::f64::consts::TAU
+                || (bottom.end_parameter - bottom.start_parameter).abs() >= std::f64::consts::TAU
                 || (Vec3::from(first.plane.origin) + shift)
                     .distance(Vec3::from(second.plane.origin))
                     > tolerance
@@ -297,12 +297,12 @@ fn translated_edge(
     Some([0.0, 0.25, 0.5, 0.75, 1.0].iter().all(|fraction| {
         let parameter = if reversed { 1.0 - fraction } else { *fraction };
         let first_point = Vec3::from(first.point_at(
-            bottom.start_parameter
-                + fraction * (bottom.end_parameter - bottom.start_parameter),
+            bottom.start_parameter + fraction * (bottom.end_parameter - bottom.start_parameter),
         )) + shift;
-        let second_point = Vec3::from(second.point_at(
-            top.start_parameter + parameter * (top.end_parameter - top.start_parameter),
-        ));
+        let second_point =
+            Vec3::from(second.point_at(
+                top.start_parameter + parameter * (top.end_parameter - top.start_parameter),
+            ));
         first_point.distance(second_point) <= tolerance
     }))
 }

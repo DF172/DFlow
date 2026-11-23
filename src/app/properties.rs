@@ -42,7 +42,7 @@ pub fn apply_grip_budget(
         let keep: rustc_hash::FxHashSet<usize> = idx.into_iter().collect();
         let mut kept_grips = Vec::with_capacity(cap);
         let mut kept_handles = Vec::with_capacity(cap);
-        for (j, (grip, handle)) in grips.into_iter().zip(handles.into_iter()).enumerate() {
+        for (j, (grip, handle)) in grips.into_iter().zip(handles).enumerate() {
             if keep.contains(&j) {
                 kept_grips.push(grip);
                 kept_handles.push(handle);
@@ -101,7 +101,7 @@ impl DraftFlowCAD {
             &self.tabs[i].scene.document,
             handle,
         );
-        let mut sections = dispatch::properties_sectioned(handle, entity, &text_style_names);
+        let mut sections = dispatch::properties_sectioned(handle, entity, text_style_names);
         if compact_solid {
             retain_compact_solid_sections(&mut sections);
         }
@@ -345,7 +345,9 @@ impl DraftFlowCAD {
                             "mesh_principal_directions",
                             metrics
                                 .principal_directions
-                                .chunks_exact(3)
+                                .as_chunks::<3>()
+                                .0
+                                .iter()
                                 .map(|axis| {
                                     format!("({:.6}, {:.6}, {:.6})", axis[0], axis[1], axis[2])
                                 })
@@ -535,8 +537,8 @@ impl DraftFlowCAD {
             // Option lists.
             let mleader_styles: Vec<String> = doc
                 .objects
-                .iter()
-                .filter_map(|(_, o)| match o {
+                .values()
+                .filter_map(|o| match o {
                     codec::objects::ObjectType::MultiLeaderStyle(s) => Some(s.name.clone()),
                     _ => None,
                 })
@@ -875,7 +877,11 @@ impl DraftFlowCAD {
                     .get(&ins.block_name)
                     .map(|br| br.units)
                     .unwrap_or(0);
-                set_row(&mut sections, "block_unit", crate::t!(insunits_name(src)).into_owned());
+                set_row(
+                    &mut sections,
+                    "block_unit",
+                    crate::t!(insunits_name(src)).into_owned(),
+                );
                 let factor = insert_unit_scale(host, src).unwrap_or(1.0);
                 set_row(&mut sections, "unit_factor", format_unit_factor(factor));
 
@@ -899,7 +905,7 @@ impl DraftFlowCAD {
                         .filter(|br| regular(br))
                         .map(|br| br.name.clone())
                         .collect();
-                    options.sort_by(|a, b| a.to_lowercase().cmp(&b.to_lowercase()));
+                    options.sort_by_key(|a| a.to_lowercase());
                     set_row_value(
                         &mut sections,
                         "block",
@@ -1755,6 +1761,61 @@ impl DraftFlowCAD {
         // building the panel, and syncing the ribbon.
         let t_all = crate::perf::enabled().then(iced::time::Instant::now);
         let i = self.active_tab;
+        // Item 18: a dimension whose reference chain just went Broken or
+        // Unresolved gets one 100 ms warning flash. The transition is only
+        // observable where the panel is rebuilt (the status row is produced
+        // from the same resolve), so the edge is detected here rather than
+        // per frame. Re-selecting an already-broken dimension is not a
+        // severance and stays quiet.
+        {
+            let target =
+                match self.property_target_handles(i).as_slice() {
+                    [handle]
+                        if self.tabs[i].scene.document.get_entity(*handle).is_some_and(
+                            |entity| matches!(entity, codec::EntityType::Dimension(_)),
+                        ) =>
+                    {
+                        Some(*handle)
+                    }
+                    _ => None,
+                };
+            let broken_now = target.is_some_and(|handle| {
+                self.tabs[i]
+                    .scene
+                    .dimension_association_status(handle)
+                    .iter()
+                    .any(|(_, status)| {
+                        matches!(
+                            status,
+                            crate::scene::ReferenceStatus::Broken(_)
+                                | crate::scene::ReferenceStatus::Unresolved
+                        )
+                    })
+            });
+            match target {
+                Some(handle) if self.assoc_break_handle == Some(handle) => {
+                    if broken_now && !self.assoc_break_broken {
+                        let rise = crate::ui::motion::ASSOC_BREAK_TIME / 3;
+                        crate::ui::motion::pulse(
+                            crate::ui::motion::ASSOC_BREAK,
+                            1.0,
+                            0.0,
+                            rise,
+                            crate::ui::motion::ASSOC_BREAK_TIME - rise,
+                        );
+                    }
+                    self.assoc_break_broken = broken_now;
+                }
+                Some(handle) => {
+                    self.assoc_break_handle = Some(handle);
+                    self.assoc_break_broken = broken_now;
+                }
+                None => {
+                    self.assoc_break_handle = None;
+                    self.assoc_break_broken = false;
+                }
+            }
+        }
         if !crate::entities::object_data::cache_is_prepared(&self.tabs[i].scene.object_data_cache) {
             self.tabs[i].scene.object_data_cache =
                 crate::entities::object_data::build_cache(&self.tabs[i].scene.document);
@@ -2510,6 +2571,12 @@ filter={:.1} local={:.1} aggregate={:.1} entities={}",
                 panel.field_key_by_id = crate::ui::properties::build_field_key_map(&panel.sections);
                 panel.edit_buf.clear();
                 panel.active_field = None;
+                // The target set changed, so nothing is uncommitted any more.
+                crate::ui::motion::set(
+                    crate::ui::motion::PROP_DIRTY,
+                    0.0,
+                    crate::ui::motion::PROP_DIRTY_TIME,
+                );
                 panel.color_picker_open = false;
                 panel.bg_color_picker_open = false;
                 panel.open_color_field = None;
@@ -2701,12 +2768,15 @@ handles={handles_ms:.1} panel={:.1} ribbon={ribbon_ms:.1} tail={:.1} selected={}
             ) && !dim.base().text_user_positioned
             {
                 let anno_scale = annotation_scale_handle
-                    .and_then(|handle| match self.tabs[i].scene.document.objects.get(&handle) {
-                        Some(codec::objects::ObjectType::Scale(scale)) => Some(
-                            scale.inverse_factor() / self.tabs[i].scene.annotation_scale_unit_factor(),
-                        ),
-                        _ => None,
-                    })
+                    .and_then(
+                        |handle| match self.tabs[i].scene.document.objects.get(&handle) {
+                            Some(codec::objects::ObjectType::Scale(scale)) => Some(
+                                scale.inverse_factor()
+                                    / self.tabs[i].scene.annotation_scale_unit_factor(),
+                            ),
+                            _ => None,
+                        },
+                    )
                     .unwrap_or(self.tabs[i].scene.annotation_scale as f64);
 
                 if let Some(position) = crate::entities::dimension::dimension_text_grip_position(
@@ -2737,12 +2807,11 @@ handles={handles_ms:.1} panel={:.1} ribbon={ribbon_ms:.1} tail={:.1} selected={}
             // A dynamic angle shows a triangle at each end of its arc
             // pointing away from it, and squares at the arc point and
             // the text — nothing on the sides.
-            let (arc_id, text_id) =
-                if matches!(dim, codec::entities::Dimension::Angular2Ln(_)) {
-                    (4, 5)
-                } else {
-                    (3, 4)
-                };
+            let (arc_id, text_id) = if matches!(dim, codec::entities::Dimension::Angular2Ln(_)) {
+                (4, 5)
+            } else {
+                (3, 4)
+            };
             if let Some(ends) = crate::entities::dimension::angular_arc_ends(dim) {
                 entity_grips.retain(|grip| grip.id == arc_id || grip.id == text_id);
                 for (point, away) in ends {
@@ -2766,7 +2835,8 @@ handles={handles_ms:.1} panel={:.1} ribbon={ribbon_ms:.1} tail={:.1} selected={}
                 if grip.id <= 1 {
                     let other = points.get(1 - grip.id).copied().unwrap_or(grip.world);
                     let dir = (other - grip.world).normalize_or(glam::DVec3::X);
-                    *grip = crate::entities::common::oriented_triangle_grip(grip.id, grip.world, dir);
+                    *grip =
+                        crate::entities::common::oriented_triangle_grip(grip.id, grip.world, dir);
                 }
             }
         }
@@ -2815,8 +2885,7 @@ handles={handles_ms:.1} panel={:.1} ribbon={ribbon_ms:.1} tail={:.1} selected={}
             self.refresh_selected_grips();
             return;
         }
-        let is_paper = self.tabs[i].scene.current_layout != "Model";
-        let wo = if is_paper { [0.0f64; 3] } else { [0.0_f64; 3] };
+        let wo = [0.0f64; 3];
         let annotation_scale_handle = self.tabs[i].scene.displayed_annotation_scale_handle();
         let mut rebuilt: rustc_hash::FxHashMap<Handle, Vec<GripDef>> =
             rustc_hash::FxHashMap::default();
@@ -2835,13 +2904,11 @@ handles={handles_ms:.1} panel={:.1} ribbon={ribbon_ms:.1} tail={:.1} selected={}
         // slot.
         let old_handles = std::mem::take(&mut self.tabs[i].selected_grip_handles);
         let old_grips = std::mem::take(&mut self.tabs[i].selected_grips);
-        let mut last_slot: rustc_hash::FxHashMap<Handle, usize> =
-            rustc_hash::FxHashMap::default();
+        let mut last_slot: rustc_hash::FxHashMap<Handle, usize> = rustc_hash::FxHashMap::default();
         for (index, handle) in old_handles.iter().enumerate() {
             last_slot.insert(*handle, index);
         }
-        let mut consumed: rustc_hash::FxHashMap<Handle, usize> =
-            rustc_hash::FxHashMap::default();
+        let mut consumed: rustc_hash::FxHashMap<Handle, usize> = rustc_hash::FxHashMap::default();
         let mut grips = Vec::with_capacity(old_grips.len());
         let mut handles = Vec::with_capacity(old_handles.len());
         for (index, (handle, grip)) in old_handles.into_iter().zip(old_grips).enumerate() {
@@ -2899,7 +2966,7 @@ handles={handles_ms:.1} panel={:.1} ribbon={ribbon_ms:.1} tail={:.1} selected={}
         let is_paper = self.tabs[i].scene.current_layout != "Model";
         // Paper-space entity coordinates are NOT offset by world_offset (same rule
         // as wire tessellation in wires_for_block). Only subtract in model space.
-        let wo = if is_paper { [0.0f64; 3] } else { [0.0_f64; 3] };
+        let wo = [0.0f64; 3];
         let (new_handle, new_grips, new_grip_handles) = {
             let annotation_scale_handle = self.tabs[i].scene.displayed_annotation_scale_handle();
             let selected = self.tabs[i].scene.selected_entities();
@@ -2943,7 +3010,7 @@ handles={handles_ms:.1} panel={:.1} ribbon={ribbon_ms:.1} tail={:.1} selected={}
                     _ => None,
                 });
             if let Some((handle, gizmo)) = gizmo {
-                handles.extend(std::iter::repeat(handle).take(gizmo.len()));
+                handles.extend(std::iter::repeat_n(handle, gizmo.len()));
                 grips.extend(gizmo);
             }
             let (grips, handles) = apply_grip_budget(grips, handles);
@@ -4282,30 +4349,30 @@ pub(in crate::app) fn format_unit_factor(factor: f64) -> String {
 /// Convert INSUNITS (DXF group 70) to millimetres.
 pub(super) fn insunits_to_mm(code: i16) -> Option<f64> {
     Some(match code {
-        1 => 25.4,                        // Inches
-        2 => 304.8,                       // Feet
-        3 => 1_609_344.0,                 // Miles
-        4 => 1.0,                         // Millimeters
-        5 => 10.0,                        // Centimeters
-        6 => 1_000.0,                     // Meters
-        7 => 1_000_000.0,                 // Kilometers
-        8 => 0.000_025_4,                 // Microinches
-        9 => 0.025_4,                     // Mils
-        10 => 914.4,                      // Yards
-        11 => 1.0e-7,                     // Angstroms
-        12 => 1.0e-6,                     // Nanometers
-        13 => 0.001,                      // Microns
-        14 => 100.0,                      // Decimeters
-        15 => 10_000.0,                   // Decameters
-        16 => 100_000.0,                  // Hectometers
-        17 => 1.0e12,                     // Gigameters
-        18 => 1.495_978_707e14,           // Astronomical Units
-        19 => 9.460_730_472_580_8e18,     // Light Years
-        20 => 3.085_677_581_491_367_3e19, // Parsecs
-        21 => 1_200_000.0 / 3_937.0,      // US Survey Feet
-        22 => 100_000.0 / 3_937.0,        // US Survey Inches
-        23 => 3_600_000.0 / 3_937.0,      // US Survey Yards
-        24 => 6_336_000_000.0 / 3_937.0,  // US Survey Miles
+        1 => 25.4,                       // Inches
+        2 => 304.8,                      // Feet
+        3 => 1_609_344.0,                // Miles
+        4 => 1.0,                        // Millimeters
+        5 => 10.0,                       // Centimeters
+        6 => 1_000.0,                    // Meters
+        7 => 1_000_000.0,                // Kilometers
+        8 => 0.000_025_4,                // Microinches
+        9 => 0.025_4,                    // Mils
+        10 => 914.4,                     // Yards
+        11 => 1.0e-7,                    // Angstroms
+        12 => 1.0e-6,                    // Nanometers
+        13 => 0.001,                     // Microns
+        14 => 100.0,                     // Decimeters
+        15 => 10_000.0,                  // Decameters
+        16 => 100_000.0,                 // Hectometers
+        17 => 1.0e12,                    // Gigameters
+        18 => 1.495_978_707e14,          // Astronomical Units
+        19 => 9.460_730_472_580_8e18,    // Light Years
+        20 => 3.085_677_581_491_367e19,  // Parsecs
+        21 => 1_200_000.0 / 3_937.0,     // US Survey Feet
+        22 => 100_000.0 / 3_937.0,       // US Survey Inches
+        23 => 3_600_000.0 / 3_937.0,     // US Survey Yards
+        24 => 6_336_000_000.0 / 3_937.0, // US Survey Miles
         _ => return None,
     })
 }
@@ -4432,7 +4499,7 @@ mod insert_unit_scale_tests {
     fn astronomical_units_use_precise_si_values() {
         assert_eq!(insunits_to_mm(18), Some(1.495_978_707e14));
         assert_eq!(insunits_to_mm(19), Some(9.460_730_472_580_8e18));
-        assert_eq!(insunits_to_mm(20), Some(3.085_677_581_491_367_3e19));
+        assert_eq!(insunits_to_mm(20), Some(3.085_677_581_491_367e19));
         assert_ne!(format_unit_factor(1.0e-7), "0.0000");
     }
 
@@ -4585,7 +4652,7 @@ mod apply_property_op_tests {
 
 #[cfg(test)]
 mod chprop_integration_tests {
-    use crate::app::{Message, DraftFlowCAD};
+    use crate::app::{DraftFlowCAD, Message};
     use codec::entities::Line;
     use codec::types::{Color, LineWeight, Vector3};
 
@@ -5065,7 +5132,7 @@ mod grip_limit_tests {
         }
         app.refresh_selected_grips();
         assert!(
-            app.tabs[i].selected_grips.len() > 0,
+            !app.tabs[i].selected_grips.is_empty(),
             "zero must read as unlimited, not as a limit of none",
         );
     }

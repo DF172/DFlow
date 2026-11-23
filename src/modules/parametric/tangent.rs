@@ -96,6 +96,12 @@ impl TangentConstraintCommand {
     }
 }
 
+impl Default for TangentConstraintCommand {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CadCommand for TangentConstraintCommand {
     fn name(&self) -> &'static str {
         "TCONSTRAINT"

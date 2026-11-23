@@ -190,7 +190,10 @@ mod tests {
         }));
         assert_eq!(curve.point_at(0.0), [1.0, 2.0, 0.0]);
         assert_eq!(curve.point_at(1.0), [4.0, 6.0, 0.0]);
-        assert_eq!(curve.tessellate(20.0), vec![[1.0, 2.0, 0.0], [4.0, 6.0, 0.0]]);
+        assert_eq!(
+            curve.tessellate(20.0),
+            vec![[1.0, 2.0, 0.0], [4.0, 6.0, 0.0]]
+        );
     }
 
     #[test]
@@ -321,10 +324,8 @@ mod tests {
         // own +v, which world-side is +Z.
         let raised = PlanarCurve::new(upright(), unit_arc());
         let tangent = raised.tangent_at(0.0);
-        let length = (tangent[0] * tangent[0]
-            + tangent[1] * tangent[1]
-            + tangent[2] * tangent[2])
-            .sqrt();
+        let length =
+            (tangent[0] * tangent[0] + tangent[1] * tangent[1] + tangent[2] * tangent[2]).sqrt();
         assert!((tangent[2] / length - 1.0).abs() < 1e-9, "{tangent:?}");
     }
 
@@ -378,7 +379,9 @@ mod tests {
 /// arbitrary storage planes. Returns None for collinear or noncoplanar inputs.
 pub fn common_curve_plane(curves: &[PlanarCurve], tolerance: f64) -> Option<Plane> {
     use super::Vec3;
-    if !tolerance.is_finite() || tolerance <= 0.0 { return None; }
+    if !tolerance.is_finite() || tolerance <= 0.0 {
+        return None;
+    }
     let mut points = Vec::new();
     for curve in curves {
         match &curve.curve {
@@ -386,30 +389,69 @@ pub fn common_curve_plane(curves: &[PlanarCurve], tolerance: f64) -> Option<Plan
                 points.push(curve.point_at(0.0));
                 points.push(curve.point_at(1.0));
             }
-            Curve::Polyline(polyline) if polyline.vertices.iter().all(|vertex| vertex.bulge == 0.0) => {
-                points.extend(polyline.vertices.iter().map(|vertex| curve.plane.point_at(vertex.position)));
+            Curve::Polyline(polyline)
+                if polyline.vertices.iter().all(|vertex| vertex.bulge == 0.0) =>
+            {
+                points.extend(
+                    polyline
+                        .vertices
+                        .iter()
+                        .map(|vertex| curve.plane.point_at(vertex.position)),
+                );
             }
             Curve::Nurbs(nurbs) => {
-                points.extend(nurbs.control_points().iter().map(|point| curve.plane.point_at(*point)));
+                points.extend(
+                    nurbs
+                        .control_points()
+                        .iter()
+                        .map(|point| curve.plane.point_at(*point)),
+                );
             }
             _ => {
                 // A nondegenerate curved conic or bulged polyline spans its storage plane.
-                points.extend([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]].map(|uv| curve.plane.point_at(uv)));
+                points.extend(
+                    [[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]].map(|uv| curve.plane.point_at(uv)),
+                );
             }
         }
     }
-    if !points.iter().flatten().all(|value| value.is_finite()) { return None; }
+    if !points.iter().flatten().all(|value| value.is_finite()) {
+        return None;
+    }
     let origin = Vec3::from(*points.first()?);
-    let offsets: Vec<_> = points.iter().map(|point| Vec3::from(*point) - origin).collect();
-    let axis = offsets.iter().copied().max_by(|a,b| a.length_squared().total_cmp(&b.length_squared()))?;
-    if axis.length() <= tolerance { return None; }
+    let offsets: Vec<_> = points
+        .iter()
+        .map(|point| Vec3::from(*point) - origin)
+        .collect();
+    let axis = offsets
+        .iter()
+        .copied()
+        .max_by(|a, b| a.length_squared().total_cmp(&b.length_squared()))?;
+    if axis.length() <= tolerance {
+        return None;
+    }
     let x = axis.normalize()?;
-    let cross = offsets.iter().map(|offset| x.cross(*offset))
-        .max_by(|a,b| a.length_squared().total_cmp(&b.length_squared()))?;
-    if cross.length() <= tolerance { return None; }
+    let cross = offsets
+        .iter()
+        .map(|offset| x.cross(*offset))
+        .max_by(|a, b| a.length_squared().total_cmp(&b.length_squared()))?;
+    if cross.length() <= tolerance {
+        return None;
+    }
     let normal = cross.normalize()?;
-    let roundoff = f64::EPSILON * points.iter().flatten().map(|value| value.abs()).fold(1.0, f64::max) * 64.0;
-    if offsets.iter().any(|offset| offset.dot(normal).abs() > tolerance + roundoff) { return None; }
+    let roundoff = f64::EPSILON
+        * points
+            .iter()
+            .flatten()
+            .map(|value| value.abs())
+            .fold(1.0, f64::max)
+        * 64.0;
+    if offsets
+        .iter()
+        .any(|offset| offset.dot(normal).abs() > tolerance + roundoff)
+    {
+        return None;
+    }
     Plane::orthonormal(origin.to_array(), x.to_array(), normal.to_array())
 }
 
@@ -421,25 +463,41 @@ mod common_plane_tests {
     #[test]
     fn disconnected_lines_in_one_plane_share_that_plane() {
         let curves = [
-            PlanarCurve::flat(Curve::Line(Line { start: [0.0, 0.0], end: [2.0, 0.0] })),
-            PlanarCurve::flat(Curve::Line(Line { start: [0.0, 1.0], end: [0.0, 3.0] })),
+            PlanarCurve::flat(Curve::Line(Line {
+                start: [0.0, 0.0],
+                end: [2.0, 0.0],
+            })),
+            PlanarCurve::flat(Curve::Line(Line {
+                start: [0.0, 1.0],
+                end: [0.0, 3.0],
+            })),
         ];
         let plane = common_curve_plane(&curves, 1e-9).unwrap();
-        assert!(curves.iter().flat_map(|curve| [curve.point_at(0.0), curve.point_at(1.0)])
+        assert!(curves
+            .iter()
+            .flat_map(|curve| [curve.point_at(0.0), curve.point_at(1.0)])
             .all(|point| plane.contains(point, 1e-9)));
     }
 
     #[test]
     fn noncoplanar_curve_support_is_rejected() {
-        let raised = Plane::from_axes(
-            [0.0, 0.0, 1.0],
-            [1.0, 0.0, 0.0],
-            [0.0, 1.0, 0.0],
-        );
+        let raised = Plane::from_axes([0.0, 0.0, 1.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]);
         let curves = [
-            PlanarCurve::flat(Curve::Line(Line { start: [0.0, 0.0], end: [2.0, 0.0] })),
-            PlanarCurve::flat(Curve::Line(Line { start: [0.0, 0.0], end: [0.0, 2.0] })),
-            PlanarCurve::new(raised, Curve::Line(Line { start: [0.0, 0.0], end: [1.0, 1.0] })),
+            PlanarCurve::flat(Curve::Line(Line {
+                start: [0.0, 0.0],
+                end: [2.0, 0.0],
+            })),
+            PlanarCurve::flat(Curve::Line(Line {
+                start: [0.0, 0.0],
+                end: [0.0, 2.0],
+            })),
+            PlanarCurve::new(
+                raised,
+                Curve::Line(Line {
+                    start: [0.0, 0.0],
+                    end: [1.0, 1.0],
+                }),
+            ),
         ];
         assert!(common_curve_plane(&curves, 1e-9).is_none());
     }

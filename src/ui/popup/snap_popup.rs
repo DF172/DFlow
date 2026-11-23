@@ -1,15 +1,15 @@
 //! DraftFlowCAD-style OSNAP status menu.
 
-use iced::widget::{checkbox, column, container, row, text};
 use crate::ui::kit::plain_button;
+use iced::widget::{checkbox, column, container, row, text};
 use iced::{Element, Fill, Length};
 
 use crate::app::settings::IsoPlane;
 use crate::app::Message;
 use crate::snap::{SnapType, Snapper, ALL_SNAP_MODES};
 use crate::t;
-use crate::ui::statusbar::status_menu::Entry;
 use crate::ui::kit;
+use crate::ui::statusbar::status_menu::Entry;
 use crate::ui::style::tokens;
 
 pub fn menu_entries<'a>(
@@ -112,5 +112,7 @@ fn snap_row<'a>(snap_type: SnapType, label: &'a str, active: bool) -> Element<'a
 fn header_btn(label: &str, msg: Message, enabled: bool) -> Element<'_, Message> {
     let b = plain_button(text(t!(label)).size(tokens::TEXT_MICRO));
     let b = if enabled { b.on_press(msg) } else { b };
-    b.style(kit::secondary_style).padding(kit::PAD_TRIGGER).into()
+    b.style(kit::secondary_style)
+        .padding(kit::PAD_TRIGGER)
+        .into()
 }

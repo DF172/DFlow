@@ -75,6 +75,12 @@ impl RefEditPickCommand {
     }
 }
 
+impl Default for RefEditPickCommand {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CadCommand for RefEditPickCommand {
     fn name(&self) -> &'static str {
         "REFEDIT"
@@ -112,6 +118,12 @@ pub struct RefCloseCommand;
 impl RefCloseCommand {
     pub fn new() -> Self {
         Self
+    }
+}
+
+impl Default for RefCloseCommand {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

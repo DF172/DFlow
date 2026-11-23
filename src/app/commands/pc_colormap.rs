@@ -303,9 +303,9 @@ impl DraftFlowCAD {
                     self.command_line.push_error(
                         crate::t!("A color scheme with this name already exists.").as_ref(),
                     );
-                    self.point_cloud_color_map
-                        .as_mut()
-                        .map(|s| s.naming = Some((new, name)));
+                    if let Some(s) = self.point_cloud_color_map.as_mut() {
+                        s.naming = Some((new, name));
+                    }
                     return Task::none();
                 }
                 if new {
@@ -370,11 +370,9 @@ impl DraftFlowCAD {
             PdfDialogMsg::MapApply => {
                 self.apply_point_cloud_color_map(i);
             }
-            PdfDialogMsg::MapOk => {
-                if self.apply_point_cloud_color_map(i) {
-                    self.point_cloud_color_map = None;
-                    self.close_modal_now();
-                }
+            PdfDialogMsg::MapOk if self.apply_point_cloud_color_map(i) => {
+                self.point_cloud_color_map = None;
+                self.close_modal_now();
             }
             _ => {}
         }

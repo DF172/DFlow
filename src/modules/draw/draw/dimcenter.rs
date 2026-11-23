@@ -82,6 +82,12 @@ impl DimCenterCommand {
     }
 }
 
+impl Default for DimCenterCommand {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CadCommand for DimCenterCommand {
     fn name(&self) -> &'static str {
         "DIMCENTER"

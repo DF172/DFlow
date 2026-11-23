@@ -1,9 +1,9 @@
 //! Polar-tracking angle status menu.
 
-use crate::ui::kit;
 use crate::t;
-use iced::widget::{container, row, text, text_input};
+use crate::ui::kit;
 use crate::ui::kit::plain_button;
+use iced::widget::{container, row, text, text_input};
 use iced::{Element, Fill, Length};
 
 use crate::app::Message;
@@ -54,7 +54,9 @@ fn angle_row<'a>(deg: f32, active: bool) -> Element<'a, Message> {
 
     let lbl = text(angle_label(deg)).size(tokens::TEXT_LABEL);
 
-    let content = row![check, lbl].spacing(tokens::GAP_CONTROL).align_y(iced::Center);
+    let content = row![check, lbl]
+        .spacing(tokens::GAP_CONTROL)
+        .align_y(iced::Center);
 
     plain_button(content)
         .on_press(Message::SetPolarAngle(deg))

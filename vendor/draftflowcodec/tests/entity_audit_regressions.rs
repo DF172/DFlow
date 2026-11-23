@@ -277,9 +277,9 @@ fn sat_origin_bodies_survive_dwg_modeler_encoding() {
         let mut doc = CadDocument::with_version(version);
         let mut region =
             Region::from_sat(include_str!("../examples/entity_atlas_assets/region.sat"));
-        region.apply_transform(&draftflowcodec::types::Transform::from_translation(Vector3::new(
-            20., 30., 0.,
-        )));
+        region.apply_transform(&draftflowcodec::types::Transform::from_translation(
+            Vector3::new(20., 30., 0.),
+        ));
         let h = doc.add_entity(EntityType::Region(region)).unwrap();
         let loaded = DwgReader::from_stream(Cursor::new(DwgWriter::write_to_vec(&doc).unwrap()))
             .read()

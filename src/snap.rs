@@ -142,7 +142,8 @@ pub fn parse_snap_override(input: &str) -> Option<SnapOverrideKind> {
         return Some(SnapOverrideKind::Mode(SnapType::Center));
     }
     if (s.starts_with("gce") && "gcen".starts_with(&s))
-        || (s.starts_with("geo") && ("geocenter".starts_with(&s) || "geometriccenter".starts_with(&s)))
+        || (s.starts_with("geo")
+            && ("geocenter".starts_with(&s) || "geometriccenter".starts_with(&s)))
     {
         return Some(SnapOverrideKind::Mode(SnapType::GeometricCenter));
     }
@@ -416,10 +417,8 @@ impl<'a> InRangeWires<'a> {
         } else {
             if self.heap.is_empty() {
                 self.heap.reserve(16);
-                for slot in &self.stack {
-                    if let Some(w) = slot {
-                        self.heap.push(*w);
-                    }
+                for w in self.stack.iter().flatten() {
+                    self.heap.push(*w);
                 }
             }
             self.heap.push(wire);
@@ -1006,7 +1005,7 @@ impl Snapper {
                     continue;
                 }
                 let sd = screen_dist(x);
-                if sd < r && best_x.as_ref().map_or(true, |(bd, _)| sd < *bd) {
+                if sd < r && best_x.as_ref().is_none_or(|(bd, _)| sd < *bd) {
                     // Report an acquired tracking ray (not an auxiliary
                     // last_point ray) as base/dir for typed-distance entry.
                     let (ot, other) =
@@ -1068,7 +1067,7 @@ impl Snapper {
                 ray.origin.z,
             );
             let sd = screen_dist(aligned);
-            if sd < r && best.as_ref().map_or(true, |(bd, _)| sd < *bd) {
+            if sd < r && best.as_ref().is_none_or(|(bd, _)| sd < *bd) {
                 let dir_out = if t >= 0.0 { ray.dir } else { -ray.dir };
                 best = Some((
                     sd,
@@ -1146,7 +1145,7 @@ impl Snapper {
         };
         // Restart the dwell when the hovered line changes (different direction,
         // or a parallel line far from the candidate's point on screen).
-        let same_candidate = self.parallel_dwell.map_or(false, |(cd, cp, _, _)| {
+        let same_candidate = self.parallel_dwell.is_some_and(|(cd, cp, _, _)| {
             parallel(cd, dir)
                 && screen_perp_dist(pt, cp, cd, view_rot, eye, bounds) < self.osnap_radius_px
         });
@@ -1155,7 +1154,7 @@ impl Snapper {
                 if !fired && now.duration_since(since).as_millis() >= PAR_DWELL_MS {
                     // Dwelt long enough: acquire this line, or remove it if it is
                     // already the reference (hovering it a second time toggles).
-                    let is_ref = self.parallel_ref.map_or(false, |(rd, rp)| {
+                    let is_ref = self.parallel_ref.is_some_and(|(rd, rp)| {
                         parallel(rd, dir)
                             && screen_perp_dist(pt, rp, rd, view_rot, eye, bounds)
                                 < self.osnap_radius_px
@@ -1488,7 +1487,7 @@ impl Snapper {
             // degenerate geometry is rejected: with priority selection a NaN
             // would otherwise pass the gate and be chosen on rank alone,
             // feeding a NaN snap point to the renderer. (#118)
-            if !(d2 < radius2) {
+            if d2.is_nan() || d2 >= radius2 {
                 return;
             }
             let (tier, sub) = (snap_tier(snap_type), snap_priority(snap_type));
@@ -2169,10 +2168,7 @@ impl Snapper {
                         continue;
                     };
                     let si = &screen_pts[i];
-                    for j in (i + 1)..in_range_wires.len() {
-                        let Some(wire_j) = in_range_wires.get(j) else {
-                            continue;
-                        };
+                    for (j, wire_j) in in_range_wires.iter().enumerate().skip(i + 1) {
                         let sj = &screen_pts[j];
                         for ai in 0..wire_i.points.len().saturating_sub(1) {
                             let sa0 = si[ai];
@@ -2208,7 +2204,8 @@ impl Snapper {
                 for tg in &wire.tangent_geoms {
                     let (world_pt, d2) = match tg {
                         TangentGeom::Line { p1, p2 } => {
-                            let (lp1, lp2) = tangent_line_endpoints(wire, *p1, *p2, &mut line_cursor);
+                            let (lp1, lp2) =
+                                tangent_line_endpoints(wire, *p1, *p2, &mut line_cursor);
                             let sp0 = world_to_screen(lp1, view_rot, eye, bounds);
                             let sp1 = world_to_screen(lp2, view_rot, eye, bounds);
                             let d2 = dist2_to_segment(cursor_screen, sp0, sp1);
@@ -2470,11 +2467,9 @@ impl Snapper {
                         let tangent_obj = match tg {
                             TangentGeom::Line { p1, p2 } => {
                                 let mut cursor = 0usize;
-                                let (lp1, lp2) = tangent_line_endpoints(wire, *p1, *p2, &mut cursor);
-                                TangentObject::Line {
-                                    p1: lp1,
-                                    p2: lp2,
-                                }
+                                let (lp1, lp2) =
+                                    tangent_line_endpoints(wire, *p1, *p2, &mut cursor);
+                                TangentObject::Line { p1: lp1, p2: lp2 }
                             }
                             TangentGeom::Circle { center, radius } => TangentObject::Circle {
                                 center: glam::DVec3::new(
@@ -3030,10 +3025,7 @@ struct LazyIndexedSegments<'a, W: WireSource + ?Sized> {
 
 impl<'a, W: WireSource + ?Sized> LazyIndexedSegments<'a, W> {
     fn new(wires: &'a W) -> Self {
-        Self {
-            wires,
-            cache: None,
-        }
+        Self { wires, cache: None }
     }
 
     fn get(&mut self) -> Option<&[IndexedSegment]> {
@@ -4097,7 +4089,7 @@ pub(crate) fn foot_on_triangle(
     let ac = c - a;
     let n = ab.cross(ac);
     let n2 = n.length_squared();
-    if !(n2 > 1e-24) {
+    if n2.is_nan() || n2 <= 1e-24 {
         return None;
     }
     let dist = (base - a).dot(n) / n2.sqrt();
@@ -4325,10 +4317,12 @@ mod ext_tests {
 
     #[test]
     fn tracking_active_covers_otrack_and_extension() {
-        let mut s = Snapper::default();
         // OTRACK off, Extension not enabled → no acquisition.
-        s.snap_enabled = true;
-        s.otrack_enabled = false;
+        let mut s = Snapper {
+            snap_enabled: true,
+            otrack_enabled: false,
+            ..Default::default()
+        };
         assert!(!s.tracking_active());
         // Extension on with the snap master on → acquire, independent of OTRACK.
         s.enabled.insert(SnapType::Extension);
@@ -4369,9 +4363,11 @@ mod ext_tests {
 
     #[test]
     fn base_to_corner_direction_is_tracked() {
-        let mut s = Snapper::default();
-        s.otrack_enabled = true;
-        s.osnap_radius_px = 10.0;
+        let mut s = Snapper {
+            otrack_enabled: true,
+            osnap_radius_px: 10.0,
+            ..Default::default()
+        };
         // An acquired corner of an existing line, and the base point (first
         // point) of the line currently being drawn.
         let corner = DVec3::new(8_000.0, 6_000.0, 0.0);
@@ -4446,9 +4442,11 @@ mod ext_tests {
     /// sign of what the point actually is.
     #[test]
     fn intersection_lock_reports_both_crossing_vectors() {
-        let mut s = Snapper::default();
-        s.otrack_enabled = true;
-        s.osnap_radius_px = 10.0;
+        let mut s = Snapper {
+            otrack_enabled: true,
+            osnap_radius_px: 10.0,
+            ..Default::default()
+        };
         // Two acquired corners. With no polar step each offers a horizontal and
         // a vertical ray, so their rays cross at (10, 0) and at (0, 5).
         let first = DVec3::new(0.0, 0.0, 0.0);
@@ -4518,9 +4516,11 @@ mod ext_tests {
     /// alignment has nothing to cross, and must not draw a second guide.
     #[test]
     fn single_ray_alignment_reports_no_crossing_vector() {
-        let mut s = Snapper::default();
-        s.otrack_enabled = true;
-        s.osnap_radius_px = 10.0;
+        let mut s = Snapper {
+            otrack_enabled: true,
+            osnap_radius_px: 10.0,
+            ..Default::default()
+        };
         let corner = DVec3::new(10.0, 5.0, 0.0);
         s.tracking_points.push(corner);
         s.tracking_dirs.push(Vec::new());
@@ -5106,9 +5106,11 @@ mod ext_tests {
             .iter()
             .all(|segment| segment.wire == 1));
         let point = DVec3::new(0.0, 4.0, 0.0);
-        let mut snapper = Snapper::default();
-        snapper.snap_enabled = true;
-        snapper.enabled = [SnapType::Intersection].into_iter().collect();
+        let snapper = Snapper {
+            snap_enabled: true,
+            enabled: [SnapType::Intersection].into_iter().collect(),
+            ..Default::default()
+        };
         let result = snapper
             .snap(
                 point,
@@ -5170,8 +5172,10 @@ mod ext_tests {
 
     #[test]
     fn test_unindexed_snap_endpoint_and_midpoint_accuracy() {
-        let mut snapper = Snapper::default();
-        snapper.snap_enabled = true;
+        let mut snapper = Snapper {
+            snap_enabled: true,
+            ..Default::default()
+        };
         snapper.enabled = [SnapType::Endpoint, SnapType::Midpoint]
             .into_iter()
             .collect();
@@ -5239,8 +5243,10 @@ mod ext_tests {
 
     #[test]
     fn test_unindexed_snap_empty_space_early_out() {
-        let mut snapper = Snapper::default();
-        snapper.snap_enabled = true;
+        let mut snapper = Snapper {
+            snap_enabled: true,
+            ..Default::default()
+        };
         snapper.enable_all();
 
         let line = WireModel {
@@ -5279,9 +5285,11 @@ mod ext_tests {
 
     #[test]
     fn test_unindexed_snap_intersection_pair() {
-        let mut snapper = Snapper::default();
-        snapper.snap_enabled = true;
-        snapper.enabled = [SnapType::Intersection].into_iter().collect();
+        let snapper = Snapper {
+            snap_enabled: true,
+            enabled: [SnapType::Intersection].into_iter().collect(),
+            ..Default::default()
+        };
 
         let line1 = WireModel {
             points: vec![[0.0, 0.0, 0.0], [100.0, 100.0, 0.0]],
@@ -5328,9 +5336,11 @@ mod ext_tests {
 
     #[test]
     fn test_unindexed_snap_dense_cluster_fallback() {
-        let mut snapper = Snapper::default();
-        snapper.snap_enabled = true;
-        snapper.enabled = [SnapType::Endpoint].into_iter().collect();
+        let snapper = Snapper {
+            snap_enabled: true,
+            enabled: [SnapType::Endpoint].into_iter().collect(),
+            ..Default::default()
+        };
 
         // Generate 25 lines passing through (0, 0) to force > 16 wires in aperture
         let mut wires = Vec::new();
@@ -5387,8 +5397,10 @@ mod ext_tests {
 
     #[test]
     fn grid_snap_locks_beyond_aperture_with_independent_xy() {
-        let mut s = Snapper::default();
-        s.grid_snap_on = true;
+        let mut s = Snapper {
+            grid_snap_on: true,
+            ..Default::default()
+        };
         s.snap_enabled = false; // grid only
         s.snap_spacing_x = 1.0;
         s.snap_spacing_y = 0.5;
@@ -5734,9 +5746,11 @@ mod ext_tests {
     #[test]
     fn test_ellipse_arc_tangent_snap_ignores_break() {
         use std::f64::consts::PI;
-        let mut snapper = Snapper::default();
-        snapper.snap_enabled = true;
-        snapper.enabled = [SnapType::Tangent].into_iter().collect();
+        let snapper = Snapper {
+            snap_enabled: true,
+            enabled: [SnapType::Tangent].into_iter().collect(),
+            ..Default::default()
+        };
 
         // Upper semi-ellipse: center at (0, 0), a = 100, b = 50, theta from 0 to PI
         let center = [0.0, 0.0, 0.0];
@@ -5825,49 +5839,160 @@ mod ext_tests {
         use super::{parse_snap_override, SnapOverrideKind, SnapType};
 
         // 3-letter prefixes
-        assert_eq!(parse_snap_override("end"), Some(SnapOverrideKind::Mode(SnapType::Endpoint)));
-        assert_eq!(parse_snap_override("mid"), Some(SnapOverrideKind::Mode(SnapType::Midpoint)));
-        assert_eq!(parse_snap_override("cen"), Some(SnapOverrideKind::Mode(SnapType::Center)));
-        assert_eq!(parse_snap_override("nod"), Some(SnapOverrideKind::Mode(SnapType::Node)));
-        assert_eq!(parse_snap_override("qua"), Some(SnapOverrideKind::Mode(SnapType::Quadrant)));
-        assert_eq!(parse_snap_override("int"), Some(SnapOverrideKind::Mode(SnapType::Intersection)));
-        assert_eq!(parse_snap_override("ext"), Some(SnapOverrideKind::Mode(SnapType::Extension)));
-        assert_eq!(parse_snap_override("ins"), Some(SnapOverrideKind::Mode(SnapType::Insertion)));
-        assert_eq!(parse_snap_override("per"), Some(SnapOverrideKind::Mode(SnapType::Perpendicular)));
-        assert_eq!(parse_snap_override("tan"), Some(SnapOverrideKind::Mode(SnapType::Tangent)));
-        assert_eq!(parse_snap_override("nea"), Some(SnapOverrideKind::Mode(SnapType::Nearest)));
-        assert_eq!(parse_snap_override("app"), Some(SnapOverrideKind::Mode(SnapType::ApparentIntersection)));
-        assert_eq!(parse_snap_override("par"), Some(SnapOverrideKind::Mode(SnapType::Parallel)));
+        assert_eq!(
+            parse_snap_override("end"),
+            Some(SnapOverrideKind::Mode(SnapType::Endpoint))
+        );
+        assert_eq!(
+            parse_snap_override("mid"),
+            Some(SnapOverrideKind::Mode(SnapType::Midpoint))
+        );
+        assert_eq!(
+            parse_snap_override("cen"),
+            Some(SnapOverrideKind::Mode(SnapType::Center))
+        );
+        assert_eq!(
+            parse_snap_override("nod"),
+            Some(SnapOverrideKind::Mode(SnapType::Node))
+        );
+        assert_eq!(
+            parse_snap_override("qua"),
+            Some(SnapOverrideKind::Mode(SnapType::Quadrant))
+        );
+        assert_eq!(
+            parse_snap_override("int"),
+            Some(SnapOverrideKind::Mode(SnapType::Intersection))
+        );
+        assert_eq!(
+            parse_snap_override("ext"),
+            Some(SnapOverrideKind::Mode(SnapType::Extension))
+        );
+        assert_eq!(
+            parse_snap_override("ins"),
+            Some(SnapOverrideKind::Mode(SnapType::Insertion))
+        );
+        assert_eq!(
+            parse_snap_override("per"),
+            Some(SnapOverrideKind::Mode(SnapType::Perpendicular))
+        );
+        assert_eq!(
+            parse_snap_override("tan"),
+            Some(SnapOverrideKind::Mode(SnapType::Tangent))
+        );
+        assert_eq!(
+            parse_snap_override("nea"),
+            Some(SnapOverrideKind::Mode(SnapType::Nearest))
+        );
+        assert_eq!(
+            parse_snap_override("app"),
+            Some(SnapOverrideKind::Mode(SnapType::ApparentIntersection))
+        );
+        assert_eq!(
+            parse_snap_override("par"),
+            Some(SnapOverrideKind::Mode(SnapType::Parallel))
+        );
         assert_eq!(parse_snap_override("non"), Some(SnapOverrideKind::None));
-        assert_eq!(parse_snap_override("geo"), Some(SnapOverrideKind::Mode(SnapType::GeometricCenter)));
-        assert_eq!(parse_snap_override("gce"), Some(SnapOverrideKind::Mode(SnapType::GeometricCenter)));
+        assert_eq!(
+            parse_snap_override("geo"),
+            Some(SnapOverrideKind::Mode(SnapType::GeometricCenter))
+        );
+        assert_eq!(
+            parse_snap_override("gce"),
+            Some(SnapOverrideKind::Mode(SnapType::GeometricCenter))
+        );
 
         // Case insensitivity & leading underscores
-        assert_eq!(parse_snap_override("_MID"), Some(SnapOverrideKind::Mode(SnapType::Midpoint)));
-        assert_eq!(parse_snap_override("_Endpoint"), Some(SnapOverrideKind::Mode(SnapType::Endpoint)));
-        assert_eq!(parse_snap_override("  _NON  "), Some(SnapOverrideKind::None));
-        assert_eq!(parse_snap_override("CEN"), Some(SnapOverrideKind::Mode(SnapType::Center)));
+        assert_eq!(
+            parse_snap_override("_MID"),
+            Some(SnapOverrideKind::Mode(SnapType::Midpoint))
+        );
+        assert_eq!(
+            parse_snap_override("_Endpoint"),
+            Some(SnapOverrideKind::Mode(SnapType::Endpoint))
+        );
+        assert_eq!(
+            parse_snap_override("  _NON  "),
+            Some(SnapOverrideKind::None)
+        );
+        assert_eq!(
+            parse_snap_override("CEN"),
+            Some(SnapOverrideKind::Mode(SnapType::Center))
+        );
 
         // Full names and aliases
-        assert_eq!(parse_snap_override("endpoint"), Some(SnapOverrideKind::Mode(SnapType::Endpoint)));
-        assert_eq!(parse_snap_override("midpoint"), Some(SnapOverrideKind::Mode(SnapType::Midpoint)));
-        assert_eq!(parse_snap_override("center"), Some(SnapOverrideKind::Mode(SnapType::Center)));
-        assert_eq!(parse_snap_override("centre"), Some(SnapOverrideKind::Mode(SnapType::Center)));
-        assert_eq!(parse_snap_override("quadrant"), Some(SnapOverrideKind::Mode(SnapType::Quadrant)));
-        assert_eq!(parse_snap_override("intersection"), Some(SnapOverrideKind::Mode(SnapType::Intersection)));
-        assert_eq!(parse_snap_override("perpendicular"), Some(SnapOverrideKind::Mode(SnapType::Perpendicular)));
-        assert_eq!(parse_snap_override("tangent"), Some(SnapOverrideKind::Mode(SnapType::Tangent)));
-        assert_eq!(parse_snap_override("nearest"), Some(SnapOverrideKind::Mode(SnapType::Nearest)));
-        assert_eq!(parse_snap_override("apparent"), Some(SnapOverrideKind::Mode(SnapType::ApparentIntersection)));
-        assert_eq!(parse_snap_override("apparentintersection"), Some(SnapOverrideKind::Mode(SnapType::ApparentIntersection)));
-        assert_eq!(parse_snap_override("appint"), Some(SnapOverrideKind::Mode(SnapType::ApparentIntersection)));
-        assert_eq!(parse_snap_override("parallel"), Some(SnapOverrideKind::Mode(SnapType::Parallel)));
-        assert_eq!(parse_snap_override("insert"), Some(SnapOverrideKind::Mode(SnapType::Insertion)));
-        assert_eq!(parse_snap_override("insertion"), Some(SnapOverrideKind::Mode(SnapType::Insertion)));
+        assert_eq!(
+            parse_snap_override("endpoint"),
+            Some(SnapOverrideKind::Mode(SnapType::Endpoint))
+        );
+        assert_eq!(
+            parse_snap_override("midpoint"),
+            Some(SnapOverrideKind::Mode(SnapType::Midpoint))
+        );
+        assert_eq!(
+            parse_snap_override("center"),
+            Some(SnapOverrideKind::Mode(SnapType::Center))
+        );
+        assert_eq!(
+            parse_snap_override("centre"),
+            Some(SnapOverrideKind::Mode(SnapType::Center))
+        );
+        assert_eq!(
+            parse_snap_override("quadrant"),
+            Some(SnapOverrideKind::Mode(SnapType::Quadrant))
+        );
+        assert_eq!(
+            parse_snap_override("intersection"),
+            Some(SnapOverrideKind::Mode(SnapType::Intersection))
+        );
+        assert_eq!(
+            parse_snap_override("perpendicular"),
+            Some(SnapOverrideKind::Mode(SnapType::Perpendicular))
+        );
+        assert_eq!(
+            parse_snap_override("tangent"),
+            Some(SnapOverrideKind::Mode(SnapType::Tangent))
+        );
+        assert_eq!(
+            parse_snap_override("nearest"),
+            Some(SnapOverrideKind::Mode(SnapType::Nearest))
+        );
+        assert_eq!(
+            parse_snap_override("apparent"),
+            Some(SnapOverrideKind::Mode(SnapType::ApparentIntersection))
+        );
+        assert_eq!(
+            parse_snap_override("apparentintersection"),
+            Some(SnapOverrideKind::Mode(SnapType::ApparentIntersection))
+        );
+        assert_eq!(
+            parse_snap_override("appint"),
+            Some(SnapOverrideKind::Mode(SnapType::ApparentIntersection))
+        );
+        assert_eq!(
+            parse_snap_override("parallel"),
+            Some(SnapOverrideKind::Mode(SnapType::Parallel))
+        );
+        assert_eq!(
+            parse_snap_override("insert"),
+            Some(SnapOverrideKind::Mode(SnapType::Insertion))
+        );
+        assert_eq!(
+            parse_snap_override("insertion"),
+            Some(SnapOverrideKind::Mode(SnapType::Insertion))
+        );
         assert_eq!(parse_snap_override("none"), Some(SnapOverrideKind::None));
-        assert_eq!(parse_snap_override("gcen"), Some(SnapOverrideKind::Mode(SnapType::GeometricCenter)));
-        assert_eq!(parse_snap_override("geometriccenter"), Some(SnapOverrideKind::Mode(SnapType::GeometricCenter)));
-        assert_eq!(parse_snap_override("geocenter"), Some(SnapOverrideKind::Mode(SnapType::GeometricCenter)));
+        assert_eq!(
+            parse_snap_override("gcen"),
+            Some(SnapOverrideKind::Mode(SnapType::GeometricCenter))
+        );
+        assert_eq!(
+            parse_snap_override("geometriccenter"),
+            Some(SnapOverrideKind::Mode(SnapType::GeometricCenter))
+        );
+        assert_eq!(
+            parse_snap_override("geocenter"),
+            Some(SnapOverrideKind::Mode(SnapType::GeometricCenter))
+        );
 
         // Rejection of strings shorter than 3 chars
         assert_eq!(parse_snap_override("en"), None);

@@ -16,6 +16,12 @@ impl CopyBaseCommand {
     }
 }
 
+impl Default for CopyBaseCommand {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CadCommand for CopyBaseCommand {
     fn name(&self) -> &'static str {
         "COPYBASE"

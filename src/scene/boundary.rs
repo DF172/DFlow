@@ -654,7 +654,7 @@ pub(crate) fn boundary_polyline_entities(
 ) -> Vec<EntityType> {
     let mut rings = Vec::new();
     for ring in regions.iter().flat_map(|region| region.iter()) {
-        if !rings.iter().any(|existing| *existing == ring) {
+        if !rings.contains(&ring) {
             rings.push(ring);
         }
     }
@@ -1101,7 +1101,7 @@ fn clip_unbounded_to_bounds(
     if forward_only {
         entered = entered.max(0.0);
     }
-    if !(entered <= exited) || !entered.is_finite() || !exited.is_finite() {
+    if entered > exited || !entered.is_finite() || !exited.is_finite() {
         return None;
     }
     let start = [base[0] + entered * dx, base[1] + entered * dy];

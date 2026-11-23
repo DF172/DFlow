@@ -20,7 +20,6 @@ pub fn fonts_dir() -> Option<PathBuf> {
     crate::config::config_dir().map(|dir| dir.join("fonts"))
 }
 
-
 /// Stable key for comparing bare font names without path or case differences.
 pub fn font_key(name: &str) -> String {
     name.rsplit(['/', '\\'])

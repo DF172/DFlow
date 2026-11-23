@@ -92,6 +92,12 @@ impl SplineCommand {
     }
 }
 
+impl Default for SplineCommand {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 fn control_spline(points: &[[f64; 3]], degree: usize, closed: bool) -> Option<Spline> {
     let curve = kernel::space::NurbsCurve3::from_control_polygon(degree, points, closed)?;
     let mut spline = Spline {

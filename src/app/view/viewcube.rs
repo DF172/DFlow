@@ -9,13 +9,12 @@ use iced::Element;
 
 // ── Render-mode picker ──────────────────────────────────────────────────────
 
-/// Top-left viewport control bar: a single dark chip holding (optionally) the
-/// horizontal/vertical split buttons, the render-mode picker, and the grid /
-/// grid-snap toggles. `include_split` is off for paper-space viewports, which
-/// have no model-tile splitting. Grid / snap reflect the active viewport's
-/// state and emit `ToggleGrid` / `ToggleGridSnap`.
+// Top-left viewport control bar: a single dark chip holding (optionally) the
+// horizontal/vertical split buttons, the render-mode picker, and the grid /
+// grid-snap toggles. `include_split` is off for paper-space viewports, which
+// have no model-tile splitting. Grid / snap reflect the active viewport's
+// state and emit `ToggleGrid` / `ToggleGridSnap`.
 // ── ViewCube navigation controls (home / roll / nudge / UCS) ───────────────
-
 /// Place `el` at pixel offset (x, y) inside a fill layer (top-left origin).
 fn vc_place<'a>(x: f32, y: f32, el: Element<'a, Message>) -> Element<'a, Message> {
     iced::widget::pin(el)
@@ -153,12 +152,14 @@ pub(super) fn viewcube_ucs_picker<'a>(
     } else {
         current
     };
-    kit::themed_pick_list(Some(selected), options, |value| crate::i18n::app_name_display(value))
-        .on_select(Message::SetViewcubeUcs)
-        .text_size(tokens::TEXT_LABEL)
-        .padding(kit::PAD_GLYPH)
-        // Fixed width so the caller can centre it under the cube centre with a
-        // simple half-width offset (content-sized width would drift off-centre).
-        .width(iced::Length::Fixed(UCS_PICKER_W))
-        .into()
+    kit::themed_pick_list(Some(selected), options, |value| {
+        crate::i18n::app_name_display(value)
+    })
+    .on_select(Message::SetViewcubeUcs)
+    .text_size(tokens::TEXT_LABEL)
+    .padding(kit::PAD_GLYPH)
+    // Fixed width so the caller can centre it under the cube centre with a
+    // simple half-width offset (content-sized width would drift off-centre).
+    .width(iced::Length::Fixed(UCS_PICKER_W))
+    .into()
 }

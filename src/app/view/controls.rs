@@ -1,8 +1,8 @@
-use crate::ui::kit::{self, PAD_PLATE, Press, Role, Size, Tier};
-use crate::ui::style::tokens;
 use super::super::document::{DynComponent, DynFieldEntry};
 use super::super::Message;
 use super::*;
+use crate::ui::kit::{self, Press, Role, Size, Tier, PAD_PLATE};
+use crate::ui::style::tokens;
 use iced::widget::{column, container, mouse_area, row, text, tooltip};
 use iced::{Element, Length, Theme};
 use std::time::Duration;
@@ -166,7 +166,9 @@ pub(super) fn viewport_controls<'a>(
     // Thin vertical divider between control groups.
     let sep = || -> Element<'_, Message> { kit::rule_v(16.0, "").into() };
 
-    let mut bar = row![].spacing(tokens::GAP_HAIRLINE).align_y(iced::alignment::Vertical::Center);
+    let mut bar = row![]
+        .spacing(tokens::GAP_HAIRLINE)
+        .align_y(iced::alignment::Vertical::Center);
     bar = bar
         .push(icon_btn(
             crate::ui::icons::GRID,
@@ -253,8 +255,8 @@ pub(super) fn dyn_component_value(
     // delta is offset-invariant, so only the axis rotation matters (identity
     // xf reproduces the world-frame deltas).
     let d = xf.vec_to_ucs(w - b);
-    let dx = d.x as f64;
-    let dy = d.y as f64;
+    let dx = d.x;
+    let dy = d.y;
     // When a base point exists (DYN-on after the first pick) the cartesian
     // fields show relative deltas — matching the typed-value convention
     // in `dyn_resolve_point` so the live preview and the committed
